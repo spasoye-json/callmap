@@ -18,6 +18,13 @@
     "node": ">=22"
   },
   "devDependencies": {
+    "@archmap/canvas-model": "*",
+    "@archmap/flow-document": "*",
+    "@archmap/flow-library": "*",
+    "@archmap/layout": "*",
+    "@archmap/reference-graph": "*",
+    "@archmap/staleness": "*",
+    "@archmap/testing": "*",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.2.0",
     "eslint": "^10.8.1",

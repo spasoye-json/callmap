@@ -15,7 +15,7 @@ AI writes code faster than the team can track it. No human holds the map. Archma
 
 A local-first desktop companion that sits next to VS Code or JetBrains. See ADR-0006.
 
-The two views, and why flows lead, are ADR-0002. A flow renders as a logic flowchart with pan, zoom, collapse per lane, and click-to-editor. The component map is two levels of curated components over the import graph, with an unassigned tray for files no glob matches.
+The two views, and why flows lead, are ADR-0002. A flow renders as a logic flowchart with pan, zoom, collapse per lane, and click-to-editor. The component map is two levels of curated components over the reference graph, with an unassigned tray for files no glob matches.
 
 ## Version one, the review scene
 
