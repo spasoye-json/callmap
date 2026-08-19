@@ -98,8 +98,13 @@ const compare = (left: string, right: string): number => (left < right ? -1 : le
  * that names a node nothing declares is drawn reaching for an end the canvas does not hold, and it
  * does worse than that to the ranking: a predecessor that is never ranked leaves every node below it
  * never ready, so the tie-break that exists to cut a genuine loop takes them in id order, and the
- * columns of the flow come back reordered. A reviewer cannot tell which part of a mostly true canvas
- * is the wrong part (ADR-0001), so the layout says so instead of drawing it.
+ * columns of the flow come back reordered. An edge that runs back to the node it left does the same,
+ * being its own predecessor, and the canvas then drops it for having one end, so nothing is drawn to
+ * show why the flow reordered. A reviewer cannot tell which part of a mostly true canvas is the wrong
+ * part (ADR-0001), so the layout says so instead of drawing it.
+ *
+ * A flow that loops back is none of these. A retry or a poll has no topological order either, and the
+ * ranking cuts it at a fixed point on purpose, so two nodes that lead to each other lay out.
  */
 const requireDrawable = (document: FlowDocument): void => {
   const laneIds = new Set<string>();
@@ -124,6 +129,11 @@ const requireDrawable = (document: FlowDocument): void => {
     }
   }
   for (const edge of document.edges) {
+    if (edge.from === edge.to) {
+      throw new LayoutError(
+        `the edge on '${edge.from}' runs back to it, so it is its own unrankable predecessor`,
+      );
+    }
     for (const end of [edge.from, edge.to]) {
       if (!nodeIds.has(end)) {
         throw new LayoutError(

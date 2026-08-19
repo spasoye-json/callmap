@@ -358,6 +358,42 @@ describe('a document that cannot be laid out', () => {
     });
   });
 
+  describe('an edge that runs back to the node it left', () => {
+    const selfish = (id: string) => {
+      const document = flow();
+      return { ...document, edges: [...document.edges, verifiedEdge(id, id)] };
+    };
+
+    /**
+     * An edge runs to the next node, which is why the seam refuses this one. Left in, it is its own
+     * unrankable predecessor, so it does to the columns exactly what an unheld id does: the emitted
+     * event moved from the sixth column to the first. The canvas then drops the edge, because both
+     * of its ends are the same point, so nothing is drawn to show why the flow reordered.
+     */
+    it('is refused, because a node cannot wait for itself to be ranked', () => {
+      expect(() => layOutFlow(selfish('persist-order'))).toThrow(LayoutError);
+    });
+
+    it('names the node the edge runs back to', () => {
+      expect(() => layOutFlow(selfish('persist-order'))).toThrow(/persist-order/);
+    });
+
+    /**
+     * A flow that loops back is not this. A retry or a poll has no topological order either, and the
+     * ranking cuts it at a fixed point on purpose, so two nodes that lead to each other still lay
+     * out.
+     */
+    it('leaves a genuine loop between two nodes alone', () => {
+      const document = flow();
+      const looped = {
+        ...document,
+        edges: [...document.edges, verifiedEdge('emit-order-placed', 'persist-order')],
+      };
+      expect(() => layOutFlow(looped)).not.toThrow();
+      expect(layOutFlow(looped).nodes).toHaveLength(document.nodes.length);
+    });
+  });
+
   describe('two nodes claiming one id', () => {
     const doubled = () => {
       const document = flow();
