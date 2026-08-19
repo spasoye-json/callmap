@@ -140,12 +140,12 @@ export const laneSummaryId = (document: FlowDocument, laneId: string): string =>
 const composedIdOf = (edge: DrawnEdge): string => `${edge.from}->${edge.to}`;
 
 /**
- * Settle the id of every drawn edge, so no two are drawn under one.
+ * Settle the id of every drawn edge, so no two are drawn under one and none is drawn under a node's.
  *
  * An edge reads as `from->to`, which two different pairs can compose to when a node id holds the
- * separator. The pair itself decides what merges; this only decides what the reader clicks, so a
- * composed id nothing else composes to is left exactly as it reads, and a clash is settled by
- * position and then by a suffix no other id has taken.
+ * separator, and which a node can be spelled as outright. The pair itself decides what merges; this
+ * only decides what the reader clicks, so a composed id nothing else has is left exactly as it
+ * reads, and a clash is settled by position and then by a suffix no other id has taken.
  */
 const withEdgeIds = (
   drawn: readonly DrawnEdge[],
@@ -172,7 +172,8 @@ const withEdgeIds = (
  *
  * A node id is the document's own and a band id already clears every one of them, so by the time
  * this runs only the lane can move. A lane id nothing else has taken is left exactly as it reads,
- * and a clash grows by a mark no other id has taken.
+ * and a clash grows by a mark no other id has taken. The settler is called once per lane, in the
+ * order the document declares them, so what it hands back does not depend on which lane asks first.
  */
 const laneIdSettler = (
   laneIds: readonly string[],
