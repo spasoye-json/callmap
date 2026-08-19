@@ -8,6 +8,7 @@ export {
   ASYNC_LANE,
   BACKEND_LANE,
   CONTROLLER_FILE,
+  fixtureFileHashes,
   fixtureReferenceGraph,
   fixtureReferenceGraphInput,
   JOB_FILE,

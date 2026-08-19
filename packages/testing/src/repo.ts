@@ -43,3 +43,12 @@ export const fixtureReferenceGraphInput = (): ReferenceGraphInput => ({
 /** The fixture repo's reference graph. */
 export const fixtureReferenceGraph = (): ReferenceGraph =>
   createReferenceGraph(fixtureReferenceGraphInput());
+
+/**
+ * The fixture repo's files as the host would hash them. A hash is opaque to the core, so the
+ * fixture uses a readable stand-in rather than a real digest.
+ */
+export const fixtureFileHashes = (): Record<string, string> =>
+  Object.fromEntries(
+    fixtureReferenceGraphInput().files.map((file) => [file.path, `hash-of-${file.path}`]),
+  );
