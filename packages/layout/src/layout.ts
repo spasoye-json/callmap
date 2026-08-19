@@ -1,7 +1,7 @@
 /**
- * The deterministic layout: a validated flow document in, a set of boxes out.
+ * The deterministic layout: a validated flow document in, a rectangle per node and per lane out.
  *
- * The same document always lays out to the same boxes, whatever order its nodes and edges were
+ * The same document always lays out to the same rectangles, whatever order its nodes and edges were
  * written in, so a flow does not rearrange itself when it is saved and reopened. Lanes are bands
  * stacked in the order the document declares them, and the flow runs left to right across them.
  */
@@ -10,7 +10,7 @@ import type { FlowDocument } from '@archmap/flow-document';
 import { rankNodes } from './rank.ts';
 
 /** A rectangle in canvas space. */
-export interface Box {
+export interface Rect {
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -25,7 +25,7 @@ export interface LaidOutNode {
   readonly rank: number;
   /** Which line inside its lane the node sits on, when a lane holds two nodes at one rank. */
   readonly row: number;
-  readonly box: Box;
+  readonly rect: Rect;
 }
 
 /** One lane, as a band across the canvas. */
@@ -34,11 +34,11 @@ export interface LaidOutLane {
   readonly name: string;
   /** Where the lane sits in the stack, counting from the top. */
   readonly index: number;
-  readonly box: Box;
+  readonly rect: Rect;
   readonly nodeIds: readonly string[];
 }
 
-/** Every box the canvas needs to draw one flow. */
+/** Every rectangle the canvas needs to draw one flow. */
 export interface FlowLayout {
   readonly lanes: readonly LaidOutLane[];
   readonly nodes: readonly LaidOutNode[];
@@ -130,7 +130,7 @@ export const layOutFlow = (document: FlowDocument, options?: LayoutOptions): Flo
       id: laneId,
       name: declared?.name ?? laneId,
       index,
-      box: { x: 0, y: top, width: laneWidth, height: laneHeight },
+      rect: { x: 0, y: top, width: laneWidth, height: laneHeight },
       nodeIds: members.map((member) => member.id),
     });
 
@@ -141,7 +141,7 @@ export const layOutFlow = (document: FlowDocument, options?: LayoutOptions): Flo
         lane: laneId,
         rank: member.rank,
         row,
-        box: {
+        rect: {
           x:
             metrics.laneHeaderWidth +
             metrics.lanePadding +
@@ -160,10 +160,17 @@ export const layOutFlow = (document: FlowDocument, options?: LayoutOptions): Flo
   return { lanes, nodes, columns, size: { width: laneWidth, height } };
 };
 
-/** Find one node's box, or `undefined` when the layout does not hold it. */
+/** Find one node's rectangle, or `undefined` when the layout does not hold it. */
 export const laidOutNode = (layout: FlowLayout, id: string): LaidOutNode | undefined =>
   layout.nodes.find((node) => node.id === id);
 
 /** Find one lane's band, or `undefined` when the layout does not hold it. */
 export const laidOutLane = (layout: FlowLayout, id: string): LaidOutLane | undefined =>
   layout.lanes.find((lane) => lane.id === id);
+
+/**
+ * The placed nodes of one lane, in flow order. The layout already grouped and ordered them, so a
+ * reader of the layout never has to join the two lists back together.
+ */
+export const laidOutNodesOfLane = (layout: FlowLayout, laneId: string): readonly LaidOutNode[] =>
+  layout.nodes.filter((node) => node.lane === laneId);

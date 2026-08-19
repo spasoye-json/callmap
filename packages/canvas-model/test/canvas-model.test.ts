@@ -7,6 +7,7 @@ import {
   evidenceOf,
   laneSummaryId,
 } from '../src/index.ts';
+import type { FlowDocument } from '@archmap/flow-document';
 import type { CanvasEdge, CanvasModel, CanvasNode } from '../src/index.ts';
 
 const model = (collapsedLanes?: readonly string[]): CanvasModel =>
@@ -53,7 +54,7 @@ describe('buildCanvasModel', () => {
   });
 
   it('places each node where the layout put it', () => {
-    expect(nodeOf(model(), 'tap-checkout')?.box.x).toBeGreaterThan(0);
+    expect(nodeOf(model(), 'tap-checkout')?.rect.x).toBeGreaterThan(0);
   });
 
   it('builds the same model from the same document twice', () => {
@@ -62,7 +63,7 @@ describe('buildCanvasModel', () => {
 
   it('takes the layout measurements through', () => {
     const narrow = buildCanvasModel(checkoutFlow(), { layout: { nodeWidth: 40 } });
-    expect(narrow.nodes[0]?.box.width).toBe(40);
+    expect(narrow.nodes[0]?.rect.width).toBe(40);
   });
 });
 
@@ -202,15 +203,15 @@ describe('collapsing a lane', () => {
   });
 
   it('does not move the nodes of the other lanes', () => {
-    expect(nodeOf(model(['backend']), 'tap-checkout')?.box).toEqual(
-      nodeOf(model(), 'tap-checkout')?.box,
+    expect(nodeOf(model(['backend']), 'tap-checkout')?.rect).toEqual(
+      nodeOf(model(), 'tap-checkout')?.rect,
     );
   });
 
   it('covers the space the hidden nodes held', () => {
     const band = nodeOf(model(['backend']), laneSummaryId('backend'));
     const wide = nodeOf(model(), 'persist-order');
-    expect(band?.box.width).toBeGreaterThan(wide?.box.width ?? 0);
+    expect(band?.rect.width).toBeGreaterThan(wide?.rect.width ?? 0);
   });
 
   it('drops an edge that ran inside the collapsed lane', () => {
@@ -374,5 +375,32 @@ describe('a candidate on the canvas', () => {
 
   it('still carries its name, so the canvas can say what is not traced yet', () => {
     expect(result.flowName).toBe('Refund an order from the admin screen');
+  });
+});
+
+describe('two edges whose composed ids would collide', () => {
+  /** `a -> b->c` and `a->b -> c` both compose to one string, but they are two edges. */
+  const awkwardIds = (): FlowDocument => ({
+    id: 'awkward-ids',
+    name: 'Two hops that compose to one id',
+    entryPoint: { kind: 'route', file: JOB_FILE, line: 1 },
+    lanes: [{ id: 'backend', name: 'Backend request' }],
+    nodes: ['a', 'b->c', 'a->b', 'c'].map((id) => ({
+      id,
+      kind: 'step' as const,
+      label: `The step called ${id}`,
+      lane: 'backend',
+      file: JOB_FILE,
+      line: 2,
+    })),
+    edges: [verifiedEdge('a', 'b->c'), verifiedEdge('a->b', 'c')],
+  });
+
+  it('draws them as two edges, not one merged edge', () => {
+    expect(buildCanvasModel(awkwardIds()).edges).toHaveLength(2);
+  });
+
+  it('keeps one source on each', () => {
+    expect(buildCanvasModel(awkwardIds()).edges.map((edge) => edge.sources.length)).toEqual([1, 1]);
   });
 });

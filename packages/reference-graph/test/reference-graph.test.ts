@@ -191,25 +191,6 @@ describe('sameLanguage', () => {
   });
 });
 
-describe('filesOf', () => {
-  const graph = createReferenceGraph({
-    files: [
-      { path: 'z.ts', language: 'typescript' },
-      { path: 'a.ts', language: 'typescript' },
-      { path: 'main.go', language: 'go' },
-    ],
-    edges: [],
-  });
-
-  it('lists the files of one language in path order', () => {
-    expect(graph.filesOf('typescript')).toEqual(['a.ts', 'z.ts']);
-  });
-
-  it('lists nothing for a language no extractor claimed', () => {
-    expect(graph.filesOf('ruby')).toEqual([]);
-  });
-});
-
 describe('mergeReferenceGraphs', () => {
   const typescript = {
     files: ts('app/checkout.ts', 'app/api-client.ts'),

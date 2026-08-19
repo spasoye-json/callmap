@@ -89,8 +89,9 @@ describe('a library entry', () => {
     expect(repoOfTwo().get('checkout')?.openable).toBe(true);
   });
 
-  it('does not ask for a trace of a flow that has one', () => {
-    expect(repoOfTwo().get('checkout')?.needsTrace).toBe(false);
+  it('reads the state of a traced flow off the document, not off a second field', () => {
+    const entry = repoOfTwo().get('checkout');
+    expect(entry?.openable).toBe(entry?.state === 'traced');
   });
 
   it('reads a flow with no nodes as a candidate', () => {
@@ -101,8 +102,9 @@ describe('a library entry', () => {
     expect(repoOfTwo().get('refund-an-order')?.openable).toBe(false);
   });
 
-  it('says a candidate needs a trace, which is when the tokens are spent', () => {
-    expect(repoOfTwo().get('refund-an-order')?.needsTrace).toBe(true);
+  it('leaves a candidate to be traced when the reader opens it, which is when tokens are spent', () => {
+    const entry = repoOfTwo().get('refund-an-order');
+    expect([entry?.state, entry?.openable]).toEqual(['candidate', false]);
   });
 
   it('counts the nodes of a traced flow', () => {

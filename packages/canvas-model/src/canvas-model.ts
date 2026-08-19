@@ -18,8 +18,8 @@ import type {
   FlowEdge,
   NodeKind,
 } from '@archmap/flow-document';
-import { layOutFlow } from '@archmap/layout';
-import type { Box, LayoutOptions } from '@archmap/layout';
+import { laidOutNodesOfLane, layOutFlow } from '@archmap/layout';
+import type { Rect, LayoutOptions } from '@archmap/layout';
 
 /** The shape a node is drawn as. A collapsed lane is drawn as one band. */
 export type NodeShape = 'rectangle' | 'diamond' | 'hexagon' | 'parallelogram' | 'band';
@@ -42,7 +42,7 @@ export interface CanvasNode {
   readonly label: string;
   readonly shape: NodeShape;
   readonly lane: string;
-  readonly box: Box;
+  readonly rect: Rect;
   /** Where the node points in the code, or nothing when it stands for a collapsed lane. */
   readonly anchor: Anchor | null;
   /** How many nodes a collapsed lane stands for. Zero for a node that is itself. */
@@ -65,7 +65,7 @@ export interface CanvasEdge {
 export interface CanvasLane {
   readonly id: string;
   readonly name: string;
-  readonly box: Box;
+  readonly rect: Rect;
   readonly collapsed: boolean;
   /** How many nodes the lane holds, collapsed or not. */
   readonly nodeCount: number;
@@ -100,13 +100,13 @@ export const laneSummaryId = (laneId: string): string => `lane:${laneId}`;
 
 const inkOf = (kind: EdgeKind): EdgeInk => (kind === 'verified' ? 'solid' : 'dashed');
 
-const boundingBox = (boxes: readonly Box[]): Box | null => {
-  const [first] = boxes;
+const boundingRect = (rects: readonly Rect[]): Rect | null => {
+  const [first] = rects;
   if (first === undefined) return null;
-  const left = Math.min(...boxes.map((box) => box.x));
-  const top = Math.min(...boxes.map((box) => box.y));
-  const right = Math.max(...boxes.map((box) => box.x + box.width));
-  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+  const left = Math.min(...rects.map((rect) => rect.x));
+  const top = Math.min(...rects.map((rect) => rect.y));
+  const right = Math.max(...rects.map((rect) => rect.x + rect.width));
+  const bottom = Math.max(...rects.map((rect) => rect.y + rect.height));
   return { x: left, y: top, width: right - left, height: bottom - top };
 };
 
@@ -122,7 +122,7 @@ export const buildCanvasModel = (
   const lanes: CanvasLane[] = layout.lanes.map((lane) => ({
     id: lane.id,
     name: lane.name,
-    box: lane.box,
+    rect: lane.rect,
     collapsed: requestedCollapse.has(lane.id) && lane.nodeIds.length > 0,
     nodeCount: lane.nodeIds.length,
   }));
@@ -130,19 +130,17 @@ export const buildCanvasModel = (
 
   const nodes: CanvasNode[] = [];
   for (const lane of layout.lanes) {
-    const members = lane.nodeIds
-      .map((id) => layout.nodes.find((node) => node.id === id))
-      .filter((node): node is NonNullable<typeof node> => node !== undefined);
+    const members = laidOutNodesOfLane(layout, lane.id);
     if (collapsed.has(lane.id)) {
-      const box = boundingBox(members.map((member) => member.box));
-      if (box === null) continue;
+      const rect = boundingRect(members.map((member) => member.rect));
+      if (rect === null) continue;
       nodes.push({
         id: laneSummaryId(lane.id),
         kind: 'lane-summary',
         label: lane.name,
         shape: 'band',
         lane: lane.id,
-        box,
+        rect,
         anchor: null,
         collapsedCount: members.length,
       });
@@ -157,7 +155,7 @@ export const buildCanvasModel = (
         label: node.label,
         shape: SHAPES[node.kind],
         lane: node.lane,
-        box: member.box,
+        rect: member.rect,
         anchor: { file: node.file, line: node.line },
         collapsedCount: 0,
       });
@@ -170,16 +168,26 @@ export const buildCanvasModel = (
   };
 
   const edges: CanvasEdge[] = [];
-  const positionOf = new Map<string, number>();
+  /**
+   * Where each drawn pair landed, held per source, so two edges merge only when they truly run
+   * between the same pair. Keying on the composed id would merge two different pairs whose ids
+   * happen to compose to one string.
+   */
+  const positionOf = new Map<string, Map<string, number>>();
+  const rememberPosition = (from: string, to: string, position: number): void => {
+    const targets = positionOf.get(from);
+    if (targets === undefined) positionOf.set(from, new Map([[to, position]]));
+    else targets.set(to, position);
+  };
   for (const edge of document.edges) {
     const from = drawnEndpointOf(edge.from);
     const to = drawnEndpointOf(edge.to);
     if (from === to) continue;
     const id = `${from}->${to}`;
     const rerouted = from !== edge.from || to !== edge.to;
-    const at = positionOf.get(id);
+    const at = positionOf.get(from)?.get(to);
     if (at === undefined) {
-      positionOf.set(id, edges.length);
+      rememberPosition(from, to, edges.length);
       edges.push({
         id,
         from,

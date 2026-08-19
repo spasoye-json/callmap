@@ -6,7 +6,7 @@ longer hashes to its stamped value, or is gone.
 
 The alternative was to record the commit the trace was taken against and ask git what changed since.
 That is cheaper to write and worse for the product. The review scene is a reader judging an AI change
-_before_ it merges, so the change is in the working tree and has no commit yet. A content hash sees it,
+*before* it merges, so the change is in the working tree and has no commit yet. A content hash sees it,
 a commit range does not. A hash also survives a branch switch and a rebase, which move a sha without
 moving a line, and it names the file that moved rather than a range that has to be intersected.
 

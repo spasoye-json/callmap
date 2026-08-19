@@ -348,7 +348,8 @@ const validateEdges = (
   const raw = readArray(collect, '', document, 'edges');
   if (raw === null) return null;
   const edges: FlowEdge[] = [];
-  const seen = new Set<string>();
+  /** The pairs already seen, held per source node, so no id is concatenated into a key. */
+  const seen = new Map<string, Set<string>>();
   raw.forEach((entry, position) => {
     const path = `edges[${position}]`;
     const fields = asFields(collect, path, entry, 'an edge');
@@ -379,11 +380,11 @@ const validateEdges = (
       if (from === to) {
         collect(path, 'self-edge', `an edge runs to the next node, not back to '${from}'`);
       } else {
-        const pair = `${from} ${to}`;
-        if (seen.has(pair)) {
+        const alreadyTo = seen.get(from);
+        if (alreadyTo === undefined) seen.set(from, new Set([to]));
+        else if (alreadyTo.has(to)) {
           collect(path, 'duplicate-edge', `two edges run from '${from}' to '${to}'`);
-        }
-        seen.add(pair);
+        } else alreadyTo.add(to);
       }
     }
 

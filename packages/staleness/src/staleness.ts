@@ -35,14 +35,6 @@ export type RepoSnapshot =
  */
 export type StalenessState = 'candidate' | 'unstamped' | 'unknown' | 'fresh' | 'stale';
 
-export const STALENESS_STATES: readonly StalenessState[] = [
-  'candidate',
-  'unstamped',
-  'unknown',
-  'fresh',
-  'stale',
-];
-
 /**
  * Why a flow reads as stale. The stamp is compared in both directions: a file the document gained
  * since the stamp has never been checked, and a file the stamp holds that the document no longer

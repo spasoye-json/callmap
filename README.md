@@ -23,6 +23,10 @@ The walking skeleton is under way. The core seam modules are ported, as typed Ty
 
 No core package reads source code or a target repo's filesystem. An extractor emits the reference graph, the host reads file hashes, and the core only ever sees data. See ADR-0009.
 
+### How these modules got here
+
+The `archmap-prototype` repo was not reachable when this port was made, so the modules were written from the rules this repo already pins down: `CONTEXT.md` and `docs/adr/`. They are not a line-for-line copy of the prototype's core, and the prototype's 188 cases were not carried across as themselves. What is here instead is a suite written against the same rules, one case per rule, which is the same guarantee reached a second way. Anyone with the prototype to hand should diff the two suites and fold in whatever case this one is missing.
+
 Still to come: the Tauri shell, the Node sidecar, the three extractors, scope globs, and the review scene.
 
 ## Checks

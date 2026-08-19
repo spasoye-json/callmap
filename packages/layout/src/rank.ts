@@ -5,7 +5,7 @@ import type { FlowDocument } from '@archmap/flow-document';
  * right of the step before it.
  *
  * The ranking is deterministic in the face of everything a traced flow can hold. Ties are broken
- * by node id, never by array order, so re-serialising a document cannot move a box. A flow that
+ * by node id, never by array order, so re-serialising a document cannot move a node. A flow that
  * loops back, which a retry or a poll does, has no topological order at all; when the ranking runs
  * out of nodes whose predecessors are all ranked, it takes the smallest remaining id and ranks it
  * against the predecessors it does have.

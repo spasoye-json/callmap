@@ -359,3 +359,26 @@ describe('every edge', () => {
     expect(paths).toContain('edges[2].kind');
   });
 });
+
+describe('an id that holds a separator', () => {
+  /** Node ids are free-form strings, so no rule may key two of them into one. */
+  const pairsThatWouldCollide = (): unknown => ({
+    id: 'awkward-ids',
+    name: 'Two edges whose ids would collide if they were joined into one key',
+    entryPoint: { kind: 'route', file: CONTROLLER_FILE, line: 1 },
+    lanes: [{ id: BACKEND_LANE, name: 'Backend request' }],
+    nodes: ['a b', 'c', 'a', 'b c'].map((id) => ({
+      id,
+      kind: 'step',
+      label: `The step called ${id}`,
+      lane: BACKEND_LANE,
+      file: CONTROLLER_FILE,
+      line: 2,
+    })),
+    edges: [verifiedEdge('a b', 'c'), verifiedEdge('a', 'b c')],
+  });
+
+  it('does not read two distinct edges as one duplicate', () => {
+    expectAccepted(pairsThatWouldCollide());
+  });
+});

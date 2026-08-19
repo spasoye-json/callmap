@@ -34,8 +34,15 @@ const sourceFilesOf = (directory: string): readonly string[] =>
     return path.endsWith('.ts') ? [path] : [];
   });
 
+/**
+ * Every module specifier a file names, however it names it: a static import, a re-export, or a
+ * dynamic `import(...)`, quoted either way. A guard that only reads one spelling reads as stronger
+ * than it is.
+ */
 const importsOf = (text: string): readonly string[] =>
-  [...text.matchAll(/(?:from|import)\s+'([^']+)'/g)].map(([, specifier]) => specifier ?? '');
+  [...text.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)].map(
+    ([, specifier]) => specifier ?? '',
+  );
 
 const packageNames = readdirSync(PACKAGES_DIR)
   .filter((entry) => statSync(join(PACKAGES_DIR, entry)).isDirectory())
@@ -52,6 +59,19 @@ describe('the ported core', () => {
       'staleness',
       TEST_SUPPORT,
     ]);
+  });
+
+  it('reads a specifier however it is spelled, so the guard cannot be side-stepped', () => {
+    const spellings = [
+      "import { readFileSync } from 'node:fs';",
+      'import { readFileSync } from "node:fs";',
+      "export { readFileSync } from 'node:fs';",
+      "const fs = await import('node:fs');",
+      'const fs = await import("node:fs");',
+    ];
+    for (const spelling of spellings) {
+      expect(importsOf(spelling), spelling).toContain('node:fs');
+    }
   });
 
   it.each(packageNames)('%s reads no source code and no filesystem', (name) => {

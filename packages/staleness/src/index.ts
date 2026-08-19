@@ -9,7 +9,6 @@ export {
   serialiseAnchorStore,
   stampAnchors,
   StalenessError,
-  STALENESS_STATES,
   stampOf,
   unreadableRepo,
 } from './staleness.ts';

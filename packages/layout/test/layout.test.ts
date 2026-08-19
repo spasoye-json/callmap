@@ -4,13 +4,14 @@ import {
   DEFAULT_LAYOUT_OPTIONS,
   laidOutLane,
   laidOutNode,
+  laidOutNodesOfLane,
   layOutFlow,
   type FlowLayout,
 } from '../src/index.ts';
 
 const layout = (): FlowLayout => layOutFlow(checkoutFlow());
 
-const boxOf = (result: FlowLayout, id: string) => laidOutNode(result, id)?.box;
+const rectOf = (result: FlowLayout, id: string) => laidOutNode(result, id)?.rect;
 
 const overlaps = (
   left: { x: number; y: number; width: number; height: number },
@@ -44,16 +45,16 @@ describe('layOutFlow', () => {
 
   it('stacks each lane below the one before it', () => {
     const lanes = layout().lanes;
-    expect(lanes[1]?.box.y).toBeGreaterThan(
-      (lanes[0]?.box.y ?? 0) + (lanes[0]?.box.height ?? 0) - 1,
+    expect(lanes[1]?.rect.y).toBeGreaterThan(
+      (lanes[0]?.rect.y ?? 0) + (lanes[0]?.rect.height ?? 0) - 1,
     );
-    expect(lanes[2]?.box.y).toBeGreaterThan(
-      (lanes[1]?.box.y ?? 0) + (lanes[1]?.box.height ?? 0) - 1,
+    expect(lanes[2]?.rect.y).toBeGreaterThan(
+      (lanes[1]?.rect.y ?? 0) + (lanes[1]?.rect.height ?? 0) - 1,
     );
   });
 
   it('gives every lane the same width, so the canvas is a rectangle', () => {
-    const widths = new Set(layout().lanes.map((lane) => lane.box.width));
+    const widths = new Set(layout().lanes.map((lane) => lane.rect.width));
     expect(widths.size).toBe(1);
   });
 
@@ -66,8 +67,8 @@ describe('layOutFlow', () => {
   });
 
   it('runs the flow left to right', () => {
-    expect(boxOf(layout(), 'post-order')?.x).toBeGreaterThan(
-      boxOf(layout(), 'tap-checkout')?.x ?? 0,
+    expect(rectOf(layout(), 'post-order')?.x).toBeGreaterThan(
+      rectOf(layout(), 'tap-checkout')?.x ?? 0,
     );
   });
 
@@ -75,16 +76,16 @@ describe('layOutFlow', () => {
     const result = layout();
     for (const node of result.nodes) {
       const lane = laidOutLane(result, node.lane);
-      expect(node.box.y).toBeGreaterThanOrEqual(lane?.box.y ?? 0);
-      expect(node.box.y + node.box.height).toBeLessThanOrEqual(
-        (lane?.box.y ?? 0) + (lane?.box.height ?? 0),
+      expect(node.rect.y).toBeGreaterThanOrEqual(lane?.rect.y ?? 0);
+      expect(node.rect.y + node.rect.height).toBeLessThanOrEqual(
+        (lane?.rect.y ?? 0) + (lane?.rect.height ?? 0),
       );
     }
   });
 
   it('leaves room down the left for the lane names', () => {
     for (const node of layout().nodes) {
-      expect(node.box.x).toBeGreaterThanOrEqual(DEFAULT_LAYOUT_OPTIONS.laneHeaderWidth);
+      expect(node.rect.x).toBeGreaterThanOrEqual(DEFAULT_LAYOUT_OPTIONS.laneHeaderWidth);
     }
   });
 
@@ -92,7 +93,7 @@ describe('layOutFlow', () => {
     const nodes = layout().nodes;
     for (const [index, node] of nodes.entries()) {
       for (const other of nodes.slice(index + 1)) {
-        expect(overlaps(node.box, other.box), `${node.id} overlaps ${other.id}`).toBe(false);
+        expect(overlaps(node.rect, other.rect), `${node.id} overlaps ${other.id}`).toBe(false);
       }
     }
   });
@@ -100,7 +101,7 @@ describe('layOutFlow', () => {
   it('gives the two branches of a decision one column and two rows', () => {
     const reject = laidOutNode(layout(), 'reject-empty-cart');
     const persist = laidOutNode(layout(), 'persist-order');
-    expect(reject?.box.x).toBe(persist?.box.x);
+    expect(reject?.rect.x).toBe(persist?.rect.x);
     expect(reject?.row).not.toBe(persist?.row);
   });
 
@@ -117,14 +118,14 @@ describe('layOutFlow', () => {
   it('reports a canvas wide enough to hold the last column', () => {
     const result = layout();
     for (const node of result.nodes) {
-      expect(node.box.x + node.box.width).toBeLessThanOrEqual(result.size.width);
+      expect(node.rect.x + node.rect.width).toBeLessThanOrEqual(result.size.width);
     }
   });
 
   it('reports a canvas tall enough to hold the last lane', () => {
     const result = layout();
     const last = result.lanes.at(-1);
-    expect((last?.box.y ?? 0) + (last?.box.height ?? 0)).toBe(result.size.height);
+    expect((last?.rect.y ?? 0) + (last?.rect.height ?? 0)).toBe(result.size.height);
   });
 
   it('finds no node the layout does not hold', () => {
@@ -141,13 +142,13 @@ describe('a deterministic layout', () => {
     expect(layOutFlow(checkoutFlow())).toEqual(layOutFlow(checkoutFlow()));
   });
 
-  it('does not move a box when the nodes are written in another order', () => {
+  it('does not move a node when the nodes are written in another order', () => {
     const flow = clone(checkoutFlow());
     const shuffled = { ...flow, nodes: [...flow.nodes].reverse() };
     expect(layOutFlow(shuffled)).toEqual(layOutFlow(flow));
   });
 
-  it('does not move a box when the edges are written in another order', () => {
+  it('does not move a node when the edges are written in another order', () => {
     const flow = clone(checkoutFlow());
     const shuffled = { ...flow, edges: [...flow.edges].reverse() };
     expect(layOutFlow(shuffled)).toEqual(layOutFlow(flow));
@@ -171,42 +172,42 @@ describe('a deterministic layout', () => {
 
 describe('the measurements', () => {
   it('uses the default node size', () => {
-    expect(boxOf(layout(), 'tap-checkout')?.width).toBe(DEFAULT_LAYOUT_OPTIONS.nodeWidth);
+    expect(rectOf(layout(), 'tap-checkout')?.width).toBe(DEFAULT_LAYOUT_OPTIONS.nodeWidth);
   });
 
   it('takes a node width', () => {
     const result = layOutFlow(checkoutFlow(), { nodeWidth: 100 });
-    expect(laidOutNode(result, 'tap-checkout')?.box.width).toBe(100);
+    expect(laidOutNode(result, 'tap-checkout')?.rect.width).toBe(100);
   });
 
   it('takes a node height', () => {
     const result = layOutFlow(checkoutFlow(), { nodeHeight: 40 });
-    expect(laidOutNode(result, 'tap-checkout')?.box.height).toBe(40);
+    expect(laidOutNode(result, 'tap-checkout')?.rect.height).toBe(40);
   });
 
   it('takes a column gap', () => {
     const result = layOutFlow(checkoutFlow(), { nodeWidth: 100, columnGap: 10 });
-    expect(laidOutNode(result, 'post-order')?.box.x).toBe(
-      (laidOutNode(result, 'tap-checkout')?.box.x ?? 0) + 110,
+    expect(laidOutNode(result, 'post-order')?.rect.x).toBe(
+      (laidOutNode(result, 'tap-checkout')?.rect.x ?? 0) + 110,
     );
   });
 
   it('takes a row gap', () => {
     const result = layOutFlow(checkoutFlow(), { nodeHeight: 50, rowGap: 5 });
-    expect(laidOutNode(result, 'reject-empty-cart')?.box.y).toBe(
-      (laidOutNode(result, 'persist-order')?.box.y ?? 0) + 55,
+    expect(laidOutNode(result, 'reject-empty-cart')?.rect.y).toBe(
+      (laidOutNode(result, 'persist-order')?.rect.y ?? 0) + 55,
     );
   });
 
   it('takes a lane header width', () => {
     const result = layOutFlow(checkoutFlow(), { laneHeaderWidth: 0, lanePadding: 0 });
-    expect(laidOutNode(result, 'tap-checkout')?.box.x).toBe(0);
+    expect(laidOutNode(result, 'tap-checkout')?.rect.x).toBe(0);
   });
 
   it('takes a lane gap', () => {
     const result = layOutFlow(checkoutFlow(), { laneGap: 0 });
     const lanes = result.lanes;
-    expect(lanes[1]?.box.y).toBe((lanes[0]?.box.y ?? 0) + (lanes[0]?.box.height ?? 0));
+    expect(lanes[1]?.rect.y).toBe((lanes[0]?.rect.y ?? 0) + (lanes[0]?.rect.height ?? 0));
   });
 });
 
@@ -240,12 +241,35 @@ describe('a lane no node sits in', () => {
 
   it('gets a band one row tall', () => {
     const lane = laidOutLane(layOutFlow(withEmptyLane()), 'workers');
-    expect(lane?.box.height).toBe(
+    expect(lane?.rect.height).toBe(
       DEFAULT_LAYOUT_OPTIONS.nodeHeight + DEFAULT_LAYOUT_OPTIONS.lanePadding * 2,
     );
   });
 
   it('holds no nodes', () => {
     expect(laidOutLane(layOutFlow(withEmptyLane()), 'workers')?.nodeIds).toEqual([]);
+  });
+});
+
+describe('laidOutNodesOfLane', () => {
+  it('gives the placed nodes of one lane in flow order', () => {
+    expect(laidOutNodesOfLane(layout(), 'mobile').map((node) => node.id)).toEqual([
+      'tap-checkout',
+      'post-order',
+    ]);
+  });
+
+  it('gives the nodes of a lane the whole flow crosses', () => {
+    expect(laidOutNodesOfLane(layout(), 'backend')).toHaveLength(5);
+  });
+
+  it('gives nothing for a lane no node sits in', () => {
+    const flow = clone(checkoutFlow());
+    const withEmpty = { ...flow, lanes: [...flow.lanes, { id: 'workers', name: 'Workers' }] };
+    expect(laidOutNodesOfLane(layOutFlow(withEmpty), 'workers')).toEqual([]);
+  });
+
+  it('gives nothing for a lane the flow does not declare', () => {
+    expect(laidOutNodesOfLane(layout(), 'invented')).toEqual([]);
   });
 });

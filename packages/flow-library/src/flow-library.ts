@@ -18,10 +18,11 @@ export interface FlowLibraryEntry {
   readonly id: string;
   readonly name: string;
   readonly state: FlowState;
-  /** Whether the flow can be drawn on the canvas as it stands. */
+  /**
+   * Whether the flow can be drawn on the canvas as it stands. A candidate is greyed out, and
+   * opening it is what starts the trace that costs tokens (ADR-0005).
+   */
   readonly openable: boolean;
-  /** Whether the flow must be traced before it can be drawn. */
-  readonly needsTrace: boolean;
   readonly entryPoint: EntryPoint;
   readonly nodeCount: number;
   readonly laneCount: number;
@@ -50,7 +51,6 @@ const entryOf = (document: FlowDocument): FlowLibraryEntry => {
     name: document.name,
     state: candidate ? 'candidate' : 'traced',
     openable: !candidate,
-    needsTrace: candidate,
     entryPoint: document.entryPoint,
     nodeCount: document.nodes.length,
     laneCount: document.lanes.length,
@@ -94,8 +94,11 @@ export const summariseLibrary = (library: FlowLibrary): FlowLibrarySummary => {
   return { total: library.size, traced, candidates: library.size - traced };
 };
 
-/** The badge the picker shows beside a flow. A flow that reads as fresh shows none. */
-export type FlowBadge = 'stale' | 'unstamped' | 'unknown';
+/**
+ * The badge the picker shows beside a flow: every way of reading that is not a checked pass. A
+ * fresh flow and a candidate show none.
+ */
+export type FlowBadge = Exclude<StalenessState, 'candidate' | 'fresh'>;
 
 export interface FlowPickerRow extends FlowLibraryEntry {
   /** How the flow reads, or nothing when marking has not reached it. */
