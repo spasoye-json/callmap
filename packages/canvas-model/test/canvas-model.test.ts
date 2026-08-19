@@ -19,6 +19,9 @@ const nodeOf = (result: CanvasModel, id: string): CanvasNode | undefined =>
 const edgeOf = (result: CanvasModel, id: string): CanvasEdge | undefined =>
   result.edges.find((edge) => edge.id === id);
 
+/** The id a lane's band is drawn under on the fixture flow's canvas. */
+const bandId = (laneId: string): string => laneSummaryId(checkoutFlow(), laneId);
+
 describe('buildCanvasModel', () => {
   it('carries the flow id, so the canvas knows what it is showing', () => {
     expect(model().flowId).toBe('checkout');
@@ -105,7 +108,7 @@ describe('click to editor', () => {
   });
 
   it('anchors no collapsed lane, because a lane is not a place in the code', () => {
-    expect(nodeOf(model(['async']), laneSummaryId('async'))?.anchor).toBeNull();
+    expect(nodeOf(model(['async']), bandId('async'))?.anchor).toBeNull();
   });
 });
 
@@ -172,19 +175,19 @@ describe('collapsing a lane', () => {
   });
 
   it('draws one band in their place', () => {
-    expect(nodeOf(model(['backend']), laneSummaryId('backend'))).toBeDefined();
+    expect(nodeOf(model(['backend']), bandId('backend'))).toBeDefined();
   });
 
   it('draws the band as a band', () => {
-    expect(nodeOf(model(['backend']), laneSummaryId('backend'))?.shape).toBe('band');
+    expect(nodeOf(model(['backend']), bandId('backend'))?.shape).toBe('band');
   });
 
   it('labels the band with the lane name', () => {
-    expect(nodeOf(model(['backend']), laneSummaryId('backend'))?.label).toBe('Backend request');
+    expect(nodeOf(model(['backend']), bandId('backend'))?.label).toBe('Backend request');
   });
 
   it('counts what the band stands for', () => {
-    expect(nodeOf(model(['backend']), laneSummaryId('backend'))?.collapsedCount).toBe(5);
+    expect(nodeOf(model(['backend']), bandId('backend'))?.collapsedCount).toBe(5);
   });
 
   it('marks the lane collapsed', () => {
@@ -209,7 +212,7 @@ describe('collapsing a lane', () => {
   });
 
   it('covers the space the hidden nodes held', () => {
-    const band = nodeOf(model(['backend']), laneSummaryId('backend'));
+    const band = nodeOf(model(['backend']), bandId('backend'));
     const wide = nodeOf(model(), 'persist-order');
     expect(band?.rect.width).toBeGreaterThan(wide?.rect.width ?? 0);
   });
@@ -219,34 +222,32 @@ describe('collapsing a lane', () => {
   });
 
   it('reroutes an edge that ran into the collapsed lane', () => {
-    expect(edgeOf(model(['backend']), `post-order->${laneSummaryId('backend')}`)).toBeDefined();
+    expect(edgeOf(model(['backend']), `post-order->${bandId('backend')}`)).toBeDefined();
   });
 
   it('reroutes an edge that ran out of the collapsed lane', () => {
-    expect(edgeOf(model(['backend']), `${laneSummaryId('backend')}->send-receipt`)).toBeDefined();
+    expect(edgeOf(model(['backend']), `${bandId('backend')}->send-receipt`)).toBeDefined();
   });
 
   it('marks a rerouted edge as rerouted', () => {
-    expect(edgeOf(model(['backend']), `post-order->${laneSummaryId('backend')}`)?.rerouted).toBe(
-      true,
-    );
+    expect(edgeOf(model(['backend']), `post-order->${bandId('backend')}`)?.rerouted).toBe(true);
   });
 
   it('keeps the evidence of a rerouted inferred edge readable', () => {
-    const edge = edgeOf(model(['backend']), `post-order->${laneSummaryId('backend')}`);
+    const edge = edgeOf(model(['backend']), `post-order->${bandId('backend')}`);
     expect(edge && evidenceOf(edge)).toHaveLength(1);
   });
 
   it('collapses two lanes at once', () => {
     const result = model(['mobile', 'async']);
     expect(result.nodes.map((node) => node.id)).toEqual([
-      laneSummaryId('mobile'),
+      bandId('mobile'),
       'receive-order',
       'check-cart',
       'persist-order',
       'reject-empty-cart',
       'emit-order-placed',
-      laneSummaryId('async'),
+      bandId('async'),
     ]);
   });
 
@@ -346,7 +347,7 @@ describe('describeSelection', () => {
   });
 
   it('resolves a collapsed lane band as a node', () => {
-    expect(describeSelection(model(['async']), laneSummaryId('async'))?.kind).toBe('node');
+    expect(describeSelection(model(['async']), bandId('async'))?.kind).toBe('node');
   });
 
   it('resolves nothing for an id the canvas does not hold', () => {
@@ -447,7 +448,8 @@ describe('a node id that a collapsed lane would take', () => {
     ],
     nodes: [
       {
-        id: laneSummaryId('backend'),
+        /** Spelled out, because this is the id the band would take if no node had claimed it. */
+        id: 'lane:backend',
         kind: 'step',
         label: 'A step named after the backend band',
         lane: 'mobile',
@@ -463,7 +465,7 @@ describe('a node id that a collapsed lane would take', () => {
         line: 3,
       },
     ],
-    edges: [verifiedEdge(laneSummaryId('backend'), 'handle')],
+    edges: [verifiedEdge('lane:backend', 'handle')],
   });
 
   const collapsed = (): CanvasModel => buildCanvasModel(trapped(), { collapsedLanes: ['backend'] });
@@ -477,7 +479,7 @@ describe('a node id that a collapsed lane would take', () => {
   });
 
   it('leaves the node its own id, because the node was there first', () => {
-    expect(collapsed().nodes.map((node) => node.id)).toContain(laneSummaryId('backend'));
+    expect(collapsed().nodes.map((node) => node.id)).toContain('lane:backend');
   });
 
   it('still draws one band for the collapsed lane', () => {
@@ -503,7 +505,7 @@ describe('a node id that a collapsed lane would take', () => {
   });
 
   it('resolves the node when the reader clicks the node', () => {
-    const selection = describeSelection(collapsed(), laneSummaryId('backend'));
+    const selection = describeSelection(collapsed(), 'lane:backend');
     expect(selection?.kind === 'node' ? selection.node.kind : undefined).toBe('step');
   });
 
@@ -516,14 +518,23 @@ describe('a node id that a collapsed lane would take', () => {
 
   it('names the band under the usual id when no node has taken it', () => {
     const lane = model(['backend']).lanes.find((candidate) => candidate.id === 'backend');
-    expect(lane?.summaryId).toBe(laneSummaryId('backend'));
+    expect(lane?.summaryId).toBe('lane:backend');
+  });
+
+  it('escalates the prefix only as far as the node ids force it', () => {
+    const lane = collapsed().lanes.find((candidate) => candidate.id === 'backend');
+    expect(lane?.summaryId).toBe('lane::backend');
+  });
+
+  it('reads the same id off laneSummaryId for the document it was given', () => {
+    expect(laneSummaryId(trapped(), 'backend')).toBe('lane::backend');
   });
 
   it('gives every lane a summary id, collapsed or not', () => {
     expect(model().lanes.map((lane) => lane.summaryId)).toEqual([
-      laneSummaryId('mobile'),
-      laneSummaryId('backend'),
-      laneSummaryId('async'),
+      bandId('mobile'),
+      bandId('backend'),
+      bandId('async'),
     ]);
   });
 });

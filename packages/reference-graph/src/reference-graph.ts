@@ -70,15 +70,6 @@ const requireNonEmpty = (value: unknown, what: string): string => {
   return value;
 };
 
-/**
- * Read one extractor's output against the contract.
- *
- * An extractor is a separate process (ADR-0009), so its output is data arriving over a contract and
- * not a value the compiler checked. The contract is narrow: files, reference edges, and a language
- * tag, and nothing else. A shape it does not allow is refused here as a `ReferenceGraphError`,
- * which is what that error is for, rather than escaping as a `TypeError` from the middle of
- * indexing.
- */
 type Fields = Record<string, unknown>;
 
 const OUTPUT_FIELDS: readonly string[] = ['files', 'edges'];
@@ -109,19 +100,30 @@ const requireArray = (fields: Fields, key: string, what: string): readonly unkno
   return value as readonly unknown[];
 };
 
-interface ExtractorOutput {
-  readonly files: readonly Fields[];
-  readonly edges: readonly Fields[];
-}
-
-const readOutput = (input: ReferenceGraphInput): ExtractorOutput => {
+/**
+ * Read one extractor's output against the contract.
+ *
+ * An extractor is a separate process (ADR-0009), so its output is data arriving over a contract and
+ * not a value the compiler checked. The contract is narrow: files, reference edges, and a language
+ * tag, and nothing else. A shape it does not allow is refused here as a `ReferenceGraphError`,
+ * which is what that error is for, rather than escaping as a `TypeError` from the middle of
+ * indexing. What comes back is the module's own types, so nothing downstream reads a field by
+ * string key.
+ */
+const readOutput = (input: ReferenceGraphInput): ReferenceGraphInput => {
   const fields = requireFields(input, "an extractor's output", OUTPUT_FIELDS);
-  const files = requireArray(fields, 'files', "an extractor's output").map((file) =>
-    requireFields(file, 'a file an extractor claims', FILE_FIELDS),
-  );
-  const edges = requireArray(fields, 'edges', "an extractor's output").map((edge) =>
-    requireFields(edge, 'a reference edge an extractor emits', EDGE_FIELDS),
-  );
+  const files = requireArray(fields, 'files', "an extractor's output").map((entry) => {
+    const file = requireFields(entry, 'a file an extractor claims', FILE_FIELDS);
+    const path = requireNonEmpty(file['path'], 'a file path');
+    return { path, language: requireNonEmpty(file['language'], `the language of ${path}`) };
+  });
+  const edges = requireArray(fields, 'edges', "an extractor's output").map((entry) => {
+    const edge = requireFields(entry, 'a reference edge an extractor emits', EDGE_FIELDS);
+    return {
+      from: requireNonEmpty(edge['from'], 'a reference edge source'),
+      to: requireNonEmpty(edge['to'], 'a reference edge target'),
+    };
+  });
   return { files, edges };
 };
 
@@ -149,12 +151,10 @@ export const createReferenceGraph = (input: ReferenceGraphInput): ReferenceGraph
   indexOutput(readOutput(input));
 
 /** Index output already read against the contract. */
-const indexOutput = (output: ExtractorOutput): ReferenceGraph => {
+const indexOutput = (output: ReferenceGraphInput): ReferenceGraph => {
   const languages = new Map<string, LanguageTag>();
 
-  for (const file of output.files) {
-    const path = requireNonEmpty(file['path'], 'a file path');
-    const language = requireNonEmpty(file['language'], `the language of ${path}`);
+  for (const { path, language } of output.files) {
     const claimed = languages.get(path);
     if (claimed !== undefined && claimed !== language) {
       throw new ReferenceGraphError(
@@ -167,9 +167,7 @@ const indexOutput = (output: ExtractorOutput): ReferenceGraph => {
   const directed: Adjacency = new Map();
   const undirected: Adjacency = new Map();
 
-  for (const edge of output.edges) {
-    const from = requireNonEmpty(edge['from'], 'a reference edge source');
-    const to = requireNonEmpty(edge['to'], 'a reference edge target');
+  for (const { from, to } of output.edges) {
     if (from === to) {
       throw new ReferenceGraphError(`${from} cannot hold a reference edge to itself`);
     }

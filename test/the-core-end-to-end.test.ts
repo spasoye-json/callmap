@@ -229,6 +229,13 @@ describe('the core, end to end', () => {
     expect(model.nodes.map((node) => node.id)).toEqual(['tap', 'post', 'lane:backend']);
     expect(model.edges.map((edge) => edge.id)).toEqual(['tap->post', 'post->lane:backend']);
   });
+
+  it('says on the lane which id its band is drawn under, so no reader composes one', () => {
+    const model = buildCanvasModel(accept(tracedFlow), { collapsedLanes: ['backend'] });
+    const lane = model.lanes.find((candidate) => candidate.id === 'backend');
+    const band = model.nodes.find((node) => node.kind === 'lane-summary');
+    expect(lane?.summaryId).toBe(band?.id);
+  });
 });
 
 /**

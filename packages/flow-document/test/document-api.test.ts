@@ -14,10 +14,9 @@ import {
   NODE_KINDS,
   parseFlowDocument,
 } from '../src/index.ts';
+import { codesOf, errorsOf } from './support.ts';
 
 const options = { referenceGraph: fixtureReferenceGraph() };
-
-const errorsOf = (result: ReturnType<typeof parseFlowDocument>) => (result.ok ? [] : result.errors);
 
 describe('parseFlowDocument', () => {
   it('accepts the JSON text of a traced flow', () => {
@@ -32,28 +31,28 @@ describe('parseFlowDocument', () => {
 
   it('rejects text that is not JSON, rather than throwing', () => {
     const result = parseFlowDocument('{ not json', options);
-    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['invalid-json']);
+    expect(codesOf(result)).toEqual(['invalid-json']);
   });
 
   it('rejects JSON that is not a flow document', () => {
     const result = parseFlowDocument('[]', options);
-    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['not-an-object']);
+    expect(codesOf(result)).toEqual(['not-an-object']);
   });
 
-  it('rejects an empty file, which is the shape a half-written flow lands in', () => {
+  it('rejects empty text, which is what a half-written document reads as', () => {
     const result = parseFlowDocument('', options);
-    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['invalid-json']);
+    expect(codesOf(result)).toEqual(['invalid-json']);
   });
 
-  it('rejects a file holding nothing but whitespace', () => {
+  it('rejects text holding nothing but whitespace', () => {
     const result = parseFlowDocument('  \n  ', options);
-    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['invalid-json']);
+    expect(codesOf(result)).toEqual(['invalid-json']);
   });
 
   it('rejects a document truncated part way through', () => {
     const text = JSON.stringify(checkoutFlow());
     const result = parseFlowDocument(text.slice(0, Math.floor(text.length / 2)), options);
-    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['invalid-json']);
+    expect(codesOf(result)).toEqual(['invalid-json']);
   });
 
   it('says why the text is not JSON, so a reader can find the break', () => {
@@ -63,12 +62,12 @@ describe('parseFlowDocument', () => {
 
   it('rejects JSON of null', () => {
     const result = parseFlowDocument('null', options);
-    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['not-an-object']);
+    expect(codesOf(result)).toEqual(['not-an-object']);
   });
 
   it('rejects JSON of a bare string', () => {
     const result = parseFlowDocument('"place-an-order"', options);
-    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['not-an-object']);
+    expect(codesOf(result)).toEqual(['not-an-object']);
   });
 
   it('reads a candidate back unchanged through JSON', () => {

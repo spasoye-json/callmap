@@ -163,10 +163,14 @@ export const applyStamps = (
   return recordOf([...stamped]);
 };
 
-const byFileThenCode = (left: StalenessReason, right: StalenessReason): number => {
-  if (left.file !== right.file) return left.file < right.file ? -1 : 1;
-  return left.code < right.code ? -1 : left.code > right.code ? 1 : 0;
-};
+const compare = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
+/** By the key of an entry, so a serialised record reads the same every time. */
+const byKey = ([left]: readonly [string, unknown], [right]: readonly [string, unknown]): number =>
+  compare(left, right);
+
+const byFileThenCode = (left: StalenessReason, right: StalenessReason): number =>
+  left.file === right.file ? compare(left.code, right.code) : compare(left.file, right.file);
 
 /**
  * Mark one flow. Marking never re-traces: it compares the stamp against the snapshot and says
@@ -214,7 +218,7 @@ export const markFlows = (
   snapshot: RepoSnapshot,
 ): readonly StalenessMark[] =>
   [...documents]
-    .sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
+    .sort((left, right) => compare(left.id, right.id))
     .map((document) => markFlow(document, stampOf(store, document.id), snapshot));
 
 /** Whether a mark says the flow was checked and holds. Only `fresh` does. */
@@ -226,18 +230,9 @@ export const readsAsFresh = (mark: StalenessMark): boolean => mark.state === 'fr
  */
 export const serialiseAnchorStore = (store: AnchorStore): string => {
   const sorted = recordOf(
-    Object.keys(store)
-      .sort()
-      .map((flowId) => {
-        const stamp = own(store, flowId) ?? {};
-        const files = Object.keys(stamp)
-          .sort()
-          .flatMap((file): (readonly [string, FileHash])[] => {
-            const hash = own(stamp, file);
-            return hash === undefined ? [] : [[file, hash]];
-          });
-        return [flowId, recordOf(files)] as const;
-      }),
+    Object.entries(store)
+      .sort(byKey)
+      .map(([flowId, stamp]) => [flowId, recordOf(Object.entries(stamp).sort(byKey))]),
   );
   return `${JSON.stringify(sorted, null, 2)}\n`;
 };
