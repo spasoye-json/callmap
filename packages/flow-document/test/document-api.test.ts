@@ -17,6 +17,8 @@ import {
 
 const options = { referenceGraph: fixtureReferenceGraph() };
 
+const errorsOf = (result: ReturnType<typeof parseFlowDocument>) => (result.ok ? [] : result.errors);
+
 describe('parseFlowDocument', () => {
   it('accepts the JSON text of a traced flow', () => {
     const result = parseFlowDocument(JSON.stringify(checkoutFlow()), options);
@@ -36,6 +38,42 @@ describe('parseFlowDocument', () => {
   it('rejects JSON that is not a flow document', () => {
     const result = parseFlowDocument('[]', options);
     expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['not-an-object']);
+  });
+
+  it('rejects an empty file, which is the shape a half-written flow lands in', () => {
+    const result = parseFlowDocument('', options);
+    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['invalid-json']);
+  });
+
+  it('rejects a file holding nothing but whitespace', () => {
+    const result = parseFlowDocument('  \n  ', options);
+    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['invalid-json']);
+  });
+
+  it('rejects a document truncated part way through', () => {
+    const text = JSON.stringify(checkoutFlow());
+    const result = parseFlowDocument(text.slice(0, Math.floor(text.length / 2)), options);
+    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['invalid-json']);
+  });
+
+  it('says why the text is not JSON, so a reader can find the break', () => {
+    const result = parseFlowDocument('{ not json', options);
+    expect(errorsOf(result)[0]?.message).toMatch(/^the flow document is not valid JSON: ./);
+  });
+
+  it('rejects JSON of null', () => {
+    const result = parseFlowDocument('null', options);
+    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['not-an-object']);
+  });
+
+  it('rejects JSON of a bare string', () => {
+    const result = parseFlowDocument('"place-an-order"', options);
+    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['not-an-object']);
+  });
+
+  it('reads a candidate back unchanged through JSON', () => {
+    const result = parseFlowDocument(JSON.stringify(candidate()), options);
+    expect(result.ok && result.document).toEqual(candidate());
   });
 });
 
