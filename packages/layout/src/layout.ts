@@ -89,7 +89,7 @@ const compare = (left: string, right: string): number => (left < right ? -1 : le
 /**
  * Refuse a document the layout cannot place truthfully.
  *
- * The validator refuses all three of these at the seam, so a document that crossed it places. The
+ * The validator refuses every one of these at the seam, so a document that crossed it places. The
  * layout is called by name all the same, and each contradiction has a silent answer that is worse
  * than a refusal. A node in an undeclared lane has no band to sit in and would simply not be drawn,
  * leaving a canvas that reads as whole. Two lanes under one id both take that id's nodes, so every

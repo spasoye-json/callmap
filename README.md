@@ -15,7 +15,7 @@ The walking skeleton is under way. The core seam modules are ported, as typed Ty
 | -------------------------- | ---------------------------------------------------------------------------------- |
 | `@archmap/reference-graph` | The ground truth: files, reference edges, and a language tag, merged per extractor |
 | `@archmap/flow-document`   | The seam format and the deterministic validator that guards it                     |
-| `@archmap/layout`          | The deterministic layout: a document in, a rectangle per node and per lane out      |
+| `@archmap/layout`          | The deterministic layout: a rectangle per node and per lane, or a refusal to place  |
 | `@archmap/canvas-model`    | What the canvas draws: shapes, inks, lane collapse, evidence on selection          |
 | `@archmap/flow-library`    | Every flow a repo holds, and the picker a reader switches flows with               |
 | `@archmap/staleness`       | The anchor set, the anchor stamp, and the mark                                     |
