@@ -6,6 +6,7 @@ import {
   laidOutNode,
   laidOutNodesOfLane,
   layOutFlow,
+  LayoutError,
   type FlowLayout,
 } from '../src/index.ts';
 
@@ -271,5 +272,75 @@ describe('laidOutNodesOfLane', () => {
 
   it('gives nothing for a lane the flow does not declare', () => {
     expect(laidOutNodesOfLane(layout(), 'invented')).toEqual([]);
+  });
+});
+
+describe('a document that cannot be laid out', () => {
+  /**
+   * The validator refuses all three of these at the seam, so a document that came through it lays
+   * out. The layout is asked for by name all the same, and each contradiction here has a silent
+   * answer that is worse than a refusal: a reviewer cannot tell which part of a canvas is the wrong
+   * part (ADR-0001), so a canvas missing a node, or holding one twice, is worth nothing to them.
+   * Every other module of the core refuses what it cannot draw a true answer from; so does this one.
+   */
+  const flow = () => clone(checkoutFlow());
+
+  describe('a node in a lane the document does not declare', () => {
+    const orphaned = () => {
+      const document = flow();
+      return { ...document, lanes: document.lanes.slice(0, 1) };
+    };
+
+    it('is refused, rather than dropped from a canvas that then reads as whole', () => {
+      expect(() => layOutFlow(orphaned())).toThrow(LayoutError);
+    });
+
+    it('names the node and the lane it claims', () => {
+      expect(() => layOutFlow(orphaned())).toThrow(/receive-order/);
+      expect(() => layOutFlow(orphaned())).toThrow(/backend/);
+    });
+
+    it('is refused even when the document declares no lane at all', () => {
+      expect(() => layOutFlow({ ...flow(), lanes: [] })).toThrow(LayoutError);
+    });
+
+    it('leaves a candidate alone, which has no node to place in a lane', () => {
+      expect(() => layOutFlow({ ...candidate(), lanes: [] })).not.toThrow();
+    });
+  });
+
+  describe('two lanes claiming one id', () => {
+    const doubled = () => {
+      const document = flow();
+      return { ...document, lanes: [...document.lanes, { id: 'backend', name: 'Backend again' }] };
+    };
+
+    it('is refused, because both bands would hold the same nodes', () => {
+      expect(() => layOutFlow(doubled())).toThrow(LayoutError);
+    });
+
+    it('names the id the two lanes claim', () => {
+      expect(() => layOutFlow(doubled())).toThrow(/backend/);
+    });
+  });
+
+  describe('two nodes claiming one id', () => {
+    const doubled = () => {
+      const document = flow();
+      const first = document.nodes[0];
+      if (first === undefined) throw new Error('the fixture has no node to double');
+      return {
+        ...document,
+        nodes: [...document.nodes, { ...first, label: 'The same step again' }],
+      };
+    };
+
+    it('is refused, because the reader would click one id and reach either', () => {
+      expect(() => layOutFlow(doubled())).toThrow(LayoutError);
+    });
+
+    it('names the id the two nodes claim', () => {
+      expect(() => layOutFlow(doubled())).toThrow(/tap-checkout/);
+    });
   });
 });

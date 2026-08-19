@@ -79,7 +79,48 @@ export const DEFAULT_LAYOUT_OPTIONS: Measurements = {
   laneGap: 16,
 };
 
+/** Thrown when a document holds a contradiction the layout cannot draw a true answer from. */
+export class LayoutError extends Error {
+  override readonly name = 'LayoutError';
+}
+
 const compare = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
+/**
+ * Refuse a document the layout cannot place truthfully.
+ *
+ * The validator refuses all three of these at the seam, so a document that crossed it places. The
+ * layout is called by name all the same, and each contradiction has a silent answer that is worse
+ * than a refusal. A node in an undeclared lane has no band to sit in and would simply not be drawn,
+ * leaving a canvas that reads as whole. Two lanes under one id both take that id's nodes, so every
+ * node in it is placed twice and every reader of the layout counts it twice. Two nodes under one id
+ * are one rectangle to everything downstream, so the reader clicks it and reaches either. A reviewer
+ * cannot tell which part of a mostly true canvas is the wrong part (ADR-0001), so the layout says so
+ * instead of drawing it.
+ */
+const requireDrawable = (document: FlowDocument): void => {
+  const laneIds = new Set<string>();
+  for (const lane of document.lanes) {
+    if (laneIds.has(lane.id)) {
+      throw new LayoutError(`two lanes claim the id '${lane.id}', so both bands hold its nodes`);
+    }
+    laneIds.add(lane.id);
+  }
+  const nodeIds = new Set<string>();
+  for (const node of document.nodes) {
+    if (nodeIds.has(node.id)) {
+      throw new LayoutError(
+        `two nodes claim the id '${node.id}', so one rectangle stands for both`,
+      );
+    }
+    nodeIds.add(node.id);
+    if (!laneIds.has(node.lane)) {
+      throw new LayoutError(
+        `the node '${node.id}' sits in the lane '${node.lane}', which the flow does not declare`,
+      );
+    }
+  }
+};
 
 const measure = (options: LayoutOptions | undefined): Measurements => ({
   ...DEFAULT_LAYOUT_OPTIONS,
@@ -88,6 +129,7 @@ const measure = (options: LayoutOptions | undefined): Measurements => ({
 
 /** Lay one flow document out. */
 export const layOutFlow = (document: FlowDocument, options?: LayoutOptions): FlowLayout => {
+  requireDrawable(document);
   const metrics = measure(options);
   const ranks = rankNodes(document);
   const laneIds = document.lanes.map((lane) => lane.id);
@@ -128,6 +170,7 @@ export const layOutFlow = (document: FlowDocument, options?: LayoutOptions): Flo
     const declared = document.lanes[index];
     lanes.push({
       id: laneId,
+      /** `laneIds` is read off `document.lanes`, so the lane at this index is always the one. */
       name: declared?.name ?? laneId,
       index,
       rect: { x: 0, y: top, width: laneWidth, height: laneHeight },

@@ -14,6 +14,7 @@ import {
   evidenceOf,
   laneSummaryId,
 } from '../src/index.ts';
+import { LayoutError } from '@archmap/layout';
 import type { FlowDocument } from '@archmap/flow-document';
 import type { CanvasEdge, CanvasModel, CanvasNode } from '../src/index.ts';
 
@@ -729,5 +730,51 @@ describe('a lane id that a node or an edge would be drawn under', () => {
     const result = buildCanvasModel(trapped('a->b'));
     const selection = describeSelection(result, laneOf(result)?.selectionId ?? '');
     expect(selection?.kind === 'lane' ? selection.lane.id : undefined).toBe('a->b');
+  });
+});
+
+describe('a document the layout refuses', () => {
+  /**
+   * The canvas is drawn off the layout, so a document the layout cannot place truthfully never
+   * reaches it. Two lanes under one id were the worst of them: each band took that id's nodes, and
+   * the canvas walked the bands, so one document of eight nodes drew twenty-three under eight ids.
+   * The reader clicks one and reaches whichever the lookup meets first.
+   */
+  const flow = () => clone(checkoutFlow());
+
+  it('refuses a node in a lane the document does not declare', () => {
+    const document = flow();
+    expect(() => buildCanvasModel({ ...document, lanes: document.lanes.slice(0, 1) })).toThrow(
+      LayoutError,
+    );
+  });
+
+  it('refuses two lanes claiming one id, rather than drawing every node in it twice', () => {
+    const document = flow();
+    expect(() =>
+      buildCanvasModel({
+        ...document,
+        lanes: [...document.lanes, { id: 'backend', name: 'Backend again' }],
+      }),
+    ).toThrow(LayoutError);
+  });
+
+  it('refuses two nodes claiming one id, which the reader could not tell apart', () => {
+    const document = flow();
+    const first = document.nodes[0];
+    if (first === undefined) throw new Error('the fixture has no node to double');
+    expect(() =>
+      buildCanvasModel({ ...document, nodes: [...document.nodes, { ...first, label: 'Again' }] }),
+    ).toThrow(LayoutError);
+  });
+
+  it('refuses it whether or not a lane is collapsed', () => {
+    const document = flow();
+    expect(() =>
+      buildCanvasModel(
+        { ...document, lanes: [...document.lanes, { id: 'backend', name: 'Backend again' }] },
+        { collapsedLanes: ['backend'] },
+      ),
+    ).toThrow(LayoutError);
   });
 });
