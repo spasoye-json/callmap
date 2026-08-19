@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { candidate, checkoutFlow, clone, JOB_FILE, verifiedEdge } from '@archmap/testing';
+import {
+  candidate,
+  checkoutFlow,
+  clone,
+  inferredEdge,
+  JOB_FILE,
+  verifiedEdge,
+} from '@archmap/testing';
 import {
   boundariesOf,
   buildCanvasModel,
@@ -536,5 +543,129 @@ describe('a node id that a collapsed lane would take', () => {
       bandId('backend'),
       bandId('async'),
     ]);
+  });
+});
+
+describe('a node id that an edge would be drawn under', () => {
+  /**
+   * An edge reads as `from->to`, and a node id comes off an AI pass, so a document may well hold a
+   * node spelled exactly like the id an edge composes to. Drawing both under one id sends the click
+   * to whichever the lookup reaches first, which loses the edge and the evidence on it.
+   */
+  const trapped = (): FlowDocument => ({
+    id: 'trapped-edge',
+    name: 'A node named after an edge',
+    entryPoint: { kind: 'route', file: JOB_FILE, line: 1 },
+    lanes: [
+      { id: 'mobile', name: 'Mobile app' },
+      { id: 'backend', name: 'Backend request' },
+    ],
+    nodes: [
+      { id: 'a', kind: 'step', label: 'Call the backend', lane: 'mobile', file: JOB_FILE, line: 2 },
+      { id: 'b', kind: 'step', label: 'Answer the call', lane: 'backend', file: JOB_FILE, line: 3 },
+      {
+        /** Spelled out, because this is the id the hop below composes to. */
+        id: 'a->b',
+        kind: 'step',
+        label: 'A step named after the hop',
+        lane: 'backend',
+        file: JOB_FILE,
+        line: 4,
+      },
+    ],
+    edges: [inferredEdge('a', 'b', 'http', { quote: "post '/orders'", file: JOB_FILE, line: 5 })],
+  });
+
+  const built = (): CanvasModel => buildCanvasModel(trapped());
+
+  it('draws the node and the edge under two ids', () => {
+    const result = built();
+    const ids = [...result.nodes.map((node) => node.id), ...result.edges.map((edge) => edge.id)];
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('leaves the node its own id, because the node was there first', () => {
+    expect(built().nodes.map((node) => node.id)).toContain('a->b');
+  });
+
+  it('resolves the node when the reader clicks the node', () => {
+    const selection = describeSelection(built(), 'a->b');
+    expect(selection?.kind === 'node' ? selection.node.label : undefined).toBe(
+      'A step named after the hop',
+    );
+  });
+
+  it('resolves the edge when the reader clicks the edge', () => {
+    const result = built();
+    const id = result.edges[0]?.id ?? '';
+    const selection = describeSelection(result, id);
+    expect(selection?.kind === 'edge' ? selection.edge.from : undefined).toBe('a');
+  });
+
+  it('keeps the evidence of the edge readable, rather than behind the node', () => {
+    const result = built();
+    const id = result.edges[0]?.id ?? '';
+    const selection = describeSelection(result, id);
+    expect(selection?.kind === 'edge' ? selection.evidence.map((item) => item.quote) : []).toEqual([
+      "post '/orders'",
+    ]);
+  });
+});
+
+describe('a lane id that a node or an edge would be drawn under', () => {
+  /**
+   * A lane id, a node id and an edge id are three names the reader can click, and nothing keeps
+   * them apart: a lane and a node both spelled `backend` would leave the lane unreachable, because
+   * the node answers first. So a lane carries the id it is selected by, settled against everything
+   * already drawn.
+   */
+  const trapped = (laneId: string): FlowDocument => ({
+    id: 'trapped-lane',
+    name: 'A lane named after something drawn',
+    entryPoint: { kind: 'route', file: JOB_FILE, line: 1 },
+    lanes: [{ id: laneId, name: 'Backend request' }],
+    nodes: ['a', 'b', 'backend'].map((id) => ({
+      id,
+      kind: 'step' as const,
+      label: `The step called ${id}`,
+      lane: laneId,
+      file: JOB_FILE,
+      line: 2,
+    })),
+    edges: [verifiedEdge('a', 'b')],
+  });
+
+  const laneOf = (result: CanvasModel): CanvasModel['lanes'][number] | undefined => result.lanes[0];
+
+  it('leaves a lane id nothing else takes exactly as it reads', () => {
+    expect(model().lanes.map((lane) => lane.selectionId)).toEqual(['mobile', 'backend', 'async']);
+  });
+
+  it('moves the lane off an id a node already holds', () => {
+    const result = buildCanvasModel(trapped('backend'));
+    expect(laneOf(result)?.selectionId).not.toBe('backend');
+  });
+
+  it('leaves the node its own id, because the node was there first', () => {
+    const result = buildCanvasModel(trapped('backend'));
+    expect(describeSelection(result, 'backend')?.kind).toBe('node');
+  });
+
+  it('resolves the lane by the id it carries', () => {
+    const result = buildCanvasModel(trapped('backend'));
+    const selection = describeSelection(result, laneOf(result)?.selectionId ?? '');
+    expect(selection?.kind === 'lane' ? selection.lane.name : undefined).toBe('Backend request');
+  });
+
+  it('moves the lane off an id an edge is drawn under', () => {
+    const result = buildCanvasModel(trapped('a->b'));
+    expect(laneOf(result)?.selectionId).not.toBe('a->b');
+    expect(describeSelection(result, 'a->b')?.kind).toBe('edge');
+  });
+
+  it('resolves the lane named after an edge by the id it carries', () => {
+    const result = buildCanvasModel(trapped('a->b'));
+    const selection = describeSelection(result, laneOf(result)?.selectionId ?? '');
+    expect(selection?.kind === 'lane' ? selection.lane.id : undefined).toBe('a->b');
   });
 });

@@ -33,7 +33,12 @@ export const rankNodes = (document: FlowDocument): ReadonlyMap<string, number> =
 
   while (remaining.size > 0) {
     const ready = [...remaining].filter(isReady).sort();
-    const batch = ready.length > 0 ? ready : [[...remaining].sort()[0] ?? ''];
+    /**
+     * Every node left is in a cycle, so none of them will ever be ready. Taking the smallest id
+     * breaks the loop at a fixed point, and it is taken off `remaining` itself, so the loop always
+     * shrinks and there is no id to fall back to.
+     */
+    const batch = ready.length > 0 ? ready : [...remaining].sort().slice(0, 1);
     for (const id of batch) {
       ranks.set(id, rankAgainstRanked(id));
       remaining.delete(id);

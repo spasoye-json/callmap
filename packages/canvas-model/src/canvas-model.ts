@@ -77,6 +77,12 @@ export interface CanvasLane {
    * it already clears every node id of the document.
    */
   readonly summaryId: string;
+  /**
+   * The id the reader selects the lane by. A lane id, a node id and an edge id are three names off
+   * the same AI pass, and only this one can move, so it is settled last against everything already
+   * drawn. A lane id nothing else has taken reads exactly as it is.
+   */
+  readonly selectionId: string;
 }
 
 export interface CanvasModel {
@@ -141,21 +147,45 @@ const composedIdOf = (edge: DrawnEdge): string => `${edge.from}->${edge.to}`;
  * composed id nothing else composes to is left exactly as it reads, and a clash is settled by
  * position and then by a suffix no other id has taken.
  */
-const withEdgeIds = (drawn: readonly DrawnEdge[]): readonly CanvasEdge[] => {
+const withEdgeIds = (
+  drawn: readonly DrawnEdge[],
+  drawnNodeIds: ReadonlySet<string>,
+): readonly CanvasEdge[] => {
   const shares = new Map<string, number>();
   for (const edge of drawn) {
     const composed = composedIdOf(edge);
     shares.set(composed, (shares.get(composed) ?? 0) + 1);
   }
-  const taken = new Set(shares.keys());
+  const taken = new Set([...shares.keys(), ...drawnNodeIds]);
   return drawn.map((edge, position) => {
     const composed = composedIdOf(edge);
-    if (shares.get(composed) === 1) return { ...edge, id: composed };
+    if (shares.get(composed) === 1 && !drawnNodeIds.has(composed)) return { ...edge, id: composed };
     let candidate = `${composed}#${position}`;
     while (taken.has(candidate)) candidate += "'";
     taken.add(candidate);
     return { ...edge, id: candidate };
   });
+};
+
+/**
+ * Settle the id each lane is selected by, so no lane sits behind something else the reader clicks.
+ *
+ * A node id is the document's own and a band id already clears every one of them, so by the time
+ * this runs only the lane can move. A lane id nothing else has taken is left exactly as it reads,
+ * and a clash grows by a mark no other id has taken.
+ */
+const laneIdSettler = (
+  laneIds: readonly string[],
+  claimed: ReadonlySet<string>,
+): ((laneId: string) => string) => {
+  const taken = new Set([...claimed, ...laneIds]);
+  return (laneId) => {
+    if (!claimed.has(laneId)) return laneId;
+    let candidate = `${laneId}'`;
+    while (taken.has(candidate)) candidate += "'";
+    taken.add(candidate);
+    return candidate;
+  };
 };
 
 const inkOf = (kind: EdgeKind): EdgeInk => (kind === 'verified' ? 'solid' : 'dashed');
@@ -181,15 +211,12 @@ export const buildCanvasModel = (
   const prefix = laneSummaryPrefixOf(document);
   const summaryIdOf = (laneId: string): string => `${prefix}${laneId}`;
 
-  const lanes: CanvasLane[] = layout.lanes.map((lane) => ({
-    id: lane.id,
-    name: lane.name,
-    rect: lane.rect,
-    collapsed: requestedCollapse.has(lane.id) && lane.nodeIds.length > 0,
-    nodeCount: lane.nodeIds.length,
-    summaryId: summaryIdOf(lane.id),
-  }));
-  const collapsed = new Set(lanes.filter((lane) => lane.collapsed).map((lane) => lane.id));
+  /** A lane with nothing in it has nothing to hide, so collapsing it draws no band. */
+  const collapsed = new Set(
+    layout.lanes
+      .filter((lane) => requestedCollapse.has(lane.id) && lane.nodeIds.length > 0)
+      .map((lane) => lane.id),
+  );
 
   const nodes: CanvasNode[] = [];
   for (const lane of layout.lanes) {
@@ -274,14 +301,35 @@ export const buildCanvasModel = (
     };
   }
 
+  /** The ids are settled once every edge has merged, so a merge cannot leave two under one id. */
+  const drawnNodeIds = new Set(nodes.map((node) => node.id));
+  const drawnEdges = withEdgeIds(edges, drawnNodeIds);
+  /**
+   * The lane is settled last, against every id already drawn, because it is the only one of the
+   * three that can move: a node id is the document's own and an edge id is composed from two.
+   */
+  const settleLaneId = laneIdSettler(
+    layout.lanes.map((lane) => lane.id),
+    new Set([...drawnNodeIds, ...drawnEdges.map((edge) => edge.id)]),
+  );
+
+  const lanes: CanvasLane[] = layout.lanes.map((lane) => ({
+    id: lane.id,
+    name: lane.name,
+    rect: lane.rect,
+    collapsed: collapsed.has(lane.id),
+    nodeCount: lane.nodeIds.length,
+    summaryId: summaryIdOf(lane.id),
+    selectionId: settleLaneId(lane.id),
+  }));
+
   return {
     flowId: document.id,
     flowName: document.name,
     traced: isTracedFlow(document),
     lanes,
     nodes,
-    /** The ids are settled once every edge has merged, so a merge cannot leave two under one id. */
-    edges: withEdgeIds(edges),
+    edges: drawnEdges,
     size: layout.size,
   };
 };
@@ -299,13 +347,18 @@ export type CanvasSelection =
   | { readonly kind: 'edge'; readonly edge: CanvasEdge; readonly evidence: readonly Evidence[] }
   | { readonly kind: 'lane'; readonly lane: CanvasLane };
 
-/** Resolve what the reader clicked, so the panel beside the canvas knows what to show. */
+/**
+ * Resolve what the reader clicked, so the panel beside the canvas knows what to show.
+ *
+ * A node, an edge and a lane are drawn under ids nothing else can take, so the order the three are
+ * looked up in decides nothing: at most one of them answers.
+ */
 export const describeSelection = (model: CanvasModel, id: string): CanvasSelection | null => {
   const node = model.nodes.find((candidate) => candidate.id === id);
   if (node !== undefined) return { kind: 'node', node };
   const edge = model.edges.find((candidate) => candidate.id === id);
   if (edge !== undefined) return { kind: 'edge', edge, evidence: evidenceOf(edge) };
-  const lane = model.lanes.find((candidate) => candidate.id === id);
+  const lane = model.lanes.find((candidate) => candidate.selectionId === id);
   if (lane !== undefined) return { kind: 'lane', lane };
   return null;
 };
