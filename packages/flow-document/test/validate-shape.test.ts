@@ -445,6 +445,41 @@ describe('a candidate', () => {
     const result = validate({ ...document, nodes: 'none' });
     expect(codesOf(result)).not.toContain('candidate-has-edges');
   });
+
+  /**
+   * The same rule, read off the other side of it. The edges a candidate may not carry are the ones
+   * the document was written with, not the ones that survived reading, so an edge too broken to read
+   * still breaks the rule. Counting the survivors let a document with no nodes and an unreadable
+   * edge come back named for the field it forgot and never for the rule it broke, which is the
+   * refusal the reader has to act on.
+   */
+  it('is read out of a document carrying one edge too broken to read', () => {
+    expectRefusal({ ...candidate(), edges: [{}] }, 'candidate-has-edges', 'edges');
+  });
+
+  it('still names the fields that edge left out', () => {
+    expectRefusal({ ...candidate(), edges: [{}] }, 'missing-field', 'edges[0].kind');
+  });
+
+  it('is read out of a document carrying an edge that is not an object at all', () => {
+    expectRefusal({ ...candidate(), edges: ['tap-checkout -> post-order'] }, 'candidate-has-edges');
+  });
+
+  it('is read out of a document carrying an inferred edge with no evidence', () => {
+    expectRefusal(
+      { ...candidate(), edges: [{ kind: 'inferred', from: 'a', to: 'b', boundary: 'http' }] },
+      'candidate-has-edges',
+    );
+  });
+
+  it('is not read out of a document whose edges are not an array', () => {
+    const result = validate({ ...candidate(), edges: 'none' });
+    expect(codesOf(result)).not.toContain('candidate-has-edges');
+  });
+
+  it('still refuses that document, for the edges it could not read', () => {
+    expectRefusal({ ...candidate(), edges: 'none' }, 'wrong-type', 'edges');
+  });
 });
 
 describe('a field that is inherited rather than carried', () => {

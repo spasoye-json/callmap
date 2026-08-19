@@ -360,12 +360,22 @@ const EVERY_EDGE_FIELD: readonly string[] = [
   ...new Set([...VERIFIED_EDGE_FIELDS, ...INFERRED_EDGE_FIELDS]),
 ];
 
+interface ValidatedEdges {
+  readonly edges: readonly FlowEdge[];
+  /**
+   * How many edges the document carries, well formed or not, read the same way the nodes are. The
+   * candidate rule is about what a producer wrote, so an edge too broken to read still breaks it,
+   * and the refusal names the rule rather than only the field the edge left out.
+   */
+  readonly carried: number;
+}
+
 const validateEdges = (
   collect: Collect,
   document: Fields,
   nodeIndex: ReadonlyMap<string, NodeRecord>,
   graph: ReferenceGraph,
-): readonly FlowEdge[] | null => {
+): ValidatedEdges | null => {
   const raw = readArray(collect, '', document, 'edges');
   if (raw === null) return null;
   const edges: FlowEdge[] = [];
@@ -476,7 +486,7 @@ const validateEdges = (
       edges.push({ kind, from, to, boundary, evidence });
     }
   });
-  return edges;
+  return { edges, carried: raw.length };
 };
 
 /**
@@ -508,7 +518,7 @@ export const validateFlowDocument = (
   const nodes = validateNodes(collect, fields, laneIds, graph);
   const edges = validateEdges(collect, fields, nodes?.index ?? new Map(), graph);
 
-  if (nodes !== null && edges !== null && nodes.carried === 0 && edges.length > 0) {
+  if (nodes !== null && edges !== null && nodes.carried === 0 && edges.carried > 0) {
     collect(
       'edges',
       'candidate-has-edges',
@@ -527,7 +537,10 @@ export const validateFlowDocument = (
   ) {
     return { ok: false, errors };
   }
-  return { ok: true, document: { id, name, entryPoint, lanes, nodes: nodes.nodes, edges } };
+  return {
+    ok: true,
+    document: { id, name, entryPoint, lanes, nodes: nodes.nodes, edges: edges.edges },
+  };
 };
 
 /** Parse JSON text and validate it in one step, so a bad file reads as a rejection, not a throw. */
