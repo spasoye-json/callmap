@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { candidate, checkoutFlow, clone, SCREEN_FILE, verifiedEdge } from '@archmap/testing';
+import {
+  BACKEND_LANE,
+  candidate,
+  checkoutFlow,
+  clone,
+  SCREEN_FILE,
+  verifiedEdge,
+} from '@archmap/testing';
 import { codesOf, errorsOf, expectAccepted, expectRefusal, validate } from './support.ts';
 
 describe('a well formed flow document', () => {
@@ -333,6 +340,35 @@ describe('the nodes', () => {
     );
   });
 
+  /**
+   * The edge rules read each endpoint's lane and file out of the node index, so the record a
+   * duplicated id leaves behind decides what they see. Letting the second node overwrite the first
+   * moved every edge already drawn to the first node into whatever lane the second one claimed, and
+   * the refusal that came back named a boundary rule that a correct edge had never broken. The node
+   * that claimed the id first keeps it, so a duplicate id is refused as itself and nothing else is.
+   */
+  it('refuses two nodes that claim one id without inventing a second refusal', () => {
+    const flow = clone(checkoutFlow());
+    const [first] = flow.nodes;
+    if (first === undefined) throw new Error('the fixture holds nodes');
+    const result = validate({
+      ...flow,
+      nodes: [...flow.nodes, { ...first, lane: BACKEND_LANE }],
+    });
+    expect(codesOf(result)).toEqual(['duplicate-id']);
+  });
+
+  it('addresses that refusal at the node that came second', () => {
+    const flow = clone(checkoutFlow());
+    const [first] = flow.nodes;
+    if (first === undefined) throw new Error('the fixture holds nodes');
+    expectRefusal(
+      { ...flow, nodes: [...flow.nodes, { ...first, lane: BACKEND_LANE }] },
+      'duplicate-id',
+      `nodes[${String(flow.nodes.length)}].id`,
+    );
+  });
+
   it('addresses a refusal at the node that caused it', () => {
     const flow = clone(checkoutFlow());
     const nodes = flow.nodes.map((entry, index) =>
@@ -372,6 +408,42 @@ describe('a candidate', () => {
 
   it('needs no lanes', () => {
     expect(validate(candidate()).ok).toBe(true);
+  });
+
+  it('accepts lanes on a candidate, because only nodes and edges are what it lacks', () => {
+    expectAccepted({ ...candidate(), lanes: [{ id: 'mobile', name: 'Mobile app' }] });
+  });
+
+  /**
+   * A candidate is a flow document with no nodes and no edges (ADR-0005), so the rule is about the
+   * nodes the document carries, not about the ones that survived validation. A document with one
+   * broken node and a set of edges is a traced flow that is wrong, and calling it a candidate names
+   * a rule it never broke and hides the one it did.
+   */
+  it('is not read out of a document whose only node is malformed', () => {
+    const document = clone(checkoutFlow());
+    const result = validate({ ...document, nodes: [{ id: 'tap-checkout' }] });
+    expect(codesOf(result)).not.toContain('candidate-has-edges');
+  });
+
+  it('still refuses that document, for the node it could not read', () => {
+    const document = clone(checkoutFlow());
+    expectRefusal(
+      { ...document, nodes: [{ id: 'tap-checkout' }] },
+      'missing-field',
+      'nodes[0].kind',
+    );
+  });
+
+  it('is read out of a document that carries no node at all', () => {
+    const document = clone(checkoutFlow());
+    expectRefusal({ ...document, nodes: [] }, 'candidate-has-edges', 'edges');
+  });
+
+  it('is not read out of a document whose nodes are not an array', () => {
+    const document = clone(checkoutFlow());
+    const result = validate({ ...document, nodes: 'none' });
+    expect(codesOf(result)).not.toContain('candidate-has-edges');
   });
 });
 

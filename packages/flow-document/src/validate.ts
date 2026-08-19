@@ -268,6 +268,12 @@ interface NodeRecord {
 interface ValidatedNodes {
   readonly nodes: readonly FlowNode[];
   readonly index: ReadonlyMap<string, NodeRecord>;
+  /**
+   * How many nodes the document carries, well formed or not. The candidate rule is about what a
+   * producer wrote, not about what survived reading, so a document with one broken node is a traced
+   * flow that is wrong rather than a candidate that overstepped.
+   */
+  readonly carried: number;
 }
 
 const validateNodes = (
@@ -296,16 +302,21 @@ const validateNodes = (
     }
     if (file !== null) requireKnownFile(collect, join(path, 'file'), file, graph);
     if (id !== null) {
+      /**
+       * The node that claimed the id first keeps it. The edge rules read each endpoint's lane and
+       * file out of this index, so letting the second node overwrite the first would move every
+       * edge already drawn to the first node into whatever lane the second one claimed, and the
+       * refusal that came back would name a boundary rule a correct edge never broke.
+       */
       if (index.has(id)) {
         collect(join(path, 'id'), 'duplicate-id', `two nodes claim the id '${id}'`);
-      }
-      index.set(id, { lane, file });
+      } else index.set(id, { lane, file });
     }
     if (id !== null && kind !== null && label !== null && lane !== null && file !== null) {
       if (line !== null) nodes.push({ id, kind, label, lane, file, line });
     }
   });
-  return { nodes, index };
+  return { nodes, index, carried: raw.length };
 };
 
 const validateEvidence = (
@@ -488,7 +499,7 @@ export const validateFlowDocument = (
   const nodes = validateNodes(collect, fields, laneIds, graph);
   const edges = validateEdges(collect, fields, nodes?.index ?? new Map(), graph);
 
-  if (nodes !== null && edges !== null && nodes.nodes.length === 0 && edges.length > 0) {
+  if (nodes !== null && edges !== null && nodes.carried === 0 && edges.length > 0) {
     collect(
       'edges',
       'candidate-has-edges',
