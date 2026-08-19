@@ -403,4 +403,127 @@ describe('two edges whose composed ids would collide', () => {
   it('keeps one source on each', () => {
     expect(buildCanvasModel(awkwardIds()).edges.map((edge) => edge.sources.length)).toEqual([1, 1]);
   });
+
+  it('draws them under two ids, so a click resolves one edge and not the other', () => {
+    const ids = buildCanvasModel(awkwardIds()).edges.map((edge) => edge.id);
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it('resolves each edge by its own id', () => {
+    const result = buildCanvasModel(awkwardIds());
+    for (const edge of result.edges) {
+      const selection = describeSelection(result, edge.id);
+      expect(selection?.kind === 'edge' ? selection.edge.sources : undefined).toEqual(edge.sources);
+    }
+  });
+
+  it('resolves the edge that starts where the reader clicked', () => {
+    const result = buildCanvasModel(awkwardIds());
+    for (const edge of result.edges) {
+      const selection = describeSelection(result, edge.id);
+      expect(selection?.kind === 'edge' ? selection.edge.from : undefined).toBe(edge.from);
+    }
+  });
+
+  it('leaves the id of an edge nothing collides with composed as it reads', () => {
+    expect(model().edges.map((edge) => edge.id)).toContain('tap-checkout->post-order');
+  });
+});
+
+describe('a node id that a collapsed lane would take', () => {
+  /**
+   * A band stands in for a collapsed lane under an id of its own, but node ids come off an AI pass,
+   * so a document may well hold a node spelled exactly like one. Two canvas nodes under one id
+   * would send the reader to the wrong panel and would reroute an edge onto the wrong end, which is
+   * the same class of collision the composed edge id already guards against.
+   */
+  const trapped = (): FlowDocument => ({
+    id: 'trapped-band',
+    name: 'A node named after a band',
+    entryPoint: { kind: 'route', file: JOB_FILE, line: 1 },
+    lanes: [
+      { id: 'mobile', name: 'Mobile app' },
+      { id: 'backend', name: 'Backend request' },
+    ],
+    nodes: [
+      {
+        id: laneSummaryId('backend'),
+        kind: 'step',
+        label: 'A step named after the backend band',
+        lane: 'mobile',
+        file: JOB_FILE,
+        line: 2,
+      },
+      {
+        id: 'handle',
+        kind: 'step',
+        label: 'Handle the request',
+        lane: 'backend',
+        file: JOB_FILE,
+        line: 3,
+      },
+    ],
+    edges: [verifiedEdge(laneSummaryId('backend'), 'handle')],
+  });
+
+  const collapsed = (): CanvasModel => buildCanvasModel(trapped(), { collapsedLanes: ['backend'] });
+
+  const bandOf = (result: CanvasModel): CanvasNode | undefined =>
+    result.nodes.find((node) => node.kind === 'lane-summary');
+
+  it('draws the node and the band under two ids', () => {
+    const ids = collapsed().nodes.map((node) => node.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('leaves the node its own id, because the node was there first', () => {
+    expect(collapsed().nodes.map((node) => node.id)).toContain(laneSummaryId('backend'));
+  });
+
+  it('still draws one band for the collapsed lane', () => {
+    expect(bandOf(collapsed())?.label).toBe('Backend request');
+  });
+
+  it('counts what the band stands for', () => {
+    expect(bandOf(collapsed())?.collapsedCount).toBe(1);
+  });
+
+  it('says on the lane which id its band is drawn under', () => {
+    const lane = collapsed().lanes.find((candidate) => candidate.id === 'backend');
+    expect(lane?.summaryId).toBe(bandOf(collapsed())?.id);
+  });
+
+  it('reroutes the edge onto the band, not onto the node of that name', () => {
+    const [edge] = collapsed().edges;
+    expect(edge?.to).toBe(bandOf(collapsed())?.id);
+  });
+
+  it('reads the edge as rerouted', () => {
+    expect(collapsed().edges[0]?.rerouted).toBe(true);
+  });
+
+  it('resolves the node when the reader clicks the node', () => {
+    const selection = describeSelection(collapsed(), laneSummaryId('backend'));
+    expect(selection?.kind === 'node' ? selection.node.kind : undefined).toBe('step');
+  });
+
+  it('resolves the band when the reader clicks the band', () => {
+    const result = collapsed();
+    const id = bandOf(result)?.id ?? '';
+    const selection = describeSelection(result, id);
+    expect(selection?.kind === 'node' ? selection.node.kind : undefined).toBe('lane-summary');
+  });
+
+  it('names the band under the usual id when no node has taken it', () => {
+    const lane = model(['backend']).lanes.find((candidate) => candidate.id === 'backend');
+    expect(lane?.summaryId).toBe(laneSummaryId('backend'));
+  });
+
+  it('gives every lane a summary id, collapsed or not', () => {
+    expect(model().lanes.map((lane) => lane.summaryId)).toEqual([
+      laneSummaryId('mobile'),
+      laneSummaryId('backend'),
+      laneSummaryId('async'),
+    ]);
+  });
 });

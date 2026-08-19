@@ -62,6 +62,9 @@ export interface CanvasEdge {
   readonly sources: readonly FlowEdge[];
 }
 
+/** A drawn edge with everything but its id, which is settled across the whole canvas at the end. */
+type DrawnEdge = Omit<CanvasEdge, 'id'>;
+
 export interface CanvasLane {
   readonly id: string;
   readonly name: string;
@@ -69,6 +72,11 @@ export interface CanvasLane {
   readonly collapsed: boolean;
   /** How many nodes the lane holds, collapsed or not. */
   readonly nodeCount: number;
+  /**
+   * The id the lane's band is drawn under when it is collapsed. Usually `laneSummaryId(id)`, and
+   * something longer when a node of the document already claims that name.
+   */
+  readonly summaryId: string;
 }
 
 export interface CanvasModel {
@@ -95,8 +103,48 @@ const SHAPES: Readonly<Record<NodeKind, NodeShape>> = {
   'side-effect': 'parallelogram',
 };
 
-/** The stand-in id for a collapsed lane, kept apart from any node id by its prefix. */
-export const laneSummaryId = (laneId: string): string => `lane:${laneId}`;
+/** The stand-in id a collapsed lane is usually drawn under, kept apart from a node id by its prefix. */
+export const laneSummaryId = (laneId: string): string => `${LANE_SUMMARY_PREFIX}${laneId}`;
+
+const LANE_SUMMARY_PREFIX = 'lane:';
+
+/**
+ * A prefix for this document's bands that no node id starts with, so a band can never be drawn under
+ * a node's id.
+ *
+ * A node id comes off an AI pass, so a document may well hold one spelled `lane:backend`. Two canvas
+ * nodes under one id would send the reader to the wrong panel and reroute an edge onto the wrong
+ * end, which is the collision the composed edge id already guards against. The prefix grows by a
+ * separator until no node id starts with it, which terminates because a prefix longer than the
+ * longest node id cannot be the start of one.
+ */
+const laneSummaryPrefixOf = (document: FlowDocument): string => {
+  let prefix = LANE_SUMMARY_PREFIX;
+  while (document.nodes.some((node) => node.id.startsWith(prefix))) prefix += ':';
+  return prefix;
+};
+
+/**
+ * An id for each drawn edge, unique across the canvas.
+ *
+ * An edge reads as `from->to`, which two different pairs can compose to when a node id holds the
+ * separator. The pair itself decides what merges; this only decides what the reader clicks, so a
+ * composed id nothing else composes to is left exactly as it reads, and a clash is settled by
+ * position and then by a suffix no other id has taken.
+ */
+const edgeIdsOf = (pairs: readonly DrawnEdge[]): readonly string[] => {
+  const composed = pairs.map((pair) => `${pair.from}->${pair.to}`);
+  const shares = new Map<string, number>();
+  for (const id of composed) shares.set(id, (shares.get(id) ?? 0) + 1);
+  const taken = new Set(composed);
+  return composed.map((id, position) => {
+    if (shares.get(id) === 1) return id;
+    let candidate = `${id}#${position}`;
+    while (taken.has(candidate)) candidate += "'";
+    taken.add(candidate);
+    return candidate;
+  });
+};
 
 const inkOf = (kind: EdgeKind): EdgeInk => (kind === 'verified' ? 'solid' : 'dashed');
 
@@ -118,6 +166,8 @@ export const buildCanvasModel = (
   const layout = layOutFlow(document, options.layout);
   const requestedCollapse = new Set(options.collapsedLanes ?? []);
   const nodesById = new Map(document.nodes.map((node) => [node.id, node]));
+  const prefix = laneSummaryPrefixOf(document);
+  const summaryIdOf = (laneId: string): string => `${prefix}${laneId}`;
 
   const lanes: CanvasLane[] = layout.lanes.map((lane) => ({
     id: lane.id,
@@ -125,6 +175,7 @@ export const buildCanvasModel = (
     rect: lane.rect,
     collapsed: requestedCollapse.has(lane.id) && lane.nodeIds.length > 0,
     nodeCount: lane.nodeIds.length,
+    summaryId: summaryIdOf(lane.id),
   }));
   const collapsed = new Set(lanes.filter((lane) => lane.collapsed).map((lane) => lane.id));
 
@@ -135,7 +186,7 @@ export const buildCanvasModel = (
       const rect = boundingRect(members.map((member) => member.rect));
       if (rect === null) continue;
       nodes.push({
-        id: laneSummaryId(lane.id),
+        id: summaryIdOf(lane.id),
         kind: 'lane-summary',
         label: lane.name,
         shape: 'band',
@@ -164,10 +215,11 @@ export const buildCanvasModel = (
 
   const drawnEndpointOf = (nodeId: string): string => {
     const lane = nodesById.get(nodeId)?.lane;
-    return lane !== undefined && collapsed.has(lane) ? laneSummaryId(lane) : nodeId;
+    return lane !== undefined && collapsed.has(lane) ? summaryIdOf(lane) : nodeId;
   };
 
-  const edges: CanvasEdge[] = [];
+  /** A drawn edge before its id is settled, which cannot happen until every merge is done. */
+  const edges: DrawnEdge[] = [];
   /**
    * Where each drawn pair landed, held per source, so two edges merge only when they truly run
    * between the same pair. Keying on the composed id would merge two different pairs whose ids
@@ -183,13 +235,11 @@ export const buildCanvasModel = (
     const from = drawnEndpointOf(edge.from);
     const to = drawnEndpointOf(edge.to);
     if (from === to) continue;
-    const id = `${from}->${to}`;
     const rerouted = from !== edge.from || to !== edge.to;
     const at = positionOf.get(from)?.get(to);
     if (at === undefined) {
       rememberPosition(from, to, edges.length);
       edges.push({
-        id,
         from,
         to,
         kind: edge.kind,
@@ -212,13 +262,16 @@ export const buildCanvasModel = (
     };
   }
 
+  /** The ids are settled once every edge has merged, so a merge cannot leave two under one id. */
+  const edgeIds = edgeIdsOf(edges);
+
   return {
     flowId: document.id,
     flowName: document.name,
     traced: isTracedFlow(document),
     lanes,
     nodes,
-    edges,
+    edges: edges.map((edge, position) => ({ ...edge, id: edgeIds[position] ?? '' })),
     size: layout.size,
   };
 };
