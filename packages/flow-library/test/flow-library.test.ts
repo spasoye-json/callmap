@@ -196,6 +196,17 @@ describe('buildFlowPicker', () => {
     expect(rows.find((row) => row.id === 'refund-an-order')?.badge).toBeNull();
   });
 
+  /**
+   * Marking reads a candidate that still holds a stamp as stale, because the trace the stamp was
+   * taken of is gone (ADR-0008). The row is a candidate either way, greyed out and waiting for a
+   * trace, and the badge is what tells the reader the stamp beside it describes nothing.
+   */
+  it('badges a candidate the mark reads as stale, greyed out and badged at once', () => {
+    const rows = buildFlowPicker(repoOfTwo(), [mark('refund-an-order', 'stale')]);
+    const row = rows.find((one) => one.id === 'refund-an-order');
+    expect([row?.state, row?.openable, row?.badge]).toEqual(['candidate', false, 'stale']);
+  });
+
   it('carries the staleness state through for a reader who wants the detail', () => {
     const rows = buildFlowPicker(repoOfTwo(), [mark('checkout', 'stale')]);
     expect(rows.find((row) => row.id === 'checkout')?.staleness).toBe('stale');

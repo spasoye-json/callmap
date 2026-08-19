@@ -371,4 +371,43 @@ describe('the core, end to end, when something is wrong', () => {
     const marks = markFlows(documents, orphaned, repoSnapshot(hashes));
     expect(marks.filter(readsAsFresh).map((mark) => mark.flowId)).toEqual(['place-an-order']);
   });
+
+  /**
+   * The other way a stamp and a document fall out of step: the flow stays, under the same id, and
+   * the trace under it goes. Discovery running again over a repo whose traced flow was reverted
+   * writes the candidate back, and the stamp beside it is left alone, because a flow nobody names
+   * keeps the stamp it has. Every file that stamp holds is now one the document does not name, which
+   * ADR-0008 marks stale in the direction the document lost.
+   */
+  const reverted = { ...accept(discoveredCandidate), id: 'place-an-order' };
+  const rowOf = (marks: readonly ReturnType<typeof markFlows>[number][]) =>
+    buildFlowPicker(createFlowLibrary([reverted]), marks)[0];
+
+  it('badges a traced flow that came back as a candidate under the same id', () => {
+    const marks = markFlows([reverted], stamped, repoSnapshot(hashes));
+    expect(rowOf(marks)?.badge).toBe('stale');
+  });
+
+  it('names every file the stamp holds and the reverted flow no longer does', () => {
+    const marks = markFlows([reverted], stamped, repoSnapshot(hashes));
+    expect(marks[0]?.reasons).toEqual(
+      [SCREEN, CLIENT, CONTROLLER, MODEL].sort().map((file) => ({ code: 'dropped', file })),
+    );
+  });
+
+  it('greys that row out all the same, because there is still nothing to draw', () => {
+    const marks = markFlows([reverted], stamped, repoSnapshot(hashes));
+    expect([rowOf(marks)?.state, rowOf(marks)?.openable]).toEqual(['candidate', false]);
+  });
+
+  it('reads nothing fresh in that repo, so the stale stamp cannot pass as a checked one', () => {
+    const marks = markFlows([reverted], stamped, repoSnapshot(hashes));
+    expect(marks.filter(readsAsFresh)).toEqual([]);
+  });
+
+  it('refuses to stamp over it, so only a re-trace clears the mark', () => {
+    expect(() =>
+      applyStamps(stamped, [reverted], ['place-an-order'], repoSnapshot(hashes)),
+    ).toThrow(StalenessError);
+  });
 });

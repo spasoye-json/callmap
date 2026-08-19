@@ -578,3 +578,83 @@ describe('a name Object.prototype already carries', () => {
     expect(parseAnchorStore(serialiseAnchorStore(store))).toEqual(store);
   });
 });
+
+describe('a candidate that still holds a stamp', () => {
+  /**
+   * A stamp survives a flow nobody names, so a traced flow that is discovered afresh, or reverted
+   * by hand, comes back as a candidate under an id the committed store still stamps. The stamp is
+   * compared in both directions, and a file the stamp holds that the document no longer names means
+   * the trace was edited after it was stamped (ADR-0008). A candidate is the far end of that: it
+   * names none of them. Reading it as a plain candidate would show the reader a picker row with no
+   * badge on it, which is the one thing a badge exists to prevent.
+   */
+  const stampOfTrace = (): AnchorStore => ({
+    'refund-an-order': { [CONTROLLER_FILE]: 'hash-of-then', [MODEL_FILE]: 'hash-of-then' },
+  });
+
+  const mark = (snapshot: RepoSnapshot = repoSnapshot(fixtureFileHashes())) =>
+    markFlow(candidate(), stampOf(stampOfTrace(), 'refund-an-order'), snapshot);
+
+  it('reads as stale, not as a candidate, because the trace it was stamped against is gone', () => {
+    expect(mark().state).toBe('stale');
+  });
+
+  it('names every file the stamp holds and the document no longer does', () => {
+    expect(mark().reasons).toEqual([
+      { code: 'dropped', file: CONTROLLER_FILE },
+      { code: 'dropped', file: MODEL_FILE },
+    ]);
+  });
+
+  it('reads the same whether or not the host could read the repo, because both files are committed', () => {
+    expect(mark(unreadableRepo('the worktree is gone'))).toEqual(
+      mark(repoSnapshot(fixtureFileHashes())),
+    );
+  });
+
+  it('never reads as fresh', () => {
+    expect(readsAsFresh(mark())).toBe(false);
+  });
+
+  it('still reads as a candidate when no stamp claims it', () => {
+    expect(markFlow(candidate(), undefined, repoSnapshot(fixtureFileHashes())).state).toBe(
+      'candidate',
+    );
+  });
+
+  it('is marked over a whole repo the same way', () => {
+    const marks = markFlows([candidate()], stampOfTrace(), repoSnapshot(fixtureFileHashes()));
+    expect(marks.map((one) => one.state)).toEqual(['stale']);
+  });
+
+  it('is still refused a stamp, so the contradiction can only be cleared by a re-trace', () => {
+    expect(() =>
+      applyStamps(stampOfTrace(), [candidate()], ['refund-an-order'], repoSnapshot({}), {
+        restamp: true,
+      }),
+    ).toThrow(StalenessError);
+  });
+});
+
+describe('a stamp that names no file', () => {
+  /**
+   * `stampAnchors` refuses a candidate, so a stamp naming nothing is not one the core ever wrote.
+   * The committed file still reads it back, so the marking rules have to say what it means: it
+   * describes no trace, so there is nothing a candidate dropped by no longer naming it.
+   */
+  it('leaves a candidate reading as a candidate, because there is nothing it dropped', () => {
+    expect(markFlow(candidate(), {}, snapshot()).state).toBe('candidate');
+  });
+
+  it('gives that candidate no reasons, so stale always names the file that made it stale', () => {
+    expect(markFlow(candidate(), {}, snapshot()).reasons).toEqual([]);
+  });
+
+  it('reads a traced flow as stale, because every file it anchors is one nothing checked', () => {
+    const mark = markFlow(checkoutFlow(), {}, snapshot());
+    expect(mark.state).toBe('stale');
+    expect(mark.reasons.map((reason) => reason.code)).toEqual(
+      anchorSetOf(checkoutFlow()).map(() => 'gained'),
+    );
+  });
+});

@@ -69,8 +69,8 @@ export const repoSnapshot = (hashes: Readonly<Record<string, FileHash>>): RepoSn
 export const unreadableRepo = (reason: string): RepoSnapshot => ({ readable: false, reason });
 
 /**
- * Every file a flow's nodes point at, in path order. A candidate points at none, which is why a
- * candidate can never be stale.
+ * Every file a flow's nodes point at, in path order. A candidate points at none, so nothing in a
+ * working tree can make one stale; only a stamp it should never have held does that.
  *
  * CONTEXT.md makes the anchor set every file *and line* a flow's nodes point at, and this returns the
  * files alone, because a content hash is of a file. Nothing is lost by it: a line cannot change
@@ -211,8 +211,29 @@ export const markFlow = (
   snapshot: RepoSnapshot,
 ): StalenessMark => {
   const flowId = document.id;
-  if (isCandidate(document)) return { flowId, state: 'candidate', reasons: [] };
-  if (stamp === undefined) return { flowId, state: 'unstamped', reasons: [] };
+  if (stamp === undefined) {
+    return { flowId, state: isCandidate(document) ? 'candidate' : 'unstamped', reasons: [] };
+  }
+  /**
+   * A candidate that still holds a stamp is the far end of comparing the stamp in both directions:
+   * the trace the stamp was taken of is gone, so every file it holds has been dropped. A stamp
+   * survives a flow nobody names, so this is what a re-discovery or a reverted trace leaves behind,
+   * and reading it as a plain candidate would put an unbadged row in the picker over a stamp that
+   * no longer describes anything. It is read off the document and the stamp, both of which are
+   * committed, so an unreadable repo does not change the answer.
+   */
+  if (isCandidate(document)) {
+    const dropped = Object.keys(stamp)
+      .map((file): StalenessReason => ({ code: 'dropped', file }))
+      .sort(byFileThenCode);
+    /**
+     * A stamp naming nothing describes no trace, so there is nothing the candidate dropped and
+     * nothing to report. It reads as the candidate it is, which keeps `stale` a state that always
+     * names the file that made it one.
+     */
+    if (dropped.length === 0) return { flowId, state: 'candidate', reasons: [] };
+    return { flowId, state: 'stale', reasons: dropped };
+  }
   if (!snapshot.readable) return { flowId, state: 'unknown', reasons: [] };
 
   const anchors = anchorSetOf(document);
