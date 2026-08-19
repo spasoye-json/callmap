@@ -360,6 +360,68 @@ describe('describeSelection', () => {
   it('resolves nothing for an id the canvas does not hold', () => {
     expect(describeSelection(model(), 'ghost')).toBeNull();
   });
+
+  it('resolves nothing for an empty id, which no drawn thing can hold', () => {
+    expect(describeSelection(model(), '')).toBeNull();
+  });
+});
+
+/**
+ * The far end of collapsing: a reader who folds every lane away is left with the flow's shape, one
+ * band per lane and the process hops between them. Every verified edge ran inside one lane, so it
+ * is gone with the nodes it joined, and what is left is the two boundaries, which is the one reading
+ * a collapsed canvas must not get wrong: a hop nothing proves cannot come back drawn as proven.
+ */
+describe('collapsing every lane at once', () => {
+  const result = model(['mobile', 'backend', 'async']);
+
+  it('draws one band per lane and nothing else', () => {
+    expect(result.nodes.map((node) => node.id)).toEqual([
+      bandId('mobile'),
+      bandId('backend'),
+      bandId('async'),
+    ]);
+  });
+
+  it('marks every lane collapsed', () => {
+    expect(result.lanes.every((lane) => lane.collapsed)).toBe(true);
+  });
+
+  it('still counts what each band stands for', () => {
+    expect(result.lanes.map((lane) => lane.nodeCount)).toEqual([2, 5, 1]);
+  });
+
+  it('leaves only the hops that cross a lane', () => {
+    expect(result.edges).toHaveLength(2);
+  });
+
+  it('draws every one of them dashed, because a boundary edge is never proven', () => {
+    expect(result.edges.map((edge) => edge.kind)).toEqual(['inferred', 'inferred']);
+    expect(result.edges.map((edge) => edge.ink)).toEqual(['dashed', 'dashed']);
+  });
+
+  it('marks both of them rerouted, because both ends moved onto a band', () => {
+    expect(result.edges.every((edge) => edge.rerouted)).toBe(true);
+  });
+
+  it('keeps the evidence of both readable, so a proposal still says what proposes it', () => {
+    expect(result.edges.map((edge) => evidenceOf(edge).length)).toEqual([1, 1]);
+    expect(result.edges.flatMap((edge) => boundariesOf(edge))).toEqual(['http', 'event']);
+  });
+
+  it('resolves a band the reader clicks, rather than the lane behind it', () => {
+    expect(describeSelection(result, bandId('backend'))?.kind).toBe('node');
+  });
+
+  it('still resolves each lane by the id it carries', () => {
+    for (const lane of result.lanes) {
+      expect(describeSelection(result, lane.selectionId)?.kind).toBe('lane');
+    }
+  });
+
+  it('reports the same canvas size as the open flow, so nothing moves under the reader', () => {
+    expect(result.size).toEqual(model().size);
+  });
 });
 
 describe('a candidate on the canvas', () => {

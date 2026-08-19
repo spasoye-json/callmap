@@ -144,6 +144,15 @@ describe('applyStamps', () => {
     expect(stampOf(store, 'checkout')?.[MODEL_FILE]).toBe('new');
   });
 
+  /**
+   * A re-stamp says "replace what is there", and there being nothing there is not a contradiction:
+   * the flow was traced and read, and the stamp it gains is the one it would have gained anyway.
+   */
+  it('stamps a flow that holds no stamp when a re-stamp is asked for', () => {
+    const store = applyStamps({}, documents, ['checkout'], snapshot(), { restamp: true });
+    expect(stampOf(store, 'checkout')).toEqual(stampOfCheckout());
+  });
+
   it('leaves the stamp of a flow nobody named alone', () => {
     const store: AnchorStore = { other: { [MODEL_FILE]: 'kept' } };
     const stamped = applyStamps(store, documents, ['checkout'], snapshot());
@@ -354,6 +363,28 @@ describe('markFlows', () => {
   });
 });
 
+describe('a stamp that recorded nothing', () => {
+  /**
+   * An empty stamp is a stamp all the same, so it reads as a trace that was checked against no
+   * files at all rather than as a flow nobody stamped. Every file the flow anchors is one the stamp
+   * never checked, which is what `gained` says, so the flow reads stale and never fresh.
+   */
+  it('reads a traced flow as stale, not as unstamped', () => {
+    expect(markFlow(checkoutFlow(), {}, snapshot()).state).toBe('stale');
+  });
+
+  it('names every anchored file as one the stamp never checked', () => {
+    const mark = markFlow(checkoutFlow(), {}, snapshot());
+    expect(mark.reasons.map((reason) => reason.code)).toEqual(
+      anchorSetOf(checkoutFlow()).map(() => 'gained'),
+    );
+  });
+
+  it('is never mistaken for a checked pass', () => {
+    expect(readsAsFresh(markFlow(checkoutFlow(), {}, snapshot()))).toBe(false);
+  });
+});
+
 describe('two documents that claim one flow id', () => {
   /**
    * A stamp claims "these are the files I read", which is only true of one trace. Taking whichever
@@ -395,6 +426,20 @@ describe('stampOf', () => {
 
   it('finds no stamp for an inherited property name', () => {
     expect(stampOf(storeOfCheckout(), 'toString')).toBeUndefined();
+  });
+});
+
+describe('a store with nothing in it', () => {
+  it('is serialised as an empty object', () => {
+    expect(serialiseAnchorStore({})).toBe('{}\n');
+  });
+
+  it('reads back as an empty store', () => {
+    expect(parseAnchorStore(serialiseAnchorStore({}))).toEqual({});
+  });
+
+  it('holds a stamp of a flow that anchors nothing', () => {
+    expect(parseAnchorStore(serialiseAnchorStore({ checkout: {} }))).toEqual({ checkout: {} });
   });
 });
 
