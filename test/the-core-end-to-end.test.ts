@@ -15,7 +15,7 @@ import {
 } from '@archmap/reference-graph';
 import { parseFlowDocument, validateFlowDocument } from '@archmap/flow-document';
 import type { FlowDocument } from '@archmap/flow-document';
-import { buildFlowPicker, createFlowLibrary } from '@archmap/flow-library';
+import { buildFlowPicker, createFlowLibrary, FlowLibraryError } from '@archmap/flow-library';
 import {
   applyStamps,
   markFlows,
@@ -334,5 +334,41 @@ describe('the core, end to end, when something is wrong', () => {
 
   it('refuses a committed anchor file that is not JSON at all', () => {
     expect(() => parseAnchorStore('')).toThrow(StalenessError);
+  });
+
+  /**
+   * A repo the reader has just opened has a reference graph and no flow documents beside it, because
+   * discovery has not run. That is a picker with no rows, and ADR-0010 promises it will not stay
+   * that way, not that it was never empty: nothing here may throw on the way to showing it.
+   */
+  it('holds an empty picker for a repo discovery has not run over yet', () => {
+    const empty = createFlowLibrary([]);
+    expect(buildFlowPicker(empty, markFlows([], {}, repoSnapshot(hashes)))).toEqual([]);
+  });
+
+  it('counts nothing in that picker, rather than refusing to build it', () => {
+    expect(createFlowLibrary([]).size).toBe(0);
+  });
+
+  it('refuses two committed flow documents that claim one id', () => {
+    const twice = [accept(tracedFlow), accept(tracedFlow)];
+    expect(() => createFlowLibrary(twice)).toThrow(FlowLibraryError);
+  });
+
+  /**
+   * A stamp outlives the flow document it was taken of, because deleting a flow is one commit and
+   * re-stamping is another. There is nothing left to mark, so the orphan is read past rather than
+   * turned into a row the picker has no flow for.
+   */
+  it('reads past a stamp for a flow the repo no longer holds', () => {
+    const orphaned = { ...stamped, 'a-flow-since-deleted': { [MODEL]: 'hash-of-the-old-model' } };
+    const marks = markFlows(documents, orphaned, repoSnapshot(hashes));
+    expect(marks.map((mark) => mark.flowId)).toEqual(['place-an-order', 'refund-an-order']);
+  });
+
+  it('still reads the flows it does hold against their own stamps', () => {
+    const orphaned = { ...stamped, 'a-flow-since-deleted': { [MODEL]: 'hash-of-the-old-model' } };
+    const marks = markFlows(documents, orphaned, repoSnapshot(hashes));
+    expect(marks.filter(readsAsFresh).map((mark) => mark.flowId)).toEqual(['place-an-order']);
   });
 });
