@@ -63,11 +63,66 @@ const comparePaths = (left: string, right: string): number =>
 const byPath = (a: ReferenceGraphFile, b: ReferenceGraphFile): number =>
   comparePaths(a.path, b.path);
 
-const requireNonEmpty = (value: string, what: string): string => {
+const requireNonEmpty = (value: unknown, what: string): string => {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new ReferenceGraphError(`${what} must be a non-empty string`);
   }
   return value;
+};
+
+/**
+ * Read one extractor's output against the contract.
+ *
+ * An extractor is a separate process (ADR-0009), so its output is data arriving over a contract and
+ * not a value the compiler checked. The contract is narrow: files, reference edges, and a language
+ * tag, and nothing else. A shape it does not allow is refused here as a `ReferenceGraphError`,
+ * which is what that error is for, rather than escaping as a `TypeError` from the middle of
+ * indexing.
+ */
+type Fields = Record<string, unknown>;
+
+const OUTPUT_FIELDS: readonly string[] = ['files', 'edges'];
+const FILE_FIELDS: readonly string[] = ['path', 'language'];
+const EDGE_FIELDS: readonly string[] = ['from', 'to'];
+
+const requireFields = (value: unknown, what: string, allowed: readonly string[]): Fields => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ReferenceGraphError(`${what} must be an object`);
+  }
+  const fields = value as Fields;
+  for (const key of Object.keys(fields)) {
+    if (!allowed.includes(key)) {
+      throw new ReferenceGraphError(`${what} carries '${key}', which the contract does not allow`);
+    }
+  }
+  return fields;
+};
+
+const requireArray = (fields: Fields, key: string, what: string): readonly unknown[] => {
+  if (!Object.hasOwn(fields, key)) {
+    throw new ReferenceGraphError(`${what} must name its '${key}'`);
+  }
+  const value = fields[key];
+  if (!Array.isArray(value)) {
+    throw new ReferenceGraphError(`the '${key}' ${what} names must be an array`);
+  }
+  return value as readonly unknown[];
+};
+
+interface ExtractorOutput {
+  readonly files: readonly Fields[];
+  readonly edges: readonly Fields[];
+}
+
+const readOutput = (input: ReferenceGraphInput): ExtractorOutput => {
+  const fields = requireFields(input, "an extractor's output", OUTPUT_FIELDS);
+  const files = requireArray(fields, 'files', "an extractor's output").map((file) =>
+    requireFields(file, 'a file an extractor claims', FILE_FIELDS),
+  );
+  const edges = requireArray(fields, 'edges', "an extractor's output").map((edge) =>
+    requireFields(edge, 'a reference edge an extractor emits', EDGE_FIELDS),
+  );
+  return { files, edges };
 };
 
 /** Adjacency, held as a set per file, so no file path is ever concatenated into a key. */
@@ -85,17 +140,21 @@ const linked = (adjacency: Adjacency, from: string, to: string): boolean =>
 /**
  * Index one extractor's output into a reference graph.
  *
- * Refuses a file with an empty path or an empty language tag, a file claimed twice with two
- * different languages, an edge that names a file the graph does not list, and an edge from a file
- * to itself. The same-file case of a verified edge is decided by the file path alone, so a
- * self-reference would only ever be noise.
+ * Refuses output the contract does not allow, a file with an empty path or an empty language tag, a
+ * file claimed twice with two different languages, an edge that names a file the graph does not
+ * list, and an edge from a file to itself. The same-file case of a verified edge is decided by the
+ * file path alone, so a self-reference would only ever be noise.
  */
-export const createReferenceGraph = (input: ReferenceGraphInput): ReferenceGraph => {
+export const createReferenceGraph = (input: ReferenceGraphInput): ReferenceGraph =>
+  indexOutput(readOutput(input));
+
+/** Index output already read against the contract. */
+const indexOutput = (output: ExtractorOutput): ReferenceGraph => {
   const languages = new Map<string, LanguageTag>();
 
-  for (const file of input.files) {
-    const path = requireNonEmpty(file.path, 'a file path');
-    const language = requireNonEmpty(file.language, `the language of ${path}`);
+  for (const file of output.files) {
+    const path = requireNonEmpty(file['path'], 'a file path');
+    const language = requireNonEmpty(file['language'], `the language of ${path}`);
     const claimed = languages.get(path);
     if (claimed !== undefined && claimed !== language) {
       throw new ReferenceGraphError(
@@ -108,9 +167,9 @@ export const createReferenceGraph = (input: ReferenceGraphInput): ReferenceGraph
   const directed: Adjacency = new Map();
   const undirected: Adjacency = new Map();
 
-  for (const edge of input.edges) {
-    const from = requireNonEmpty(edge.from, 'a reference edge source');
-    const to = requireNonEmpty(edge.to, 'a reference edge target');
+  for (const edge of output.edges) {
+    const from = requireNonEmpty(edge['from'], 'a reference edge source');
+    const to = requireNonEmpty(edge['to'], 'a reference edge target');
     if (from === to) {
       throw new ReferenceGraphError(`${from} cannot hold a reference edge to itself`);
     }
@@ -154,11 +213,14 @@ export const createReferenceGraph = (input: ReferenceGraphInput): ReferenceGraph
  * Merging is a union of files and of edges; a file two extractors claim with different languages
  * is a contradiction and is refused.
  */
-export const mergeReferenceGraphs = (...inputs: readonly ReferenceGraphInput[]): ReferenceGraph =>
-  createReferenceGraph({
-    files: inputs.flatMap((input) => [...input.files]),
-    edges: inputs.flatMap((input) => [...input.edges]),
+export const mergeReferenceGraphs = (...inputs: readonly ReferenceGraphInput[]): ReferenceGraph => {
+  /** Every output is read against the contract first, so one malformed extractor is refused alone. */
+  const outputs = inputs.map(readOutput);
+  return indexOutput({
+    files: outputs.flatMap((output) => output.files),
+    edges: outputs.flatMap((output) => output.edges),
   });
+};
 
 /** The empty reference graph: a repo no extractor has run over yet. */
 export const emptyReferenceGraph = (): ReferenceGraph =>

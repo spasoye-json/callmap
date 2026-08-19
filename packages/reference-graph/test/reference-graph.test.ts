@@ -5,6 +5,7 @@ import {
   mergeReferenceGraphs,
   ReferenceGraphError,
 } from '../src/index.ts';
+import type { ReferenceGraphInput } from '../src/index.ts';
 
 const ts = (...paths: readonly string[]) => paths.map((path) => ({ path, language: 'typescript' }));
 
@@ -262,5 +263,132 @@ describe('emptyReferenceGraph', () => {
     expect(graph.files).toEqual([]);
     expect(graph.edges).toEqual([]);
     expect(graph.knows('anything.ts')).toBe(false);
+  });
+});
+
+describe('an extractor whose output cannot form a graph', () => {
+  /**
+   * An extractor is a separate process (ADR-0009), so its output is data arriving over a contract
+   * rather than a value the compiler checked. A shape the contract does not allow is refused as a
+   * `ReferenceGraphError`, which is what that error exists for, and never escapes as a `TypeError`
+   * from the middle of indexing.
+   */
+  const refuse = (input: unknown) => () => createReferenceGraph(input as ReferenceGraphInput);
+
+  it('refuses output that is not an object', () => {
+    expect(refuse('files and edges')).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses output of null', () => {
+    expect(refuse(null)).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses output of undefined', () => {
+    expect(refuse(undefined)).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses output that is an array', () => {
+    expect(refuse([])).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses output that names no files', () => {
+    expect(refuse({ edges: [] })).toThrow(ReferenceGraphError);
+  });
+
+  it('names the missing field when it refuses output that names no files', () => {
+    expect(refuse({ edges: [] })).toThrow(/files/);
+  });
+
+  it('refuses output that names no edges', () => {
+    expect(refuse({ files: ts('a.ts') })).toThrow(ReferenceGraphError);
+  });
+
+  it('names the missing field when it refuses output that names no edges', () => {
+    expect(refuse({ files: ts('a.ts') })).toThrow(/edges/);
+  });
+
+  it('refuses files that are not an array', () => {
+    expect(refuse({ files: { 'a.ts': 'typescript' }, edges: [] })).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses edges that are not an array', () => {
+    expect(refuse({ files: ts('a.ts'), edges: 'none' })).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses a file that is not an object', () => {
+    expect(refuse({ files: ['a.ts'], edges: [] })).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses a file of null', () => {
+    expect(refuse({ files: [null], edges: [] })).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses a file that names no path', () => {
+    expect(refuse({ files: [{ language: 'typescript' }], edges: [] })).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses a file that names no language, because a file belongs to one extractor', () => {
+    expect(refuse({ files: [{ path: 'a.ts' }], edges: [] })).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses a path that is not a string', () => {
+    expect(refuse({ files: [{ path: 12, language: 'typescript' }], edges: [] })).toThrow(
+      ReferenceGraphError,
+    );
+  });
+
+  it('refuses a language tag that is not a string', () => {
+    expect(refuse({ files: [{ path: 'a.ts', language: 12 }], edges: [] })).toThrow(
+      ReferenceGraphError,
+    );
+  });
+
+  it('refuses an edge that is not an object', () => {
+    expect(refuse({ files: ts('a.ts', 'b.ts'), edges: ['a.ts -> b.ts'] })).toThrow(
+      ReferenceGraphError,
+    );
+  });
+
+  it('refuses an edge of null', () => {
+    expect(refuse({ files: ts('a.ts'), edges: [null] })).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses an edge that names no source', () => {
+    expect(refuse({ files: ts('a.ts'), edges: [{ to: 'a.ts' }] })).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses an edge that names no target', () => {
+    expect(refuse({ files: ts('a.ts'), edges: [{ from: 'a.ts' }] })).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses a source that is not a string', () => {
+    expect(refuse({ files: ts('a.ts'), edges: [{ from: 12, to: 'a.ts' }] })).toThrow(
+      ReferenceGraphError,
+    );
+  });
+
+  it('refuses an extra field on a file, so nothing is smuggled through the contract', () => {
+    expect(
+      refuse({ files: [{ path: 'a.ts', language: 'typescript', rank: 1 }], edges: [] }),
+    ).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses an extra field on an edge', () => {
+    expect(
+      refuse({ files: ts('a.ts', 'b.ts'), edges: [{ from: 'a.ts', to: 'b.ts', weight: 2 }] }),
+    ).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses an extra field on the output itself', () => {
+    expect(refuse({ files: ts('a.ts'), edges: [], symbols: [] })).toThrow(ReferenceGraphError);
+  });
+
+  it('refuses the malformed output of one extractor in a merge', () => {
+    expect(() =>
+      mergeReferenceGraphs(
+        { files: ts('a.ts'), edges: [] },
+        null as unknown as ReferenceGraphInput,
+      ),
+    ).toThrow(ReferenceGraphError);
   });
 });
