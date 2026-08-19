@@ -125,6 +125,12 @@ describe('applyStamps', () => {
     );
   });
 
+  it('refuses a flow named twice in one stamp, because the second replaces the first', () => {
+    expect(() => applyStamps({}, documents, ['checkout', 'checkout'], snapshot())).toThrow(
+      /already stamped/,
+    );
+  });
+
   it('replaces a stamp when a re-stamp is asked for by hand', () => {
     const store = applyStamps(
       storeOfCheckout(),

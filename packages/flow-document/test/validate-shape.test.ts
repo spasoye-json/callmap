@@ -60,6 +60,10 @@ describe('the document level', () => {
     expectRefusal(7, 'not-an-object');
   });
 
+  it('rejects nothing at all, which is what a producer that wrote none reads as', () => {
+    expectRefusal(undefined, 'not-an-object');
+  });
+
   it('rejects an unknown field, so a producer cannot smuggle keys through the seam', () => {
     expectRefusal({ ...checkoutFlow(), narration: 'a nice story' }, 'unknown-field', 'narration');
   });

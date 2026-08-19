@@ -136,6 +136,9 @@ export interface StampOptions {
  * Stamping takes the flow ids and refuses to run without one: a blanket stamp would mint a fresh
  * mark for a trace nobody checked, which is exactly what staleness exists to prevent. A flow
  * nobody names keeps the stamp it has, so a rebuild never wipes a mark and never invents one.
+ *
+ * What may not be replaced is read off the stamps being written, not off the store that came in, so
+ * a flow named twice in one call is refused rather than quietly stamped twice.
  */
 export const applyStamps = (
   store: AnchorStore,
@@ -153,7 +156,7 @@ export const applyStamps = (
     if (document === undefined) {
       throw new StalenessError(`no flow document is held for '${flowId}'`);
     }
-    if (options.restamp !== true && stampOf(store, flowId) !== undefined) {
+    if (options.restamp !== true && stamped.has(flowId)) {
       throw new StalenessError(
         `'${flowId}' is already stamped; re-stamping takes a re-trace and is asked for by hand`,
       );
