@@ -8,7 +8,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { mergeReferenceGraphs } from '@archmap/reference-graph';
+import {
+  emptyReferenceGraph,
+  mergeReferenceGraphs,
+  ReferenceGraphError,
+} from '@archmap/reference-graph';
 import { validateFlowDocument } from '@archmap/flow-document';
 import type { FlowDocument } from '@archmap/flow-document';
 import { buildFlowPicker, createFlowLibrary } from '@archmap/flow-library';
@@ -16,8 +20,11 @@ import {
   applyStamps,
   markFlows,
   parseAnchorStore,
+  readsAsFresh,
   repoSnapshot,
   serialiseAnchorStore,
+  StalenessError,
+  unreadableRepo,
 } from '@archmap/staleness';
 import { buildCanvasModel, evidenceOf } from '@archmap/canvas-model';
 
@@ -221,5 +228,87 @@ describe('the core, end to end', () => {
     const model = buildCanvasModel(accept(tracedFlow), { collapsedLanes: ['backend'] });
     expect(model.nodes.map((node) => node.id)).toEqual(['tap', 'post', 'lane:backend']);
     expect(model.edges.map((edge) => edge.id)).toEqual(['tap->post', 'post->lane:backend']);
+  });
+});
+
+/**
+ * The same walk again, along the paths where something is wrong. A reader is judging a change before
+ * it merges, so every one of these has to read as what it is rather than as a checked pass.
+ */
+describe('the core, end to end, when something is wrong', () => {
+  const library = createFlowLibrary([accept(tracedFlow), accept(discoveredCandidate)]);
+  const documents = library.documents();
+  const stamped = applyStamps({}, documents, ['place-an-order'], repoSnapshot(hashes));
+
+  it('refuses the output of an extractor that cannot form a graph, so no graph exists to validate against', () => {
+    expect(() => mergeReferenceGraphs(typescriptGraph, {} as never)).toThrow(ReferenceGraphError);
+  });
+
+  it('rejects every claim about a repo no extractor has run over', () => {
+    const result = validateFlowDocument(tracedFlow, { referenceGraph: emptyReferenceGraph() });
+    expect(result.ok).toBe(false);
+    expect(result.ok ? [] : result.errors.map((error) => error.code)).toContain('unknown-file');
+  });
+
+  it('badges every traced flow unknown when the host could not read the repo', () => {
+    const marks = markFlows(documents, stamped, unreadableRepo('the working tree is mid-rebase'));
+    const rows = buildFlowPicker(library, marks);
+    expect(rows.map((row) => [row.id, row.badge])).toEqual([
+      ['place-an-order', 'unknown'],
+      ['refund-an-order', null],
+    ]);
+  });
+
+  it('reads nothing as fresh when the host could not read the repo', () => {
+    const marks = markFlows(documents, stamped, unreadableRepo('the working tree is mid-rebase'));
+    expect(marks.filter(readsAsFresh)).toEqual([]);
+  });
+
+  it('badges a traced flow nobody stamped, so a missing stamp is never a checked one', () => {
+    const marks = markFlows(documents, {}, repoSnapshot(hashes));
+    const rows = buildFlowPicker(library, marks);
+    expect(rows.map((row) => [row.id, row.badge])).toEqual([
+      ['place-an-order', 'unstamped'],
+      ['refund-an-order', null],
+    ]);
+  });
+
+  it('marks a flow stale, naming the file, when an anchored file leaves the working tree', () => {
+    const { [MODEL]: _gone, ...rest } = hashes;
+    const marks = markFlows(documents, stamped, repoSnapshot(rest));
+    expect(marks[0]?.reasons).toEqual([{ code: 'gone', file: MODEL }]);
+  });
+
+  it('refuses a blanket stamp, which would mint a fresh mark for a trace nobody checked', () => {
+    expect(() => applyStamps({}, documents, [], repoSnapshot(hashes))).toThrow(StalenessError);
+  });
+
+  it('refuses to stamp the candidate, which has read no files', () => {
+    expect(() => applyStamps({}, documents, ['refund-an-order'], repoSnapshot(hashes))).toThrow(
+      StalenessError,
+    );
+  });
+
+  it('refuses to stamp over a mark the reader has not cleared by hand', () => {
+    expect(() => applyStamps(stamped, documents, ['place-an-order'], repoSnapshot(hashes))).toThrow(
+      StalenessError,
+    );
+  });
+
+  it('reads the flow fresh again once a re-stamp is asked for by hand', () => {
+    const changed = { ...hashes, [MODEL]: 'hash-of-the-edited-model' };
+    const restamped = applyStamps(stamped, documents, ['place-an-order'], repoSnapshot(changed), {
+      restamp: true,
+    });
+    const marks = markFlows(documents, restamped, repoSnapshot(changed));
+    expect(marks.filter(readsAsFresh).map((mark) => mark.flowId)).toEqual(['place-an-order']);
+  });
+
+  it('refuses a committed anchor file that is not a stamp per flow', () => {
+    expect(() => parseAnchorStore('["place-an-order"]')).toThrow(StalenessError);
+  });
+
+  it('refuses a committed anchor file that is not JSON at all', () => {
+    expect(() => parseAnchorStore('')).toThrow(StalenessError);
   });
 });
