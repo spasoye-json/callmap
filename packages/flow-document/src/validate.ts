@@ -91,6 +91,16 @@ type Fields = Record<string, unknown>;
 
 const join = (path: string, key: string): string => (path === '' ? key : `${path}.${key}`);
 
+/**
+ * Whether a value carries this field itself.
+ *
+ * The seam refuses an unknown field so a producer cannot smuggle a key through it (ADR-0003), and
+ * that only holds if a field has to be carried rather than inherited. `Object.keys` finds nothing to
+ * refuse on a value that inherits its fields, so reading one with `in` would let a whole document in
+ * off a prototype, under the very rule meant to stop it.
+ */
+const carries = (fields: Fields, key: string): boolean => Object.hasOwn(fields, key);
+
 const quoteList = (values: readonly string[]): string =>
   values.map((value) => `'${value}'`).join(', ');
 
@@ -108,7 +118,7 @@ const readArray = (
   fields: Fields,
   key: string,
 ): readonly unknown[] | null => {
-  if (!(key in fields)) {
+  if (!carries(fields, key)) {
     collect(join(path, key), 'missing-field', `'${key}' is required`);
     return null;
   }
@@ -121,7 +131,7 @@ const readArray = (
 };
 
 const readString = (collect: Collect, path: string, fields: Fields, key: string): string | null => {
-  if (!(key in fields)) {
+  if (!carries(fields, key)) {
     collect(join(path, key), 'missing-field', `'${key}' is required`);
     return null;
   }
@@ -138,7 +148,7 @@ const readString = (collect: Collect, path: string, fields: Fields, key: string)
 };
 
 const readLine = (collect: Collect, path: string, fields: Fields, key: string): number | null => {
-  if (!(key in fields)) {
+  if (!carries(fields, key)) {
     collect(join(path, key), 'missing-field', `'${key}' is required`);
     return null;
   }
@@ -204,7 +214,7 @@ const validateEntryPoint = (
   document: Fields,
   graph: ReferenceGraph,
 ): EntryPoint | null => {
-  if (!('entryPoint' in document)) {
+  if (!carries(document, 'entryPoint')) {
     collect('entryPoint', 'missing-field', "'entryPoint' is required");
     return null;
   }
@@ -305,7 +315,7 @@ const validateEvidence = (
   graph: ReferenceGraph,
 ): Evidence | null => {
   const evidencePath = join(path, 'evidence');
-  if (!('evidence' in edge)) {
+  if (!carries(edge, 'evidence')) {
     collect(
       evidencePath,
       'missing-evidence',
@@ -319,7 +329,7 @@ const validateEvidence = (
   const quotePath = join(evidencePath, 'quote');
   const rawQuote = fields['quote'];
   let quote: string | null = null;
-  if (!('quote' in fields)) {
+  if (!carries(fields, 'quote')) {
     collect(quotePath, 'missing-evidence', 'evidence is a quoted match, so a quote is required');
   } else if (typeof rawQuote !== 'string') {
     collect(quotePath, 'wrong-type', "'quote' must be a string");

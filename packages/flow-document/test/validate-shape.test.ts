@@ -360,3 +360,105 @@ describe('a candidate', () => {
     expect(validate(candidate()).ok).toBe(true);
   });
 });
+
+describe('a field that is inherited rather than carried', () => {
+  /**
+   * The seam refuses an unknown field so a producer cannot smuggle a key through it (ADR-0003), and
+   * that only holds if a field has to be carried on the value itself. A value that inherits its
+   * fields carries none, so `Object.keys` finds nothing to refuse while `in` still reads every one
+   * of them off the prototype: the whole document would come in under the rule meant to stop it.
+   * Every level reads its own fields only.
+   */
+  const inherited = (value: object): unknown => Object.create(value) as unknown;
+
+  it('rejects a document that carries no field of its own', () => {
+    const result = validate(inherited(checkoutFlow()));
+    expect(result.ok).toBe(false);
+  });
+
+  it('names every field the document does not carry', () => {
+    const result = validate(inherited(checkoutFlow()));
+    expect(
+      errorsOf(result)
+        .map((error) => error.path)
+        .sort(),
+    ).toEqual(['edges', 'entryPoint', 'id', 'lanes', 'name', 'nodes']);
+  });
+
+  it('reads a missing field as missing, not as smuggled', () => {
+    expect(codesOf(validate(inherited(checkoutFlow())))).toEqual([
+      'missing-field',
+      'missing-field',
+      'missing-field',
+      'missing-field',
+      'missing-field',
+      'missing-field',
+    ]);
+  });
+
+  it('rejects an entry point that carries no field of its own', () => {
+    const document = clone(checkoutFlow());
+    expectRefusal(
+      { ...document, entryPoint: inherited(document.entryPoint) },
+      'missing-field',
+      'entryPoint.kind',
+    );
+  });
+
+  it('rejects a lane that carries no field of its own', () => {
+    const document = clone(checkoutFlow());
+    const [lane, ...rest] = document.lanes;
+    expectRefusal(
+      { ...document, lanes: [inherited(lane ?? {}), ...rest] },
+      'missing-field',
+      'lanes[0].id',
+    );
+  });
+
+  it('rejects a node that carries no field of its own', () => {
+    const document = clone(checkoutFlow());
+    const [node, ...rest] = document.nodes;
+    expectRefusal(
+      { ...document, nodes: [inherited(node ?? {}), ...rest] },
+      'missing-field',
+      'nodes[0].id',
+    );
+  });
+
+  it('rejects an edge that carries no field of its own', () => {
+    const document = clone(checkoutFlow());
+    const [edge, ...rest] = document.edges;
+    expectRefusal(
+      { ...document, edges: [inherited(edge ?? {}), ...rest] },
+      'missing-field',
+      'edges[0].kind',
+    );
+  });
+
+  it('rejects evidence that carries no field of its own', () => {
+    const document = clone(checkoutFlow());
+    const boundary = document.edges.find((edge) => edge.kind === 'inferred');
+    if (boundary?.kind !== 'inferred') throw new Error('the fixture holds a boundary edge');
+    const edges = document.edges.map((edge) =>
+      edge === boundary ? { ...boundary, evidence: inherited(boundary.evidence) } : edge,
+    );
+    expectRefusal({ ...document, edges }, 'missing-evidence');
+  });
+
+  it('still accepts a document whose id is spelled like a name Object.prototype carries', () => {
+    expectAccepted({ ...clone(checkoutFlow()), id: 'toString' });
+  });
+
+  it('still accepts a node whose id is spelled like a name Object.prototype carries', () => {
+    const document = clone(checkoutFlow());
+    const [node] = document.nodes;
+    if (node === undefined) throw new Error('the fixture holds nodes');
+    expectAccepted({
+      ...document,
+      nodes: document.nodes.map((each) => (each === node ? { ...each, id: 'constructor' } : each)),
+      edges: document.edges.map((edge) =>
+        edge.from === node.id ? { ...edge, from: 'constructor' } : edge,
+      ),
+    });
+  });
+});
