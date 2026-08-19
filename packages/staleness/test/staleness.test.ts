@@ -330,6 +330,58 @@ describe('markFlows', () => {
   it('marks nothing when the repo holds no flows', () => {
     expect(markFlows([], {}, snapshot())).toEqual([]);
   });
+
+  /**
+   * A badge exists so a mark nobody checked can never read as a checked pass, and the picker refuses
+   * two marks that claim one flow for exactly that reason: reading one and dropping the other would
+   * let a stale mark be covered by a fresh one. Marking is where those marks come from, so the same
+   * pair has to be refused here, or the producer mints the set the next stage exists to reject.
+   */
+  it('refuses two documents that claim one flow id, rather than marking it twice', () => {
+    expect(() => markFlows([checkoutFlow(), checkoutFlow()], {}, snapshot())).toThrow(
+      StalenessError,
+    );
+  });
+
+  it('names the twice-claimed flow when it refuses', () => {
+    expect(() => markFlows([checkoutFlow(), checkoutFlow()], {}, snapshot())).toThrow('checkout');
+  });
+
+  it('refuses two documents that claim one id even when they disagree', () => {
+    const one = clone(checkoutFlow());
+    const two = { ...clone(checkoutFlow()), nodes: [], edges: [] };
+    expect(() => markFlows([one, two], {}, snapshot())).toThrow(StalenessError);
+  });
+});
+
+describe('two documents that claim one flow id', () => {
+  /**
+   * A stamp claims "these are the files I read", which is only true of one trace. Taking whichever
+   * of two documents came first would stamp one flow's anchor set under the other's id, and a stamp
+   * that was never of that trace reads as fresh, which is the one thing ADR-0008 exists to prevent.
+   */
+  it('are refused by applyStamps, rather than the first one winning', () => {
+    expect(() =>
+      applyStamps({}, [checkoutFlow(), checkoutFlow()], ['checkout'], snapshot()),
+    ).toThrow(StalenessError);
+  });
+
+  it('are named by applyStamps when it refuses', () => {
+    expect(() =>
+      applyStamps({}, [checkoutFlow(), checkoutFlow()], ['checkout'], snapshot()),
+    ).toThrow('checkout');
+  });
+
+  it('are refused even when only the other flow was named', () => {
+    expect(() =>
+      applyStamps(
+        {},
+        [checkoutFlow(), checkoutFlow(), candidate()],
+        ['refund-an-order'],
+        snapshot(),
+      ),
+    ).toThrow(StalenessError);
+  });
 });
 
 describe('stampOf', () => {

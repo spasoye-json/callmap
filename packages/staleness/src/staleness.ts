@@ -125,6 +125,26 @@ export const stampAnchors = (document: FlowDocument, snapshot: RepoSnapshot): An
   return recordOf(stamped);
 };
 
+/**
+ * Index a repo's flow documents by id, refusing two that claim one.
+ *
+ * A stamp claims "these are the files I read", and a mark says whether that still holds, so both
+ * are about one trace under one id. Taking whichever of two documents came first would stamp or mark
+ * one flow's anchor set under the other's id, and neither the stamp nor the mark that came back was
+ * ever of that trace. A wrong stamp reads as fresh and a doubled mark lets the picker be handed a
+ * stale reading covered by a fresh one, which is what a badge exists to prevent.
+ */
+const documentsById = (documents: readonly FlowDocument[]): Map<string, FlowDocument> => {
+  const byId = new Map<string, FlowDocument>();
+  for (const document of documents) {
+    if (byId.has(document.id)) {
+      throw new StalenessError(`two flow documents claim the id '${document.id}'`);
+    }
+    byId.set(document.id, document);
+  }
+  return byId;
+};
+
 export interface StampOptions {
   /** Replace a stamp a flow already holds. Re-stamping is always a deliberate act. */
   readonly restamp?: boolean;
@@ -150,9 +170,10 @@ export const applyStamps = (
   if (flowIds.length === 0) {
     throw new StalenessError('stamping takes the flow ids of the traces that were just read');
   }
+  const byId = documentsById(documents);
   const stamped = new Map<string, AnchorStamp>(Object.entries(store));
   for (const flowId of flowIds) {
-    const document = documents.find((candidate) => candidate.id === flowId);
+    const document = byId.get(flowId);
     if (document === undefined) {
       throw new StalenessError(`no flow document is held for '${flowId}'`);
     }
@@ -214,13 +235,13 @@ export const markFlow = (
   return { flowId, state: reasons.length === 0 ? 'fresh' : 'stale', reasons };
 };
 
-/** Mark every flow a repo holds, in flow id order. */
+/** Mark every flow a repo holds, in flow id order. Refuses two documents that claim one id. */
 export const markFlows = (
   documents: readonly FlowDocument[],
   store: AnchorStore,
   snapshot: RepoSnapshot,
 ): readonly StalenessMark[] =>
-  [...documents]
+  [...documentsById(documents).values()]
     .sort((left, right) => compare(left.id, right.id))
     .map((document) => markFlow(document, stampOf(store, document.id), snapshot));
 
