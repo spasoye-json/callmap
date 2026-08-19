@@ -26,6 +26,7 @@ import {
   unreadableRepo,
 } from '../src/index.ts';
 import type { AnchorStore, RepoSnapshot } from '../src/index.ts';
+import type { FlowDocument } from '@archmap/flow-document';
 
 const snapshot = (patch: Record<string, string> = {}): RepoSnapshot =>
   repoSnapshot({ ...fixtureFileHashes(), ...patch });
@@ -380,5 +381,97 @@ describe('the committed anchor stamps', () => {
 
   it('refuse an empty hash', () => {
     expect(() => parseAnchorStore('{"checkout": {"a.rb": "  "}}')).toThrow(StalenessError);
+  });
+});
+
+describe('a name Object.prototype already carries', () => {
+  /**
+   * `stampOf` already reads the store by own property, so a flow id of `toString` reads as
+   * unstamped rather than as a function. Every other lookup owes the same discipline: a hash is
+   * read out of a snapshot the host built and out of a stamp parsed from a committed file, and both
+   * are plain objects keyed by paths a producer chose. A file named after a name
+   * `Object.prototype` carries must read as absent, never as an inherited function, or the core
+   * would stamp a function where a hash belongs and mark a missing file as changed.
+   */
+  const inherited = (file: string): FlowDocument => {
+    const document = clone(candidate());
+    return {
+      ...document,
+      lanes: [{ id: 'only', name: 'Only' }],
+      nodes: [{ id: 'reads', kind: 'step', label: 'Reads the file', lane: 'only', file, line: 1 }],
+    };
+  };
+
+  const NAMES = ['toString', 'constructor', 'valueOf', 'hasOwnProperty', '__proto__'];
+
+  /**
+   * One entry, as an own property. An object literal drops `__proto__` on the floor, so a fixture
+   * written as one would not put the case it means in front of the code.
+   */
+  const only = <T>(key: string, value: T): Record<string, T> => Object.fromEntries([[key, value]]);
+
+  it.each(NAMES)('refuses to stamp a flow anchoring %s, which the repo does not hold', (name) => {
+    expect(() => stampAnchors(inherited(name), repoSnapshot({}))).toThrow(StalenessError);
+  });
+
+  it.each(NAMES)('never stamps %s with an inherited value in place of a hash', (name) => {
+    const stamped = stampAnchors(inherited(name), repoSnapshot(only(name, 'hash-of-it')));
+    expect(stamped).toEqual(only(name, 'hash-of-it'));
+  });
+
+  it.each(NAMES)('marks a flow anchoring %s as gone when the repo does not hold it', (name) => {
+    const mark = markFlow(inherited(name), only(name, 'hash-of-it'), repoSnapshot({}));
+    expect(mark).toEqual({
+      flowId: 'refund-an-order',
+      state: 'stale',
+      reasons: [{ code: 'gone', file: name }],
+    });
+  });
+
+  it.each(NAMES)('marks a flow that gained %s as gained, not as fresh', (name) => {
+    const mark = markFlow(inherited(name), {}, repoSnapshot(only(name, 'hash-of-it')));
+    expect(mark.state).toBe('stale');
+    expect(mark.reasons).toEqual([{ code: 'gained', file: name }]);
+  });
+
+  it.each(NAMES)('reads a flow anchoring %s as fresh when its hash still holds', (name) => {
+    const mark = markFlow(
+      inherited(name),
+      only(name, 'hash-of-it'),
+      repoSnapshot(only(name, 'hash-of-it')),
+    );
+    expect(mark).toEqual({ flowId: 'refund-an-order', state: 'fresh', reasons: [] });
+  });
+
+  it('reads a flow id of __proto__ back off the committed file', () => {
+    const store = parseAnchorStore('{"__proto__":{"a.rb":"hash-of-a"}}');
+    expect(stampOf(store, '__proto__')).toEqual({ 'a.rb': 'hash-of-a' });
+  });
+
+  it('does not let a flow id of __proto__ reach the prototype of the store it parsed', () => {
+    const store = parseAnchorStore('{"__proto__":{"a.rb":"hash-of-a"}}');
+    expect(Object.keys(store)).toEqual(['__proto__']);
+    expect(stampOf(store, 'a.rb')).toBeUndefined();
+  });
+
+  it('reads a file named __proto__ back off the committed file', () => {
+    const store = parseAnchorStore('{"refund":{"__proto__":"hash-of-it"}}');
+    expect(stampOf(store, 'refund')).toEqual(only('__proto__', 'hash-of-it'));
+  });
+
+  it('refuses a stamp whose hash is an inherited name rather than a string', () => {
+    expect(() => parseAnchorStore('{"refund":{"a.rb":null}}')).toThrow(StalenessError);
+  });
+
+  it('writes a flow id of __proto__ back out', () => {
+    const store = parseAnchorStore('{"__proto__":{"a.rb":"hash-of-a"}}');
+    expect(serialiseAnchorStore(store)).toBe(
+      `${JSON.stringify(only('__proto__', { 'a.rb': 'hash-of-a' }), null, 2)}\n`,
+    );
+  });
+
+  it('carries a stamp under an inherited name through the committed file unchanged', () => {
+    const store = parseAnchorStore('{"toString":{"valueOf":"hash-of-it"}}');
+    expect(parseAnchorStore(serialiseAnchorStore(store))).toEqual(store);
   });
 });

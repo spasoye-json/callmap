@@ -75,9 +75,27 @@ export const unreadableRepo = (reason: string): RepoSnapshot => ({ readable: fal
 export const anchorSetOf = (document: FlowDocument): readonly string[] =>
   [...new Set(document.nodes.map((node) => node.file))].sort();
 
+/**
+ * One value of a record, read by own property.
+ *
+ * A stamp, a store, and a snapshot are all plain objects keyed by names a producer chose: flow ids
+ * and file paths. A key that happens to name something `Object.prototype` carries, such as
+ * `toString` or `__proto__`, must read as absent, or the core would stamp an inherited function
+ * where a hash belongs and read a file the repo does not hold as merely changed.
+ */
+const own = <T>(record: Readonly<Record<string, T>>, key: string): T | undefined =>
+  Object.hasOwn(record, key) ? record[key] : undefined;
+
+/**
+ * Build a record from its entries, so a key that names something `Object.prototype` carries lands
+ * as an own property rather than reaching the prototype of the record it is written into.
+ */
+const recordOf = <T>(entries: readonly (readonly [string, T])[]): Record<string, T> =>
+  Object.fromEntries(entries);
+
 /** The stamp of one flow, or nothing when the flow has never been stamped. */
 export const stampOf = (store: AnchorStore, flowId: string): AnchorStamp | undefined =>
-  Object.hasOwn(store, flowId) ? store[flowId] : undefined;
+  own(store, flowId);
 
 /**
  * Build the stamp of one traced flow from a snapshot of the repo as it is now.
@@ -96,15 +114,15 @@ export const stampAnchors = (document: FlowDocument, snapshot: RepoSnapshot): An
       `the repo could not be read, so nothing can be stamped: ${snapshot.reason}`,
     );
   }
-  const stamp: Record<string, FileHash> = {};
+  const stamped: [string, FileHash][] = [];
   for (const file of anchorSetOf(document)) {
-    const hash = snapshot.hashes[file];
+    const hash = own(snapshot.hashes, file);
     if (hash === undefined) {
       throw new StalenessError(`'${document.id}' anchors '${file}', which the repo does not hold`);
     }
-    stamp[file] = hash;
+    stamped.push([file, hash]);
   }
-  return stamp;
+  return recordOf(stamped);
 };
 
 export interface StampOptions {
@@ -129,7 +147,7 @@ export const applyStamps = (
   if (flowIds.length === 0) {
     throw new StalenessError('stamping takes the flow ids of the traces that were just read');
   }
-  const stamped: Record<string, AnchorStamp> = { ...store };
+  const stamped = new Map<string, AnchorStamp>(Object.entries(store));
   for (const flowId of flowIds) {
     const document = documents.find((candidate) => candidate.id === flowId);
     if (document === undefined) {
@@ -140,9 +158,9 @@ export const applyStamps = (
         `'${flowId}' is already stamped; re-stamping takes a re-trace and is asked for by hand`,
       );
     }
-    stamped[flowId] = stampAnchors(document, snapshot);
+    stamped.set(flowId, stampAnchors(document, snapshot));
   }
-  return stamped;
+  return recordOf([...stamped]);
 };
 
 const byFileThenCode = (left: StalenessReason, right: StalenessReason): number => {
@@ -168,12 +186,12 @@ export const markFlow = (
   const reasons: StalenessReason[] = [];
 
   for (const file of anchors) {
-    const stamped = stamp[file];
+    const stamped = own(stamp, file);
     if (stamped === undefined) {
       reasons.push({ code: 'gained', file });
       continue;
     }
-    const current = snapshot.hashes[file];
+    const current = own(snapshot.hashes, file);
     if (current === undefined) {
       reasons.push({ code: 'gone', file });
       continue;
@@ -207,16 +225,20 @@ export const readsAsFresh = (mark: StalenessMark): boolean => mark.state === 'fr
  * re-stamp of one flow does not churn the diff of another.
  */
 export const serialiseAnchorStore = (store: AnchorStore): string => {
-  const sorted: Record<string, Record<string, FileHash>> = {};
-  for (const flowId of Object.keys(store).sort()) {
-    const stamp = store[flowId] ?? {};
-    const files: Record<string, FileHash> = {};
-    for (const file of Object.keys(stamp).sort()) {
-      const hash = stamp[file];
-      if (hash !== undefined) files[file] = hash;
-    }
-    sorted[flowId] = files;
-  }
+  const sorted = recordOf(
+    Object.keys(store)
+      .sort()
+      .map((flowId) => {
+        const stamp = own(store, flowId) ?? {};
+        const files = Object.keys(stamp)
+          .sort()
+          .flatMap((file): (readonly [string, FileHash])[] => {
+            const hash = own(stamp, file);
+            return hash === undefined ? [] : [[file, hash]];
+          });
+        return [flowId, recordOf(files)] as const;
+      }),
+  );
   return `${JSON.stringify(sorted, null, 2)}\n`;
 };
 
@@ -235,19 +257,19 @@ export const parseAnchorStore = (text: string): AnchorStore => {
   }
   if (!isRecord(parsed))
     throw new StalenessError('the anchor stamps must be an object per flow id');
-  const store: Record<string, AnchorStamp> = {};
+  const store: [string, AnchorStamp][] = [];
   for (const [flowId, stamp] of Object.entries(parsed)) {
     if (!isRecord(stamp)) {
       throw new StalenessError(`the stamp of '${flowId}' must be a hash per file`);
     }
-    const files: Record<string, FileHash> = {};
+    const files: [string, FileHash][] = [];
     for (const [file, hash] of Object.entries(stamp)) {
       if (typeof hash !== 'string' || hash.trim() === '') {
         throw new StalenessError(`the stamp of '${flowId}' holds no hash for '${file}'`);
       }
-      files[file] = hash;
+      files.push([file, hash]);
     }
-    store[flowId] = files;
+    store.push([flowId, recordOf(files)]);
   }
-  return store;
+  return recordOf(store);
 };
