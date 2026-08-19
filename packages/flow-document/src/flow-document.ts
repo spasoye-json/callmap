@@ -117,8 +117,6 @@ export const isCandidate = (document: FlowDocument): boolean => document.nodes.l
 /** A traced flow: a flow whose nodes and edges are read from the code. */
 export const isTracedFlow = (document: FlowDocument): boolean => !isCandidate(document);
 
-/** Narrow an edge to the inferred class. */
 export const isInferredEdge = (edge: FlowEdge): edge is InferredEdge => edge.kind === 'inferred';
 
-/** Narrow an edge to the verified class. */
 export const isVerifiedEdge = (edge: FlowEdge): edge is VerifiedEdge => edge.kind === 'verified';

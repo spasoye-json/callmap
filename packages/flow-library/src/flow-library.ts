@@ -10,7 +10,6 @@ import { isCandidate } from '@archmap/flow-document';
 import type { EntryPoint, FlowDocument } from '@archmap/flow-document';
 import type { StalenessMark, StalenessState } from '@archmap/staleness';
 
-/** Whether a flow has been traced yet. */
 export type FlowState = 'candidate' | 'traced';
 
 /** One row of the library: what the picker needs to know about one flow. */

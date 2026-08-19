@@ -59,7 +59,6 @@ export class StalenessError extends Error {
   override readonly name = 'StalenessError';
 }
 
-/** A snapshot of a repo the host could read. */
 export const repoSnapshot = (hashes: Readonly<Record<string, FileHash>>): RepoSnapshot => ({
   readable: true,
   hashes,

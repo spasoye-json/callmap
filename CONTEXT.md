@@ -4,6 +4,8 @@ Archmap keeps a true map of a software system, business logic first, so a review
 
 ## Language
 
+A word an entry lists under _Avoid_ can still stand in a settled record. ADR-0001 and ADR-0004 say _import graph_, because that is what the ground truth was called when they were decided, and ADR-0009 records its replacement by the reference graph. A decision record is not rewritten to match a later decision.
+
 ### Flows
 
 **Flow**:

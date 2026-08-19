@@ -150,7 +150,6 @@ const linked = (adjacency: Adjacency, from: string, to: string): boolean =>
 export const createReferenceGraph = (input: ReferenceGraphInput): ReferenceGraph =>
   indexOutput(readOutput(input));
 
-/** Index output already read against the contract. */
 const indexOutput = (output: ReferenceGraphInput): ReferenceGraph => {
   const languages = new Map<string, LanguageTag>();
 

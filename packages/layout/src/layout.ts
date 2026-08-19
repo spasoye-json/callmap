@@ -17,7 +17,6 @@ export interface Rect {
   readonly height: number;
 }
 
-/** One node, placed. */
 export interface LaidOutNode {
   readonly id: string;
   readonly lane: string;
@@ -149,7 +148,6 @@ const measure = (options: LayoutOptions | undefined): Measurements => ({
   ...options,
 });
 
-/** Lay one flow document out. */
 export const layOutFlow = (document: FlowDocument, options?: LayoutOptions): FlowLayout => {
   requireDrawable(document);
   const metrics = measure(options);

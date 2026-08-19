@@ -14,11 +14,8 @@ export const JOB_FILE = 'app/jobs/receipt_job.rb';
 /** A Ruby file no other file in the fixture repo references. */
 export const UNREFERENCED_FILE = 'app/models/user.rb';
 
-/** The mobile app lane. */
 export const MOBILE_LANE = 'mobile';
-/** The backend request lane. */
 export const BACKEND_LANE = 'backend';
-/** The async listeners lane. */
 export const ASYNC_LANE = 'async';
 
 /**
@@ -40,7 +37,6 @@ export const fixtureReferenceGraphInput = (): ReferenceGraphInput => ({
   ],
 });
 
-/** The fixture repo's reference graph. */
 export const fixtureReferenceGraph = (): ReferenceGraph =>
   createReferenceGraph(fixtureReferenceGraphInput());
 

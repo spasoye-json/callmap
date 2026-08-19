@@ -201,7 +201,6 @@ const boundingRect = (rects: readonly Rect[]): Rect | null => {
   return { x: left, y: top, width: right - left, height: bottom - top };
 };
 
-/** Build the canvas model of one flow document. */
 export const buildCanvasModel = (
   document: FlowDocument,
   options: CanvasModelOptions = {},
