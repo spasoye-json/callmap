@@ -434,9 +434,18 @@ const validateEdges = (
         `an inferred edge crosses a process boundary, so its two nodes cannot both sit in lane '${sourceLane ?? ''}'`,
       );
     }
+    /**
+     * The proof a verified edge needs is about its two files: CONTEXT.md makes it an edge the
+     * reference graph proves "because the two nodes sit in one file or in a pair of files with a
+     * reference edge between them". Lanes decide a different rule, so the graph is asked unless the
+     * lanes are known to cross, in which case the boundary rule above has already refused the edge
+     * for what is wrong with it. Waiting for both lanes to be readable left this rule standing on a
+     * refusal that happened to land beside it, and a malformed lane read as a pair the graph had
+     * proved when it was never asked.
+     */
     if (
       kind === 'verified' &&
-      crossesLane === false &&
+      crossesLane !== true &&
       source?.file != null &&
       target?.file != null &&
       source.file !== target.file &&

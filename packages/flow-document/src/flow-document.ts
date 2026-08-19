@@ -105,6 +105,12 @@ export const INFERRED_EDGE_FIELDS: readonly string[] = [
 /**
  * A candidate: a flow that is named and anchored to an entry point but not yet traced. It carries
  * no nodes and no edges (ADR-0005).
+ *
+ * This reads the nodes alone, and for a document that came through the validator the two conditions
+ * are one: a flow with no nodes carrying edges is refused as `candidate-has-edges`. For anything
+ * hand-built that never crossed the seam, reading it as a candidate is the safe way round, because a
+ * candidate cannot be stamped: the alternative would call a document with no nodes a traced flow and
+ * let it be stamped against an empty anchor set, and an empty stamp is one nobody checked.
  */
 export const isCandidate = (document: FlowDocument): boolean => document.nodes.length === 0;
 

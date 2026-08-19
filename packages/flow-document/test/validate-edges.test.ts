@@ -391,6 +391,55 @@ describe('an id that holds a separator', () => {
  * the language rule is read before the graph is asked to prove the pair, so a joined pair in two
  * languages is refused for what it is rather than passing because the join exists.
  */
+/**
+ * The proof a verified edge needs is about its two files: CONTEXT.md makes it an edge the reference
+ * graph proves "because the two nodes sit in one file or in a pair of files with a reference edge
+ * between them". Lanes decide a different rule. Asking the graph only once the lanes were both
+ * readable left the proof to be enforced by a refusal that happened to land beside it, so a
+ * malformed lane read as a document that had been checked against the graph when it never was.
+ */
+describe('a verified edge whose lane could not be read', () => {
+  /** The same unjoined pair as above, with the target's lane written as something not a string. */
+  const laneless = (): unknown => ({
+    ...(pairFlow(backend(MODEL_FILE), backend(UNREFERENCED_FILE), verifiedEdge('a', 'b')) as Record<
+      string,
+      unknown
+    >),
+    nodes: [
+      { id: 'a', kind: 'step', label: 'First', lane: BACKEND_LANE, file: MODEL_FILE, line: 3 },
+      { id: 'b', kind: 'step', label: 'Second', lane: 12, file: UNREFERENCED_FILE, line: 4 },
+    ],
+  });
+
+  it('refuses the lane, because a lane is a string', () => {
+    expectRefusal(laneless(), 'wrong-type', 'nodes[1].lane');
+  });
+
+  it('asks the graph to prove the pair all the same', () => {
+    expectRefusal(laneless(), 'unproven-verified-edge', 'edges[0]');
+  });
+
+  it('reads the language rule first, as it does when the lanes are readable', () => {
+    const acrossLanguages = {
+      ...(laneless() as Record<string, unknown>),
+      nodes: [
+        { id: 'a', kind: 'step', label: 'First', lane: BACKEND_LANE, file: MODEL_FILE, line: 3 },
+        { id: 'b', kind: 'step', label: 'Second', lane: 12, file: SCREEN_FILE, line: 4 },
+      ],
+    };
+    expectRefusal(acrossLanguages, 'verified-edge-crosses-language');
+  });
+
+  /** A lane that crosses is the boundary rule's to refuse, and it is not asked to prove anything. */
+  it('is refused for the boundary alone when the lanes are readable and cross', () => {
+    expect(
+      codesOf(
+        validate(pairFlow(mobile(MODEL_FILE), backend(UNREFERENCED_FILE), verifiedEdge('a', 'b'))),
+      ),
+    ).toEqual(['boundary-edge-claims-verified']);
+  });
+});
+
 describe('a verified edge over a pair one merge joined across two languages', () => {
   const joinedAcrossLanguages = mergeReferenceGraphs(
     {

@@ -71,6 +71,11 @@ export const unreadableRepo = (reason: string): RepoSnapshot => ({ readable: fal
 /**
  * Every file a flow's nodes point at, in path order. A candidate points at none, which is why a
  * candidate can never be stale.
+ *
+ * CONTEXT.md makes the anchor set every file *and line* a flow's nodes point at, and this returns the
+ * files alone, because a content hash is of a file. Nothing is lost by it: a line cannot change
+ * without changing the file that holds it, so the file's hash already sees every edit to every line
+ * the flow anchors. The lines are what the anchor set is *of*; the files are what it is *checked by*.
  */
 export const anchorSetOf = (document: FlowDocument): readonly string[] =>
   [...new Set(document.nodes.map((node) => node.file))].sort();
