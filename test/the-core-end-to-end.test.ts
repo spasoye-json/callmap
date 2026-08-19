@@ -13,7 +13,7 @@ import {
   mergeReferenceGraphs,
   ReferenceGraphError,
 } from '@archmap/reference-graph';
-import { validateFlowDocument } from '@archmap/flow-document';
+import { parseFlowDocument, validateFlowDocument } from '@archmap/flow-document';
 import type { FlowDocument } from '@archmap/flow-document';
 import { buildFlowPicker, createFlowLibrary } from '@archmap/flow-library';
 import {
@@ -197,6 +197,12 @@ describe('the core, end to end', () => {
     expect(marks[0]?.reasons).toEqual([{ code: 'changed', file: MODEL }]);
   });
 
+  it('carries the flow document through the committed file unchanged', () => {
+    const written = `${JSON.stringify(accept(tracedFlow), null, 2)}\n`;
+    const read = parseFlowDocument(written, { referenceGraph });
+    expect(read.ok ? read.document : read.errors).toEqual(accept(tracedFlow));
+  });
+
   it('carries the stamps through the committed file unchanged', () => {
     const documents = [accept(tracedFlow)];
     const store = applyStamps({}, documents, ['place-an-order'], repoSnapshot(hashes));
@@ -309,6 +315,17 @@ describe('the core, end to end, when something is wrong', () => {
     });
     const marks = markFlows(documents, restamped, repoSnapshot(changed));
     expect(marks.filter(readsAsFresh).map((mark) => mark.flowId)).toEqual(['place-an-order']);
+  });
+
+  it('refuses a flow document the host caught half written, rather than throwing', () => {
+    const written = JSON.stringify(accept(tracedFlow));
+    const result = parseFlowDocument(written.slice(0, written.length - 20), { referenceGraph });
+    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['invalid-json']);
+  });
+
+  it('refuses an empty flow document file, which is what a half-written one starts as', () => {
+    const result = parseFlowDocument('', { referenceGraph });
+    expect(result.ok ? [] : result.errors.map((error) => error.code)).toEqual(['invalid-json']);
   });
 
   it('refuses a committed anchor file that is not a stamp per flow', () => {

@@ -122,12 +122,22 @@ const badgeOf = (state: StalenessState | null): FlowBadge | null => {
  *
  * A mark for a flow the library does not hold is ignored, and a flow no mark covers reads as
  * unmarked and shows no badge. Only a flow that reads as fresh is shown without a badge on purpose.
+ *
+ * Two marks that claim one flow are refused, the way two documents that claim one id are. Reading
+ * one of them and dropping the other would let a stale mark be covered by a fresh one, silently,
+ * which is the one thing a badge exists to prevent.
  */
 export const buildFlowPicker = (
   library: FlowLibrary,
   marks: readonly StalenessMark[] = [],
 ): readonly FlowPickerRow[] => {
-  const stateOf = new Map(marks.map((mark) => [mark.flowId, mark.state]));
+  const stateOf = new Map<string, StalenessState>();
+  for (const mark of marks) {
+    if (stateOf.has(mark.flowId)) {
+      throw new FlowLibraryError(`two staleness marks claim the flow '${mark.flowId}'`);
+    }
+    stateOf.set(mark.flowId, mark.state);
+  }
   return library.entries.map((entry) => {
     const staleness = stateOf.get(entry.id) ?? null;
     return { ...entry, staleness, badge: badgeOf(staleness) };

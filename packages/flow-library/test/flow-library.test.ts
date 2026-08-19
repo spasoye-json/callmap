@@ -215,4 +215,30 @@ describe('buildFlowPicker', () => {
     const rows = buildFlowPicker(repoOfTwo(), [mark('invented', 'stale')]);
     expect(rows.map((row) => row.id)).toEqual(repoOfTwo().entries.map((entry) => entry.id));
   });
+
+  it('refuses two marks that claim one flow, rather than letting the last one win', () => {
+    expect(() =>
+      buildFlowPicker(repoOfTwo(), [mark('checkout', 'stale'), mark('checkout', 'fresh')]),
+    ).toThrow(FlowLibraryError);
+  });
+
+  it('names the twice-marked flow when it refuses', () => {
+    expect(() =>
+      buildFlowPicker(repoOfTwo(), [mark('checkout', 'stale'), mark('checkout', 'fresh')]),
+    ).toThrow(/checkout/);
+  });
+
+  it('refuses two marks even for a flow it does not hold, because one of them is wrong', () => {
+    expect(() =>
+      buildFlowPicker(repoOfTwo(), [mark('invented', 'stale'), mark('invented', 'fresh')]),
+    ).toThrow(FlowLibraryError);
+  });
+
+  it('accepts one mark per flow', () => {
+    const rows = buildFlowPicker(repoOfTwo(), [
+      mark('checkout', 'stale'),
+      mark('refund-an-order', 'candidate'),
+    ]);
+    expect(rows.map((row) => row.badge)).toEqual(['stale', null]);
+  });
 });

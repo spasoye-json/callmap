@@ -175,6 +175,16 @@ describe('the entry point', () => {
     );
   });
 
+  it('rejects a line that is not a whole number, however it is spelled', () => {
+    for (const line of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0]) {
+      expectRefusal(withEntryPoint({ kind: 'screen', file: SCREEN_FILE, line }), 'invalid-line');
+    }
+  });
+
+  it('accepts a whole line written with a fraction of nothing', () => {
+    expectAccepted(withEntryPoint({ kind: 'screen', file: SCREEN_FILE, line: 12.0 }));
+  });
+
   it('rejects a line that is not a number', () => {
     expectRefusal(
       withEntryPoint({ kind: 'screen', file: SCREEN_FILE, line: '12' }),
