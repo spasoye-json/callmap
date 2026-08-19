@@ -94,9 +94,12 @@ const compare = (left: string, right: string): number => (left < right ? -1 : le
  * than a refusal. A node in an undeclared lane has no band to sit in and would simply not be drawn,
  * leaving a canvas that reads as whole. Two lanes under one id both take that id's nodes, so every
  * node in it is placed twice and every reader of the layout counts it twice. Two nodes under one id
- * are one rectangle to everything downstream, so the reader clicks it and reaches either. A reviewer
- * cannot tell which part of a mostly true canvas is the wrong part (ADR-0001), so the layout says so
- * instead of drawing it.
+ * are one rectangle to everything downstream, so the reader clicks it and reaches either. An edge
+ * that names a node nothing declares is drawn reaching for an end the canvas does not hold, and it
+ * does worse than that to the ranking: a predecessor that is never ranked leaves every node below it
+ * never ready, so the tie-break that exists to cut a genuine loop takes them in id order, and the
+ * columns of the flow come back reordered. A reviewer cannot tell which part of a mostly true canvas
+ * is the wrong part (ADR-0001), so the layout says so instead of drawing it.
  */
 const requireDrawable = (document: FlowDocument): void => {
   const laneIds = new Set<string>();
@@ -118,6 +121,15 @@ const requireDrawable = (document: FlowDocument): void => {
       throw new LayoutError(
         `the node '${node.id}' sits in the lane '${node.lane}', which the flow does not declare`,
       );
+    }
+  }
+  for (const edge of document.edges) {
+    for (const end of [edge.from, edge.to]) {
+      if (!nodeIds.has(end)) {
+        throw new LayoutError(
+          `the edge from '${edge.from}' to '${edge.to}' names '${end}', which the flow does not declare`,
+        );
+      }
     }
   }
 };

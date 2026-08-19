@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { candidate, checkoutFlow, clone } from '@archmap/testing';
+import { candidate, checkoutFlow, clone, verifiedEdge } from '@archmap/testing';
 import {
   DEFAULT_LAYOUT_OPTIONS,
   laidOutLane,
@@ -7,6 +7,7 @@ import {
   laidOutNodesOfLane,
   layOutFlow,
   LayoutError,
+  rankNodes,
   type FlowLayout,
 } from '../src/index.ts';
 
@@ -321,6 +322,39 @@ describe('a document that cannot be laid out', () => {
 
     it('names the id the two lanes claim', () => {
       expect(() => layOutFlow(doubled())).toThrow(/backend/);
+    });
+  });
+
+  describe('an edge naming a node the document does not hold', () => {
+    const dangling = (from: string, to: string) => {
+      const document = flow();
+      return { ...document, edges: [...document.edges, verifiedEdge(from, to)] };
+    };
+
+    it('is refused when the edge runs into a node nothing declares', () => {
+      expect(() => layOutFlow(dangling('tap-checkout', 'invented'))).toThrow(LayoutError);
+    });
+
+    it('is refused when the edge runs out of one', () => {
+      expect(() => layOutFlow(dangling('invented', 'persist-order'))).toThrow(LayoutError);
+    });
+
+    it('names the node nothing declares, and the edge that reaches for it', () => {
+      expect(() => layOutFlow(dangling('tap-checkout', 'invented'))).toThrow(/invented/);
+      expect(() => layOutFlow(dangling('tap-checkout', 'invented'))).toThrow(/tap-checkout/);
+    });
+
+    /**
+     * The ranking is why this cannot be read past. A predecessor no node declares is never ranked,
+     * so every node downstream of it is never ready, and the tie-break that exists to cut a genuine
+     * loop takes them in id order instead. One edge from an id nothing holds moved the emitted event
+     * from the sixth column to the first, drawing the side effect that follows the write to the left
+     * of it. The canvas reads perfectly well and says the wrong thing.
+     */
+    it('does not let one unheld id reorder the columns of the flow', () => {
+      expect(() => rankNodes(dangling('invented', 'persist-order'))).not.toThrow();
+      const ranks = rankNodes(flow());
+      expect(ranks.get('emit-order-placed')).toBeGreaterThan(ranks.get('persist-order') ?? 0);
     });
   });
 

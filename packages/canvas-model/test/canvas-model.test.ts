@@ -768,6 +768,16 @@ describe('a document the layout refuses', () => {
     ).toThrow(LayoutError);
   });
 
+  it('refuses an edge that names a node the document does not hold', () => {
+    const document = flow();
+    expect(() =>
+      buildCanvasModel({
+        ...document,
+        edges: [...document.edges, verifiedEdge('tap-checkout', 'invented')],
+      }),
+    ).toThrow(LayoutError);
+  });
+
   it('refuses it whether or not a lane is collapsed', () => {
     const document = flow();
     expect(() =>
