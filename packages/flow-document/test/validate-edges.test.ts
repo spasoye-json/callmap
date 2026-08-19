@@ -13,7 +13,9 @@ import {
   UNREFERENCED_FILE,
   verifiedEdge,
 } from '@archmap/testing';
-import { errorsOf, expectAccepted, expectRefusal, validate } from './support.ts';
+import { mergeReferenceGraphs } from '@archmap/reference-graph';
+import { validateFlowDocument } from '../src/index.ts';
+import { codesOf, errorsOf, expectAccepted, expectRefusal, validate } from './support.ts';
 
 interface Anchor {
   readonly lane: string;
@@ -380,5 +382,34 @@ describe('an id that holds a separator', () => {
 
   it('does not read two distinct edges as one duplicate', () => {
     expectAccepted(pairsThatWouldCollide());
+  });
+});
+
+/**
+ * A merge is a union, so an extractor may name a file another extractor claimed and leave the two
+ * languages joined by a reference edge. ADR-0009 is what stops a verified edge riding across it:
+ * the language rule is read before the graph is asked to prove the pair, so a joined pair in two
+ * languages is refused for what it is rather than passing because the join exists.
+ */
+describe('a verified edge over a pair one merge joined across two languages', () => {
+  const joinedAcrossLanguages = mergeReferenceGraphs(
+    {
+      files: [{ path: ORDERS_CLIENT_FILE, language: 'typescript' }],
+      edges: [{ from: ORDERS_CLIENT_FILE, to: CONTROLLER_FILE }],
+    },
+    { files: [{ path: CONTROLLER_FILE, language: 'ruby' }], edges: [] },
+  );
+
+  const result = validateFlowDocument(
+    pairFlow(backend(ORDERS_CLIENT_FILE), backend(CONTROLLER_FILE), verifiedEdge('a', 'b')),
+    { referenceGraph: joinedAcrossLanguages },
+  );
+
+  it('joins the pair, so the refusal is not about a missing reference', () => {
+    expect(joinedAcrossLanguages.joins(ORDERS_CLIENT_FILE, CONTROLLER_FILE)).toBe(true);
+  });
+
+  it('is rejected all the same, because a verified edge never crosses a language', () => {
+    expect(codesOf(result)).toEqual(['verified-edge-crosses-language']);
   });
 });

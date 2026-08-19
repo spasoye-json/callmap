@@ -236,6 +236,31 @@ describe('mergeReferenceGraphs', () => {
     expect(merged.joins('app/checkout.ts', 'app/controllers/orders_controller.rb')).toBe(false);
   });
 
+  it('joins a pair one extractor named across a file another extractor claimed', () => {
+    const graph = mergeReferenceGraphs(
+      { files: [{ path: 'a.ts', language: 'typescript' }], edges: [{ from: 'a.ts', to: 'b.rb' }] },
+      { files: [{ path: 'b.rb', language: 'ruby' }], edges: [] },
+    );
+    expect(graph.joins('a.ts', 'b.rb')).toBe(true);
+  });
+
+  it('leaves that pair in two languages, so nothing verified can ride across it', () => {
+    const graph = mergeReferenceGraphs(
+      { files: [{ path: 'a.ts', language: 'typescript' }], edges: [{ from: 'a.ts', to: 'b.rb' }] },
+      { files: [{ path: 'b.rb', language: 'ruby' }], edges: [] },
+    );
+    expect(graph.sameLanguage('a.ts', 'b.rb')).toBe(false);
+  });
+
+  it('refuses that same edge from one extractor alone, which claims no such file', () => {
+    expect(() =>
+      createReferenceGraph({
+        files: [{ path: 'a.ts', language: 'typescript' }],
+        edges: [{ from: 'a.ts', to: 'b.rb' }],
+      }),
+    ).toThrow(ReferenceGraphError);
+  });
+
   it('merges nothing into the empty graph', () => {
     expect(mergeReferenceGraphs().files).toEqual([]);
   });
