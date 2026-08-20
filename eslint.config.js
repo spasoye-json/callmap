@@ -2,7 +2,12 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['node_modules/**', 'types/**', 'coverage/**'] },
+  /**
+   * A fixture repo is a repo an extractor reads, not code this repo ships, so it is held exactly
+   * as the extractor must find it: JavaScript that predates modules, an import of a package
+   * nothing installed, and aliases only its own tsconfig knows.
+   */
+  { ignores: ['node_modules/**', 'types/**', 'coverage/**', 'packages/*/fixture/**'] },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   {
