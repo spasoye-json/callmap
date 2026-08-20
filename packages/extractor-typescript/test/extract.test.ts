@@ -159,6 +159,33 @@ describe('the tsconfig an alias is resolved through', () => {
     return broken;
   };
 
+  /**
+   * A repo whose root `tsconfig.json` is JSON the compiler reads and extends a base that is not
+   * there. Only parsing the config reports that; the options it hands back simply hold none of the
+   * aliases the base held, which is the alias-free document the extractor exists to refuse.
+   */
+  let dangling: string | undefined;
+  const danglingRepo = () => {
+    if (dangling !== undefined) return dangling;
+    dangling = mkdtempSync(join(tmpdir(), 'archmap-dangling-extends-'));
+    writeFileSync(join(dangling, 'tsconfig.json'), '{ "extends": "./tsconfig.base.json" }\n');
+    writeFileSync(join(dangling, 'index.ts'), 'export const price = 1;\n');
+    return dangling;
+  };
+
+  /**
+   * A repo whose root `tsconfig.json` is sound and whose `include` names no file that is there. The
+   * extractor brings its own file list, so what the config would have compiled is not its business.
+   */
+  let inputless: string | undefined;
+  const inputlessRepo = () => {
+    if (inputless !== undefined) return inputless;
+    inputless = mkdtempSync(join(tmpdir(), 'archmap-inputless-tsconfig-'));
+    writeFileSync(join(inputless, 'tsconfig.json'), '{ "include": ["nowhere/**/*.ts"] }\n');
+    writeFileSync(join(inputless, 'index.ts'), 'export const price = 1;\n');
+    return inputless;
+  };
+
   it('resolves a relative import in a repo that has no tsconfig at its root', () => {
     const document = extractTypeScript({ repo: INNER });
     expect(document.edges).toContainEqual({ from: 'api/receipt.ts', to: 'shared/money.ts' });
@@ -194,6 +221,18 @@ describe('the tsconfig an alias is resolved through', () => {
 
   it('names the root tsconfig it could not read', () => {
     expect(() => extractTypeScript({ repo: brokenRepo() })).toThrow(/tsconfig\.json/);
+  });
+
+  it('refuses a tsconfig whose extends chain does not resolve, rather than dropping every alias', () => {
+    expect(() => extractTypeScript({ repo: danglingRepo() })).toThrow(ExtractionError);
+  });
+
+  it('names the base config the extends chain could not reach', () => {
+    expect(() => extractTypeScript({ repo: danglingRepo() })).toThrow(/tsconfig\.base\.json/);
+  });
+
+  it('reads a tsconfig whose include names no file, because the extractor brings its own', () => {
+    expect(extractTypeScript({ repo: inputlessRepo() }).files).toEqual(['index.ts']);
   });
 
   it('resolves the alias again when told which tsconfig to read', () => {

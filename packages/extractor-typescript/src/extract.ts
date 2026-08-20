@@ -33,6 +33,13 @@ export interface ExtractOptions {
 }
 
 /**
+ * The one complaint a config can draw that says nothing about a reference graph: no input file was
+ * found. The extractor walks its own scope and hands the resolver that file list, so which files
+ * the config would have compiled is not a question it ever asks.
+ */
+const NO_INPUTS_FOUND = 18003;
+
+/**
  * The compiler options the repo's own `tsconfig.json` sets, which is where path aliases live. The
  * config is read the compiler's own way, so a config that extends another inherits its aliases.
  *
@@ -40,8 +47,11 @@ export interface ExtractOptions {
  * in it, so a config that is not there at all is not an error. A config that is there and cannot be
  * read is one, whether the extractor found it at the root or was told to read it, because every
  * alias would quietly go missing and the document would read as if the repo held no such reference.
- * `allowJs` is forced on either way, because the extractor claims JavaScript files and the resolver
- * would not otherwise look for one.
+ * That covers a config that is not JSON, which reading it reports, and equally a config that is
+ * JSON and extends a base the compiler cannot reach, which only parsing it reports: the aliases the
+ * base held are absent from a config that parsed, which is the same alias-free document by a
+ * quieter road. `allowJs` is forced on either way, because the extractor claims JavaScript files
+ * and the resolver would not otherwise look for one.
  */
 const compilerOptions = (repo: string, tsconfig: string | undefined): ts.CompilerOptions => {
   const path = tsconfig === undefined ? `${repo}/tsconfig.json` : resolve(tsconfig);
@@ -51,6 +61,11 @@ const compilerOptions = (repo: string, tsconfig: string | undefined): ts.Compile
   if (read.error !== undefined || read.config === undefined)
     throw new ExtractionError(`${path} could not be read as a tsconfig`);
   const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, resolve(path, '..'));
+  const failure = parsed.errors.find((error) => error.code !== NO_INPUTS_FOUND);
+  if (failure !== undefined)
+    throw new ExtractionError(
+      `${path} could not be read as a tsconfig: ${ts.flattenDiagnosticMessageText(failure.messageText, ' ')}`,
+    );
   return { ...parsed.options, allowJs: true };
 };
 
