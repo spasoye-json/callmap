@@ -8,7 +8,13 @@
  * extractor already emitted.
  */
 
-import { ReferenceGraphError, requireArray, requireFields, requireNonEmpty } from './contract.ts';
+import {
+  EDGE_FIELDS,
+  ReferenceGraphError,
+  requireArray,
+  requireFields,
+  requireNonEmpty,
+} from './contract.ts';
 
 /** The tag an extractor stamps on the files it claims, such as `typescript` or `ruby`. */
 export type LanguageTag = string;
@@ -62,7 +68,6 @@ const byPath = (a: ReferenceGraphFile, b: ReferenceGraphFile): number =>
 
 const OUTPUT_FIELDS: readonly string[] = ['files', 'edges'];
 const FILE_FIELDS: readonly string[] = ['path', 'language'];
-const EDGE_FIELDS: readonly string[] = ['from', 'to'];
 
 /**
  * Read one extractor's output against the contract.

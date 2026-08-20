@@ -94,6 +94,13 @@ describe('the extractor as a separate process', () => {
     expect(finished.stderr).toContain('--scope');
   });
 
+  it('reports a tsconfig it cannot read rather than emitting a document with no alias in it', () => {
+    const finished = run(FIXTURE, '--tsconfig', `${FIXTURE}/nowhere.json`);
+    expect(finished.status).not.toBe(0);
+    expect(finished.stdout).toBe('');
+    expect(finished.stderr).toContain('nowhere.json');
+  });
+
   it('reports a repo it cannot read rather than emitting an empty document', () => {
     const finished = run(`${FIXTURE}/nowhere`);
     expect(finished.status).not.toBe(0);

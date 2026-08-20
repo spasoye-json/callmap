@@ -4,7 +4,7 @@
  * against (ADR-0009).
  */
 
-export { extractTypeScript, TYPESCRIPT } from './extract.ts';
+export { ExtractionError, extractTypeScript, TYPESCRIPT } from './extract.ts';
 export type { ExtractOptions } from './extract.ts';
 export { moduleSpecifiers } from './imports.ts';
 export { inScope } from './scope.ts';

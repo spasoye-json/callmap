@@ -5,7 +5,8 @@ extraction observable, so a reader can tell from the tree what the tests are ass
 
 | File                       | What it holds for the extraction                                                                |
 | -------------------------- | ----------------------------------------------------------------------------------------------- |
-| `tsconfig.json`            | The path aliases `@app/*` and `@shared`, which is where alias resolution lives                  |
+| `tsconfig.json`            | The config the extractor reads, which inherits its aliases from the one it extends              |
+| `tsconfig.base.json`       | The path aliases `@app/*` and `@shared`, which is where alias resolution lives                  |
 | `src/screens/checkout.tsx` | An aliased import, an exact alias, a relative type-only import, and a package nothing installed |
 | `src/api/orders-client.ts` | An aliased type-only import and a dynamic import                                                |
 | `src/api/receipt.ts`       | The same file imported twice, once for a value and once for a type                              |

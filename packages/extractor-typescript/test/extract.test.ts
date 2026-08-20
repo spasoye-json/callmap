@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@archmap/reference-graph';
-import { extractTypeScript } from '../src/index.ts';
+import { ExtractionError, extractTypeScript } from '../src/index.ts';
 
 /** The tiny TypeScript repo this package commits, read the way an extractor reads a repo. */
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
@@ -155,11 +155,58 @@ describe('the tsconfig an alias is resolved through', () => {
     });
   });
 
+  it('resolves an alias a tsconfig inherits from the one it extends', () => {
+    expect(extract(...source).edges).toContainEqual({ from: SCREEN, to: SHARED });
+  });
+
+  it('refuses a tsconfig it was told to read and could not, rather than dropping every alias', () => {
+    expect(() => extractTypeScript({ repo: FIXTURE, tsconfig: `${FIXTURE}/nowhere.json` })).toThrow(
+      ExtractionError,
+    );
+  });
+
+  it('names the tsconfig it could not read', () => {
+    expect(() => extractTypeScript({ repo: FIXTURE, tsconfig: `${FIXTURE}/nowhere.json` })).toThrow(
+      /nowhere.json/,
+    );
+  });
+
   it('resolves the alias again when told which tsconfig to read', () => {
     const document = extractTypeScript({ repo: INNER, tsconfig: `${FIXTURE}/tsconfig.json` });
     expect(document.edges).toContainEqual({
       from: 'screens/checkout.tsx',
       to: 'api/orders-client.ts',
     });
+  });
+});
+
+/**
+ * A repo whose own packages import each other by package name, which is what a monorepo is and
+ * what the scope globs of ADR-0009 exist for. The repo this extractor lives in is one, and its
+ * links are real, so it is the fixture for that rule rather than a second tree of stubs.
+ */
+describe('a monorepo whose packages import each other by name', () => {
+  const REPO = fileURLToPath(new URL('../../..', import.meta.url));
+
+  const document = () =>
+    extractTypeScript({
+      repo: REPO,
+      scope: ['packages/testing/**', 'packages/reference-graph/**'],
+    });
+
+  it('resolves a package name to the file the package points at', () => {
+    expect(document().edges).toContainEqual({
+      from: 'packages/testing/src/repo.ts',
+      to: 'packages/reference-graph/src/index.ts',
+    });
+  });
+
+  it('claims no file outside the scope, so nothing from a linked package leaks in', () => {
+    expect(
+      document().files.every(
+        (path) =>
+          path.startsWith('packages/testing/') || path.startsWith('packages/reference-graph/'),
+      ),
+    ).toBe(true);
   });
 });

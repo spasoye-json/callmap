@@ -11,9 +11,14 @@
 import { readFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 import * as ts from 'typescript';
-import type { ReferenceEdge, ReferenceGraphDocument } from '@archmap/reference-graph';
+import type { ReferenceGraphDocument } from '@archmap/reference-graph';
 import { moduleSpecifiers } from './imports.ts';
 import { sourceFilesInScope } from './walk.ts';
+
+/** Thrown when the extractor cannot read what it was pointed at. */
+export class ExtractionError extends Error {
+  override readonly name = 'ExtractionError';
+}
 
 /** The tag this extractor stamps on every file it claims. */
 export const TYPESCRIPT = 'typescript';
@@ -28,16 +33,21 @@ export interface ExtractOptions {
 }
 
 /**
- * The compiler options the repo's own `tsconfig.json` sets, which is where path aliases live.
+ * The compiler options the repo's own `tsconfig.json` sets, which is where path aliases live. The
+ * config is read the compiler's own way, so a config that extends another inherits its aliases.
  *
- * A repo without one still has a reference graph, just one with no aliases in it, so a missing
- * config is not an error. `allowJs` is forced on either way, because the extractor claims
- * JavaScript files and the resolver would not otherwise look for one.
+ * A repo with no `tsconfig.json` at its root still has a reference graph, just one with no aliases
+ * in it, so that alone is not an error. A config the extractor was told to read and could not is,
+ * because every alias would quietly go missing and the document would read as if the repo held no
+ * such reference. `allowJs` is forced on either way, because the extractor claims JavaScript files
+ * and the resolver would not otherwise look for one.
  */
 const compilerOptions = (repo: string, tsconfig: string | undefined): ts.CompilerOptions => {
   const path = tsconfig === undefined ? `${repo}/tsconfig.json` : resolve(tsconfig);
   const read = ts.readConfigFile(path, (file) => ts.sys.readFile(file));
   if (read.error !== undefined || read.config === undefined) {
+    if (tsconfig !== undefined)
+      throw new ExtractionError(`${path} could not be read as a tsconfig`);
     return { allowJs: true, moduleResolution: ts.ModuleResolutionKind.Bundler };
   }
   const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, resolve(path, '..'));
@@ -50,24 +60,20 @@ const repoRelative = (repo: string, resolved: string): string | undefined => {
   return path === '' || path.startsWith('../') || isAbsolute(path) ? undefined : path;
 };
 
-const compareEdges = (left: ReferenceEdge, right: ReferenceEdge): number =>
-  left.from === right.from
-    ? left.to < right.to
-      ? -1
-      : left.to > right.to
-        ? 1
-        : 0
-    : left.from < right.from
-      ? -1
-      : 1;
-
 /**
  * Read a repo and emit its reference graph document.
  *
- * An edge is emitted only when both of its ends are files the document claims. A reference into
- * `node_modules`, into a subtree the scope leaves out, or to a module nothing installed is dropped
- * rather than named, because a document that named a file it does not claim would say the repo
- * holds a file the scope says nothing about.
+ * An edge is emitted only when both of its ends are files the document claims. A reference into a
+ * subtree the scope leaves out, or to a module nothing installed, is dropped rather than named,
+ * because a document that named a file it does not claim would say the repo holds a file the scope
+ * says nothing about. That one rule is also what keeps `node_modules` out, since the walk never
+ * claims a file in it, and it is why a resolution that ran through `node_modules` is not refused
+ * for that alone: in a monorepo, a package a repo links to itself resolves that way and lands back
+ * on a file the repo does hold.
+ *
+ * A reference between two subtrees is therefore only in the document when one run takes both of
+ * them in. Mapping a monorepo one subtree at a time is mapping each subtree's own references; the
+ * references between two subtrees are read by naming both of them in one scope.
  */
 export const extractTypeScript = (options: ExtractOptions): ReferenceGraphDocument => {
   const repo = resolve(options.repo);
@@ -77,7 +83,8 @@ export const extractTypeScript = (options: ExtractOptions): ReferenceGraphDocume
   const optionsOfRepo = compilerOptions(repo, options.tsconfig);
   const cache = ts.createModuleResolutionCache(repo, (name) => name, optionsOfRepo);
 
-  const edges = new Map<string, ReferenceEdge>();
+  /** What each file reaches, held as a set per file, so no file path is ever built into a key. */
+  const reached = new Map<string, Set<string>>();
 
   for (const from of files) {
     const containing = `${repo}/${from}`;
@@ -89,17 +96,19 @@ export const extractTypeScript = (options: ExtractOptions): ReferenceGraphDocume
         ts.sys,
         cache,
       );
-      if (resolvedModule === undefined || resolvedModule.isExternalLibraryImport === true) continue;
+      if (resolvedModule === undefined) continue;
       const to = repoRelative(repo, resolvedModule.resolvedFileName);
       if (to === undefined || to === from || !claimed.has(to)) continue;
-      edges.set(`${from}\u0000${to}`, { from, to });
+      const known = reached.get(from);
+      if (known === undefined) reached.set(from, new Set([to]));
+      else known.add(to);
     }
   }
 
-  return {
-    language: TYPESCRIPT,
-    scope,
-    files,
-    edges: [...edges.values()].sort(compareEdges),
-  };
+  /** Files are walked in path order, so sorting each file's targets is all the order that is left. */
+  const edges = [...reached].flatMap(([from, targets]) =>
+    [...targets].sort().map((to) => ({ from, to })),
+  );
+
+  return { language: TYPESCRIPT, scope, files, edges };
 };

@@ -12,8 +12,13 @@ export class ReferenceGraphError extends Error {
   override readonly name = 'ReferenceGraphError';
 }
 
+/** The fields of something an extractor sent, before anything has been read off it. */
 export type Fields = Record<string, unknown>;
 
+/** The two fields of a reference edge, which both sides of the contract read the same way. */
+export const EDGE_FIELDS: readonly string[] = ['from', 'to'];
+
+/** A name, a path, or a tag: whitespace is not a value, so it is refused rather than trimmed. */
 export const requireNonEmpty = (value: unknown, what: string): string => {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new ReferenceGraphError(`${what} must be a non-empty string`);
@@ -21,6 +26,7 @@ export const requireNonEmpty = (value: unknown, what: string): string => {
   return value;
 };
 
+/** An object, and only the fields the contract allows on it, so nothing is smuggled through. */
 export const requireFields = (value: unknown, what: string, allowed: readonly string[]): Fields => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new ReferenceGraphError(`${what} must be an object`);
@@ -34,6 +40,7 @@ export const requireFields = (value: unknown, what: string, allowed: readonly st
   return fields;
 };
 
+/** A field the contract requires as a list. A field left out is refused, never read as empty. */
 export const requireArray = (fields: Fields, key: string, what: string): readonly unknown[] => {
   if (!Object.hasOwn(fields, key)) {
     throw new ReferenceGraphError(`${what} must name its '${key}'`);

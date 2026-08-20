@@ -8,7 +8,13 @@
  * of it: a reader that does not know the scope cannot tell an absent file from an unscoped one.
  */
 
-import { ReferenceGraphError, requireArray, requireFields, requireNonEmpty } from './contract.ts';
+import {
+  EDGE_FIELDS,
+  ReferenceGraphError,
+  requireArray,
+  requireFields,
+  requireNonEmpty,
+} from './contract.ts';
 import { mergeReferenceGraphs } from './reference-graph.ts';
 import type {
   LanguageTag,
@@ -30,12 +36,12 @@ export interface ReferenceGraphDocument {
 }
 
 const DOCUMENT_FIELDS: readonly string[] = ['language', 'scope', 'files', 'edges'];
-const EDGE_FIELDS: readonly string[] = ['from', 'to'];
 
 /**
- * A path in a document is repo-relative and reads with forward slashes, so one machine's document
- * means the same thing on the next one. An absolute path, a path that climbs out of the repo, and a
- * Windows separator are all refused.
+ * A document reads its paths more strictly than the graph reads the ones it is handed: a path in a
+ * document is repo-relative and reads with forward slashes, so one machine's document means the
+ * same thing on the next one. An absolute path, a path that climbs out of the repo, and a Windows
+ * separator are all refused.
  */
 const requirePath = (value: unknown, what: string): string => {
   const path = requireNonEmpty(value, what);

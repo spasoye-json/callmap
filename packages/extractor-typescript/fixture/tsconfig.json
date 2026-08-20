@@ -1,12 +1,8 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {
-      "@app/*": ["src/*"],
-      "@shared": ["src/shared/index.ts"]
-    }
+    "jsx": "react-jsx"
   }
 }
