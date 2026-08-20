@@ -37,22 +37,33 @@ export interface ReferenceGraphDocument {
 
 const DOCUMENT_FIELDS: readonly string[] = ['language', 'scope', 'files', 'edges'];
 
+/** A path that is absolute on Windows without the leading slash that says so, `C:/repo`. */
+const DRIVE_LETTER = /^[A-Za-z]:/;
+
 /**
  * A document reads its paths more strictly than the graph reads the ones it is handed: a path in a
- * document is repo-relative and reads with forward slashes, so one machine's document means the
- * same thing on the next one. An absolute path, a path that climbs out of the repo, and a Windows
- * separator are all refused.
+ * document is repo-relative, reads with forward slashes, and spells a file one way only, so one
+ * machine's document means the same thing on the next one and two documents cannot claim one file
+ * under two names. A second spelling would be read as a second file: the duplicate-language check
+ * of a merge would not see the pair, and a claim about `src/a.ts` would not be checked against the
+ * document that named `./src/a.ts`. So a Windows separator, a leading slash, a drive letter, a
+ * segment that climbs out of the repo, and a segment that names nothing at all, an empty one or a
+ * bare dot, are all refused.
  */
 const requirePath = (value: unknown, what: string): string => {
   const path = requireNonEmpty(value, what);
   if (path.includes('\\')) {
     throw new ReferenceGraphError(`${what} must read with forward slashes, not '${path}'`);
   }
-  if (path.startsWith('/')) {
+  if (path.startsWith('/') || DRIVE_LETTER.test(path)) {
     throw new ReferenceGraphError(`${what} must be repo-relative, not '${path}'`);
   }
-  if (path.split('/').includes('..')) {
+  const segments = path.split('/');
+  if (segments.includes('..')) {
     throw new ReferenceGraphError(`${what} must stay inside the repo, not '${path}'`);
+  }
+  if (segments.some((segment) => segment === '' || segment === '.')) {
+    throw new ReferenceGraphError(`${what} must spell a file one way, not '${path}'`);
   }
   return path;
 };

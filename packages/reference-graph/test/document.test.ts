@@ -90,6 +90,32 @@ describe('a document the contract does not allow', () => {
     expect(refuse(document({ files: ['src\\a.ts'] }))).toThrow(/forward slashes/);
   });
 
+  it('refuses a Windows drive path, which is absolute without a leading slash', () => {
+    expect(refuse(document({ files: ['C:/repo/src/a.ts'] }))).toThrow(/repo-relative/);
+  });
+
+  it('refuses a leading dot segment, so one file is not claimed under two spellings', () => {
+    expect(refuse(document({ files: ['./src/a.ts'] }))).toThrow(/one way/);
+  });
+
+  it('refuses a dot segment inside a path', () => {
+    expect(refuse(document({ files: ['src/./a.ts'] }))).toThrow(/one way/);
+  });
+
+  it('refuses a doubled slash, which spells one file a second way', () => {
+    expect(refuse(document({ files: ['src//a.ts'] }))).toThrow(/one way/);
+  });
+
+  it('refuses a trailing slash, which spells one file a second way', () => {
+    expect(refuse(document({ files: ['src/a.ts/'] }))).toThrow(/one way/);
+  });
+
+  it('refuses a dot segment at the end of a reference edge', () => {
+    expect(refuse(document({ edges: [{ from: 'src/a.ts', to: './src/b.ts' }] }))).toThrow(
+      /one way/,
+    );
+  });
+
   it('refuses an absolute path at the end of a reference edge', () => {
     expect(refuse(document({ edges: [{ from: 'src/a.ts', to: '/src/b.ts' }] }))).toThrow(
       ReferenceGraphError,
@@ -165,5 +191,14 @@ describe('referenceGraphFromDocuments', () => {
 
   it('indexes no document at all as the empty graph', () => {
     expect(referenceGraphFromDocuments().files).toEqual([]);
+  });
+
+  it('refuses two documents claiming one file under two spellings, rather than merging both', () => {
+    expect(() =>
+      referenceGraphFromDocuments(
+        document({ language: 'typescript', files: ['src/a.ts'], edges: [] }),
+        document({ language: 'javascript', files: ['./src/a.ts'], edges: [] }),
+      ),
+    ).toThrow(/one way/);
   });
 });
