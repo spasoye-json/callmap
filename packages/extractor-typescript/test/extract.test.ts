@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@archmap/reference-graph';
@@ -142,6 +145,20 @@ describe('the tsconfig an alias is resolved through', () => {
   /** The same fixture read one directory down, where no `tsconfig.json` sits. */
   const INNER = `${FIXTURE}/src`;
 
+  /**
+   * A repo whose root `tsconfig.json` is there and is not a config. It is written into a temp
+   * directory rather than committed, because a file that is not valid JSON is not a file this repo
+   * can hold alongside the ones its own tools read.
+   */
+  let broken: string | undefined;
+  const brokenRepo = () => {
+    if (broken !== undefined) return broken;
+    broken = mkdtempSync(join(tmpdir(), 'archmap-broken-tsconfig-'));
+    writeFileSync(join(broken, 'tsconfig.json'), '{ "compilerOptions": { "paths": ');
+    writeFileSync(join(broken, 'index.ts'), 'export const price = 1;\n');
+    return broken;
+  };
+
   it('resolves a relative import in a repo that has no tsconfig at its root', () => {
     const document = extractTypeScript({ repo: INNER });
     expect(document.edges).toContainEqual({ from: 'api/receipt.ts', to: 'shared/money.ts' });
@@ -169,6 +186,14 @@ describe('the tsconfig an alias is resolved through', () => {
     expect(() => extractTypeScript({ repo: FIXTURE, tsconfig: `${FIXTURE}/nowhere.json` })).toThrow(
       /nowhere.json/,
     );
+  });
+
+  it('refuses a root tsconfig that is there and cannot be read, rather than dropping every alias', () => {
+    expect(() => extractTypeScript({ repo: brokenRepo() })).toThrow(ExtractionError);
+  });
+
+  it('names the root tsconfig it could not read', () => {
+    expect(() => extractTypeScript({ repo: brokenRepo() })).toThrow(/tsconfig\.json/);
   });
 
   it('resolves the alias again when told which tsconfig to read', () => {

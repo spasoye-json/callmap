@@ -37,19 +37,19 @@ export interface ExtractOptions {
  * config is read the compiler's own way, so a config that extends another inherits its aliases.
  *
  * A repo with no `tsconfig.json` at its root still has a reference graph, just one with no aliases
- * in it, so that alone is not an error. A config the extractor was told to read and could not is,
- * because every alias would quietly go missing and the document would read as if the repo held no
- * such reference. `allowJs` is forced on either way, because the extractor claims JavaScript files
- * and the resolver would not otherwise look for one.
+ * in it, so a config that is not there at all is not an error. A config that is there and cannot be
+ * read is one, whether the extractor found it at the root or was told to read it, because every
+ * alias would quietly go missing and the document would read as if the repo held no such reference.
+ * `allowJs` is forced on either way, because the extractor claims JavaScript files and the resolver
+ * would not otherwise look for one.
  */
 const compilerOptions = (repo: string, tsconfig: string | undefined): ts.CompilerOptions => {
   const path = tsconfig === undefined ? `${repo}/tsconfig.json` : resolve(tsconfig);
-  const read = ts.readConfigFile(path, (file) => ts.sys.readFile(file));
-  if (read.error !== undefined || read.config === undefined) {
-    if (tsconfig !== undefined)
-      throw new ExtractionError(`${path} could not be read as a tsconfig`);
+  if (tsconfig === undefined && !ts.sys.fileExists(path))
     return { allowJs: true, moduleResolution: ts.ModuleResolutionKind.Bundler };
-  }
+  const read = ts.readConfigFile(path, (file) => ts.sys.readFile(file));
+  if (read.error !== undefined || read.config === undefined)
+    throw new ExtractionError(`${path} could not be read as a tsconfig`);
   const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, resolve(path, '..'));
   return { ...parsed.options, allowJs: true };
 };
