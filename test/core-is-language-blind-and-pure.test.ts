@@ -2,6 +2,9 @@
  * A guard over the whole core, not over one module: the seam modules read data an extractor
  * already emitted and nothing else. If a package ever needs a filesystem, it stops being core and
  * belongs behind the extractor contract or in the sidecar (ADR-0009).
+ *
+ * An extractor package is the other side of that contract, so the guard reads it the other way
+ * round: it is the one that reads a repo and the one that names a language.
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -12,6 +15,9 @@ const PACKAGES_DIR = join(import.meta.dirname, '..', 'packages');
 
 /** The one package that exists to describe a fixture repo, so it may name languages. */
 const TEST_SUPPORT = 'testing';
+
+/** A package that reads a repo and emits a document. It is not core; it is what core reads. */
+const isExtractor = (name: string): boolean => name.startsWith('extractor-');
 
 const FORBIDDEN_IMPORTS = new Set([
   'fs',
@@ -48,9 +54,19 @@ const packageNames = readdirSync(PACKAGES_DIR)
   .filter((entry) => statSync(join(PACKAGES_DIR, entry)).isDirectory())
   .sort();
 
+const corePackages = packageNames.filter((name) => !isExtractor(name));
+const extractorPackages = packageNames.filter(isExtractor);
+
+const importsIn = (name: string): ReadonlySet<string> =>
+  new Set(
+    sourceFilesOf(join(PACKAGES_DIR, name, 'src')).flatMap((path) =>
+      importsOf(readFileSync(path, 'utf8')),
+    ),
+  );
+
 describe('the ported core', () => {
   it('holds every seam module the skeleton needs', () => {
-    expect(packageNames).toEqual([
+    expect(corePackages).toEqual([
       'canvas-model',
       'flow-document',
       'flow-library',
@@ -74,7 +90,7 @@ describe('the ported core', () => {
     }
   });
 
-  it.each(packageNames)('%s reads no source code and no filesystem', (name) => {
+  it.each(corePackages)('%s reads no source code and no filesystem', (name) => {
     const sources = sourceFilesOf(join(PACKAGES_DIR, name, 'src'));
     expect(sources.length).toBeGreaterThan(0);
     const offenders = sources.flatMap((path) =>
@@ -85,13 +101,34 @@ describe('the ported core', () => {
     expect(offenders).toEqual([]);
   });
 
-  it.each(packageNames.filter((name) => name !== TEST_SUPPORT))(
+  it.each(corePackages.filter((name) => name !== TEST_SUPPORT))(
     '%s names no language, because the core is language-blind',
     (name) => {
       const offenders = sourceFilesOf(join(PACKAGES_DIR, name, 'src')).filter((path) =>
         /'(typescript|javascript|go|ruby)'/.test(readFileSync(path, 'utf8')),
       );
       expect(offenders).toEqual([]);
+    },
+  );
+});
+
+describe('the extractors it ships', () => {
+  it('holds one package per language version one supports, so far', () => {
+    expect(extractorPackages).toEqual(['extractor-typescript']);
+  });
+
+  it.each(extractorPackages)('%s is the side of the contract that reads a repo', (name) => {
+    expect(importsIn(name)).toContain('node:fs');
+  });
+
+  it.each(extractorPackages)(
+    '%s names the language it claims, so the core never has to',
+    (name) => {
+      const sources = sourceFilesOf(join(PACKAGES_DIR, name, 'src'));
+      const naming = sources.filter((path) =>
+        /'(typescript|javascript|go|ruby)'/.test(readFileSync(path, 'utf8')),
+      );
+      expect(naming.length).toBeGreaterThan(0);
     },
   );
 });
