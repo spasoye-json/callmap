@@ -7,3 +7,7 @@ CLAUDE.md
 CONTEXT.md
 README.md
 docs/
+
+# The agent harness holds its eval cases as hand-written specs. Reformatting one
+# would change what an eval is run against, so prettier stays out of them too.
+ralph/eval/agent-cases/
