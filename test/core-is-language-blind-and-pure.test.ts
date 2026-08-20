@@ -1,0 +1,97 @@
+/**
+ * A guard over the whole core, not over one module: the seam modules read data an extractor
+ * already emitted and nothing else. If a package ever needs a filesystem, it stops being core and
+ * belongs behind the extractor contract or in the sidecar (ADR-0009).
+ */
+
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const PACKAGES_DIR = join(import.meta.dirname, '..', 'packages');
+
+/** The one package that exists to describe a fixture repo, so it may name languages. */
+const TEST_SUPPORT = 'testing';
+
+const FORBIDDEN_IMPORTS = new Set([
+  'fs',
+  'fs/promises',
+  'node:fs',
+  'node:fs/promises',
+  'node:path',
+  'child_process',
+  'node:child_process',
+  'node:http',
+  'node:https',
+  'node:net',
+  'typescript',
+]);
+
+const sourceFilesOf = (directory: string): readonly string[] =>
+  readdirSync(directory).flatMap((entry) => {
+    const path = join(directory, entry);
+    if (statSync(path).isDirectory()) return sourceFilesOf(path);
+    return path.endsWith('.ts') ? [path] : [];
+  });
+
+/**
+ * Every module specifier a file names, however it names it: a static import, a re-export, or a
+ * dynamic `import(...)`, quoted either way. A guard that only reads one spelling reads as stronger
+ * than it is.
+ */
+const importsOf = (text: string): readonly string[] =>
+  [...text.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)].map(
+    ([, specifier]) => specifier ?? '',
+  );
+
+const packageNames = readdirSync(PACKAGES_DIR)
+  .filter((entry) => statSync(join(PACKAGES_DIR, entry)).isDirectory())
+  .sort();
+
+describe('the ported core', () => {
+  it('holds every seam module the skeleton needs', () => {
+    expect(packageNames).toEqual([
+      'canvas-model',
+      'flow-document',
+      'flow-library',
+      'layout',
+      'reference-graph',
+      'staleness',
+      TEST_SUPPORT,
+    ]);
+  });
+
+  it('reads a specifier however it is spelled, so the guard cannot be side-stepped', () => {
+    const spellings = [
+      "import { readFileSync } from 'node:fs';",
+      'import { readFileSync } from "node:fs";',
+      "export { readFileSync } from 'node:fs';",
+      "const fs = await import('node:fs');",
+      'const fs = await import("node:fs");',
+    ];
+    for (const spelling of spellings) {
+      expect(importsOf(spelling), spelling).toContain('node:fs');
+    }
+  });
+
+  it.each(packageNames)('%s reads no source code and no filesystem', (name) => {
+    const sources = sourceFilesOf(join(PACKAGES_DIR, name, 'src'));
+    expect(sources.length).toBeGreaterThan(0);
+    const offenders = sources.flatMap((path) =>
+      importsOf(readFileSync(path, 'utf8'))
+        .filter((specifier) => FORBIDDEN_IMPORTS.has(specifier))
+        .map((specifier) => `${path} imports ${specifier}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it.each(packageNames.filter((name) => name !== TEST_SUPPORT))(
+    '%s names no language, because the core is language-blind',
+    (name) => {
+      const offenders = sourceFilesOf(join(PACKAGES_DIR, name, 'src')).filter((path) =>
+        /'(typescript|javascript|go|ruby)'/.test(readFileSync(path, 'utf8')),
+      );
+      expect(offenders).toEqual([]);
+    },
+  );
+});

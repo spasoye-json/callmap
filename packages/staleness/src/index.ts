@@ -1,0 +1,25 @@
+export {
+  anchorSetOf,
+  applyStamps,
+  markFlow,
+  markFlows,
+  parseAnchorStore,
+  readsAsFresh,
+  repoSnapshot,
+  serialiseAnchorStore,
+  stampAnchors,
+  StalenessError,
+  stampOf,
+  unreadableRepo,
+} from './staleness.ts';
+export type {
+  AnchorStamp,
+  AnchorStore,
+  FileHash,
+  RepoSnapshot,
+  StalenessCode,
+  StalenessMark,
+  StalenessReason,
+  StalenessState,
+  StampOptions,
+} from './staleness.ts';
