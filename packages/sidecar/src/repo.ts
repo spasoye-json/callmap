@@ -4,13 +4,7 @@
  */
 
 import { readdirSync, statSync } from 'node:fs';
-import { inScope } from '@archmap/extractor-typescript/scope';
-
-/**
- * The same directories every extractor skips: `node_modules` holds other people's repos, and a
- * dot directory holds a tool's bookkeeping.
- */
-const skipped = (name: string): boolean => name === 'node_modules' || name.startsWith('.');
+import { inScope, isSkippedDirectory } from '@archmap/scope';
 
 export const isDirectory = (path: string): boolean => {
   try {
@@ -25,7 +19,7 @@ export const filesInScope = (repo: string, scope: readonly string[]): readonly s
   const found: string[] = [];
   const walk = (directory: string): void => {
     for (const entry of readdirSync(`${repo}/${directory}`, { withFileTypes: true })) {
-      if (skipped(entry.name)) continue;
+      if (isSkippedDirectory(entry.name)) continue;
       const path = directory === '' ? entry.name : `${directory}/${entry.name}`;
       if (entry.isDirectory()) walk(path);
       else if (entry.isFile() && inScope(path, scope)) found.push(path);

@@ -11,13 +11,13 @@
       "default": "./src/index.ts"
     },
     "./cli": "./src/cli.ts",
-    "./scope": "./src/scope.ts",
     "./walk": "./src/walk.ts"
   },
   "bin": {
     "archmap-extract-typescript": "./src/cli.ts"
   },
   "dependencies": {
+    "@archmap/scope": "*",
     "typescript": "^6.0.3"
   },
   "devDependencies": {

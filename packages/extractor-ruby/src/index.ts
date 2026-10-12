@@ -7,4 +7,3 @@
 export { extractRuby, RUBY } from './extract.ts';
 export type { ExtractOptions } from './extract.ts';
 export { ExtractionError } from './references.ts';
-export { inScope } from './scope.ts';

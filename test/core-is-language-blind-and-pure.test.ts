@@ -88,6 +88,7 @@ describe('the ported core', () => {
       'flow-library',
       'layout',
       'reference-graph',
+      'scope',
       'staleness',
       TEST_SUPPORT,
       'trace',

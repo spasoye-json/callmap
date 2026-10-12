@@ -19,6 +19,7 @@ The walking skeleton is done: one flow runs from a TypeScript screen into a Rail
 | `@archmap/canvas-model`    | What the canvas draws: shapes, inks, folding, evidence, steps, the editor link     |
 | `@archmap/flow-library`    | Every flow a repo holds, and the picker a reader switches flows with               |
 | `@archmap/staleness`       | The anchor set, the anchor stamp, and the mark                                     |
+| `@archmap/scope`           | The scope globs and the skipped directories every walk of a repo shares            |
 | `@archmap/discovery`       | The discovery prompt, proposed entry points, and curation                          |
 | `@archmap/cost`            | What a pass costs: the estimate, the spend of a pass, and the monthly total        |
 | `@archmap/trace`           | The trace prompt, and the reader that holds a trace answer to the validator        |

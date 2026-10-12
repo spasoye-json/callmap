@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { createSidecar } from '@archmap/sidecar';
@@ -44,5 +47,14 @@ describe('the Ruby fixture', () => {
     const { summary } = await extracted(RUBY_FIXTURE, []);
     expect(summary.files).toBe(21);
     expect(summary.languages).toMatchObject([{ language: 'ruby', files: 21 }]);
+  });
+});
+
+describe('a repo whose only source sits in a directory every extractor skips', () => {
+  it('opens as a repo that holds no language', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'archmap-skipped-'));
+    mkdirSync(join(repo, 'vendor/bundle'), { recursive: true });
+    writeFileSync(join(repo, 'vendor/bundle/gem.rb'), 'module Gem; end\n');
+    expect((await opened(repo, [])).languages).toEqual([]);
   });
 });

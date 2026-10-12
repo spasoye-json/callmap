@@ -11,7 +11,7 @@
 import { resolve } from 'node:path';
 import type { ReferenceGraphDocument } from '@archmap/reference-graph';
 import { constantReferencesOf } from './references.ts';
-import { inScope } from './scope.ts';
+import { inScope } from '@archmap/scope';
 import { rubyFilesOf } from './walk.ts';
 import { zeitwerkOf } from './zeitwerk.ts';
 

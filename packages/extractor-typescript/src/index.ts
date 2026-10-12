@@ -7,5 +7,4 @@
 export { ExtractionError, extractTypeScript, TYPESCRIPT } from './extract.ts';
 export type { ExtractOptions } from './extract.ts';
 export { moduleSpecifiers } from './imports.ts';
-export { inScope } from './scope.ts';
 export { sourceFilesInScope } from './walk.ts';
