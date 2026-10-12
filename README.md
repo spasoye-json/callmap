@@ -59,6 +59,8 @@ echo '{"command":"open","repo":"packages/extractor-typescript/fixture","scope":[
   | node packages/sidecar/src/main.ts
 ```
 
+`open` detects each language that has a file in scope: `.go` for Go, `.rb` for Ruby, and the TypeScript and JavaScript extensions for TypeScript. `extract` runs the extractor of each one and merges the documents by file path into one reference graph. The merge refuses a reference edge between two languages, because that hop is a boundary (ADR-0004). The mixed fixture under `packages/sidecar/fixture/` holds all three languages, and a TypeScript client there calls a Rails route over HTTP.
+
 The Tauri shell starts that process and gives the UI one command, `sidecar`, that carries one line each way. To run the desktop app, install the system libraries Tauri needs (on Fedora: `webkit2gtk4.1-devel libsoup3-devel javascriptcoregtk4.1-devel gtk3-devel librsvg2-devel dbus-devel`), then run `npm run tauri dev -w @archmap/app`. The lint and test gates do not build the Rust shell.
 
 ### How these modules got here
