@@ -19,6 +19,7 @@ The walking skeleton is under way. The core seam modules are ported, as typed Ty
 | `@archmap/canvas-model`    | What the canvas draws: shapes, inks, lane collapse, evidence on selection          |
 | `@archmap/flow-library`    | Every flow a repo holds, and the picker a reader switches flows with               |
 | `@archmap/staleness`       | The anchor set, the anchor stamp, and the mark                                     |
+| `@archmap/discovery`       | The discovery prompt, proposed entry points, curation, and the cost of a pass      |
 | `@archmap/testing`         | One mixed-language fixture repo, held as data, that the tests are written against  |
 
 The extractors are here too, and they are not core: they are the other side of the contract.
@@ -49,7 +50,7 @@ The host runs the app. It is neither core nor an extractor, and the same guard t
 
 | Package            | What it owns                                                                                     |
 | ------------------ | ------------------------------------------------------------------------------------------------ |
-| `@archmap/sidecar` | The command surface the UI talks to (`open`, `extract`), and the extractors it runs by language |
+| `@archmap/sidecar` | The command surface the UI talks to, the extractors it runs, the AI provider, and the map file   |
 | `@archmap/app`     | The React and Vite UI, bundled with no network asset, and the Tauri shell in `src-tauri/`        |
 
 The sidecar reads one JSON request per line and writes one JSON response per line:
@@ -63,6 +64,10 @@ echo '{"command":"open","repo":"packages/extractor-typescript/fixture","scope":[
 
 The Tauri shell starts that process and gives the UI one command, `sidecar`, that carries one line each way. To run the desktop app, install the system libraries Tauri needs (on Fedora: `webkit2gtk4.1-devel libsoup3-devel javascriptcoregtk4.1-devel gtk3-devel librsvg2-devel dbus-devel`), then run `npm run tauri dev -w @archmap/app`. The lint and test gates do not build the Rust shell.
 
+Discovery runs through the same surface (ADR-0010). `estimate-discovery` shows what the pass costs, `discover` runs it and answers with the proposed entry points the validator anchored, and `curate` turns accepted ones into candidates. `map` reads the map file and `account` and `set-key` hold the reader's key and monthly spend. The AI provider is Anthropic on `claude-opus-5-5` with the reader's own key. The key and the spend live in `$ARCHMAP_CONFIG_DIR`, or `$XDG_CONFIG_HOME/archmap`, never in a repo.
+
+The map file is the `.archmap/` directory the target repo commits (ADR-0007): `flows/<flow id>.json` holds one flow document per flow, `curation.json` holds the rejected proposals, and `flow-anchors.json` holds the anchor stamps (ADR-0008).
+
 ### How these modules got here
 
 The `archmap-prototype` repo was not reachable when this port was made, so the modules were written from the rules this repo already pins down: `CONTEXT.md` and `docs/adr/`. They are not a line-for-line copy of the prototype's core, and the prototype's 188 cases were not carried across as themselves. What is here instead is a suite written against the same rules, one case per rule, which is the same guarantee reached a second way. Anyone with the prototype to hand should diff the two suites and fold in whatever case this one is missing.
@@ -71,7 +76,7 @@ The TypeScript extractor was written the same way, and its alias resolution is t
 
 Still to come: the canvas in the app, and the review scene.
 
-Also still to come, and named here because `CONTEXT.md` and `docs/adr/` already define them, so their absence would otherwise read as an oversight: discovery and tracing, which are the AI passes that mint a candidate and fill one in (ADR-0005); the component map, its components and its unassigned tray, which are the context layer a flow is drawn across (ADR-0002); the map file that carries curation results (ADR-0007, ADR-0010); and the stamping command of ADR-0008, which exists so a page build can never re-stamp what it was meant to show. The stamping *rules* are here and tested; only the command boundary around them is not.
+Also still to come, and named here because `CONTEXT.md` and `docs/adr/` already define them, so their absence would otherwise read as an oversight: tracing, the AI pass that fills a candidate in (ADR-0005); the component map, its components and its unassigned tray, which are the context layer a flow is drawn across (ADR-0002); and the stamping command of ADR-0008, which exists so a page build can never re-stamp what it was meant to show. The stamping *rules* are here and tested; only the command boundary around them is not.
 
 ## Checks
 

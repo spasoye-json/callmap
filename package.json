@@ -20,6 +20,7 @@
   "devDependencies": {
     "@archmap/app": "*",
     "@archmap/canvas-model": "*",
+    "@archmap/discovery": "*",
     "@archmap/extractor-go": "*",
     "@archmap/extractor-ruby": "*",
     "@archmap/extractor-typescript": "*",

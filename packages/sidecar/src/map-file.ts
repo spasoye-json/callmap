@@ -1,0 +1,132 @@
+/**
+ * The map file: the committed record of the map inside the repo it describes (ADR-0007). It is a
+ * directory, so each flow is its own file and a diff shows one flow at a time:
+ *
+ *     .archmap/
+ *       flows/<flow id>.json   one flow document per flow, candidate or traced
+ *       curation.json          the proposed entry points a person rejected
+ *       flow-anchors.json      the anchor stamps (ADR-0008), written by the stamp command
+ *
+ * It holds no absolute path, no reference graph, no key, and no spend: an extractor recomputes the
+ * graph, and the key and the spend belong to the person, not the repo. A dot directory is skipped
+ * by every extractor, so the map file never enters the reference graph it is checked against.
+ */
+
+import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { EMPTY_CURATION, FLOW_ID, parseCuration, serialiseCuration } from '@archmap/discovery';
+import type { CurationRecord } from '@archmap/discovery';
+import { parseFlowDocument } from '@archmap/flow-document';
+import type { FlowDocument, ValidationCode } from '@archmap/flow-document';
+import type { ReferenceGraph } from '@archmap/reference-graph';
+
+export const MAP_DIRECTORY = '.archmap';
+
+/** Every path of the map file, repo-relative, so a later command adds a file beside these. */
+export const MAP_FILE_PATHS = {
+  flows: `${MAP_DIRECTORY}/flows`,
+  curation: `${MAP_DIRECTORY}/curation.json`,
+  anchors: `${MAP_DIRECTORY}/flow-anchors.json`,
+} as const;
+
+export const flowDocumentPath = (flowId: string): string =>
+  `${MAP_FILE_PATHS.flows}/${flowId}.json`;
+
+/** Why a file under `flows/` was refused: a validator code, or a name that is not its flow id. */
+export interface MapFileError {
+  readonly path: string;
+  readonly code: ValidationCode | 'misnamed-file';
+  readonly message: string;
+}
+
+/** A file under `flows/` that was refused, kept so the picker can say why. */
+export interface RefusedFlowFile {
+  /** Repo-relative path of the file. */
+  readonly file: string;
+  readonly errors: readonly MapFileError[];
+}
+
+export interface MapFile {
+  /** Every flow document the validator accepted, in flow id order. */
+  readonly flows: readonly FlowDocument[];
+  readonly refused: readonly RefusedFlowFile[];
+  readonly curation: CurationRecord;
+}
+
+const readTextIfPresent = (path: string): string | null => {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+};
+
+const flowFilesIn = (repo: string): readonly string[] => {
+  try {
+    return readdirSync(join(repo, MAP_FILE_PATHS.flows))
+      .filter((name) => name.endsWith('.json'))
+      .sort();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
+};
+
+/**
+ * Read the map file of a repo. Every flow document is validated against the reference graph as it
+ * stands today, so a flow whose anchor left the graph is refused and listed, not drawn.
+ */
+export const readMapFile = (repo: string, referenceGraph: ReferenceGraph): MapFile => {
+  const flows: FlowDocument[] = [];
+  const refused: RefusedFlowFile[] = [];
+  for (const name of flowFilesIn(repo)) {
+    const file = `${MAP_FILE_PATHS.flows}/${name}`;
+    const result = parseFlowDocument(readFileSync(join(repo, file), 'utf8'), { referenceGraph });
+    if (!result.ok) {
+      refused.push({ file, errors: result.errors });
+    } else if (`${result.document.id}.json` !== name) {
+      refused.push({
+        file,
+        errors: [
+          {
+            path: 'id',
+            code: 'misnamed-file',
+            message: `flow id ${result.document.id} is saved under ${name}, and a flow is saved under its id`,
+          },
+        ],
+      });
+    } else {
+      flows.push(result.document);
+    }
+  }
+  const curationText = readTextIfPresent(join(repo, MAP_FILE_PATHS.curation));
+  return {
+    flows,
+    refused,
+    curation: curationText === null ? EMPTY_CURATION : parseCuration(curationText),
+  };
+};
+
+/** Write through a temporary file, so a reader never finds half a document. */
+const writeAtomically = (path: string, text: string): void => {
+  mkdirSync(dirname(path), { recursive: true });
+  const partial = `${path}.partial`;
+  writeFileSync(partial, text);
+  renameSync(partial, path);
+};
+
+/** Save one flow document under its id, replacing the one saved there before. */
+export const writeFlowDocument = (repo: string, document: FlowDocument): void => {
+  if (!FLOW_ID.test(document.id)) {
+    throw new Error(`flow id ${JSON.stringify(document.id)} cannot name a file`);
+  }
+  writeAtomically(
+    join(repo, flowDocumentPath(document.id)),
+    `${JSON.stringify(document, null, 2)}\n`,
+  );
+};
+
+export const writeCuration = (repo: string, record: CurationRecord): void => {
+  writeAtomically(join(repo, MAP_FILE_PATHS.curation), serialiseCuration(record));
+};

@@ -7,13 +7,26 @@
 import { useState } from 'react';
 import { buildFlowPicker, createFlowLibrary } from '@archmap/flow-library';
 import type { FlowPickerRow } from '@archmap/flow-library';
-import type { ExtractResult, OpenResult, SidecarResponse } from '@archmap/sidecar';
+import type {
+  AccountResult,
+  ExtractResult,
+  MapResult,
+  OpenResult,
+  SidecarResponse,
+} from '@archmap/sidecar';
+import { Discovery, formatUsd } from './Discovery.tsx';
 import type { SidecarClient } from './sidecar-client.ts';
 
 type Session =
   | { readonly state: 'closed' }
   | { readonly state: 'opening' }
-  | { readonly state: 'open'; readonly opened: OpenResult; readonly extracted: ExtractResult }
+  | {
+      readonly state: 'open';
+      readonly opened: OpenResult;
+      readonly extracted: ExtractResult;
+      readonly map: MapResult;
+      readonly account: AccountResult;
+    }
   | { readonly state: 'refused'; readonly message: string };
 
 /** One glob per line or per comma, so a pasted list reads the same as a typed one. */
@@ -29,7 +42,7 @@ const resultOf = <Result,>(response: SidecarResponse<Result>): Result => {
 };
 
 const plural = (count: number, one: string, many: string): string =>
-  `${count} ${count === 1 ? one : many}`;
+  `${String(count)} ${count === 1 ? one : many}`;
 
 const GraphSummary = ({ extracted }: { readonly extracted: ExtractResult }) => (
   <section aria-label="Reference graph" className="summary">
@@ -73,7 +86,9 @@ export const App = ({ client }: { readonly client: SidecarClient }) => {
   const [repo, setRepo] = useState('');
   const [scope, setScope] = useState('');
   const [session, setSession] = useState<Session>({ state: 'closed' });
-  const pickerRows = buildFlowPicker(createFlowLibrary([]));
+  const pickerRows = buildFlowPicker(
+    createFlowLibrary(session.state === 'open' ? session.map.flows : []),
+  );
 
   const open = async (): Promise<void> => {
     setSession({ state: 'opening' });
@@ -87,7 +102,11 @@ export const App = ({ client }: { readonly client: SidecarClient }) => {
           languages: opened.languages,
         }),
       );
-      setSession({ state: 'open', opened, extracted });
+      const map = resultOf(
+        await client.send({ command: 'map', repo: opened.repo, documents: extracted.documents }),
+      );
+      const account = resultOf(await client.send({ command: 'account' }));
+      setSession({ state: 'open', opened, extracted, map, account });
     } catch (error) {
       setSession({
         state: 'refused',
@@ -135,6 +154,12 @@ export const App = ({ client }: { readonly client: SidecarClient }) => {
       {session.state === 'opening' ? <p role="status">Reading the repo</p> : null}
       {session.state === 'refused' ? <p role="alert">{session.message}</p> : null}
       {session.state === 'open' ? (
+        <p className="spend">
+          Spent this month: {formatUsd(session.account.month.usd)} over{' '}
+          {plural(session.account.month.passes, 'pass', 'passes')}
+        </p>
+      ) : null}
+      {session.state === 'open' ? (
         <p className="opened">
           {session.opened.repo}
           {session.opened.scope.length === 0
@@ -144,7 +169,23 @@ export const App = ({ client }: { readonly client: SidecarClient }) => {
       ) : null}
       <div className="workspace">
         <FlowPicker rows={pickerRows} />
-        {session.state === 'open' ? <GraphSummary extracted={session.extracted} /> : null}
+        {session.state === 'open' ? (
+          <div className="panels">
+            <GraphSummary extracted={session.extracted} />
+            <Discovery
+              client={client}
+              repo={session.opened.repo}
+              documents={session.extracted.documents}
+              account={session.account}
+              onAccount={(account) => {
+                setSession((before) => (before.state === 'open' ? { ...before, account } : before));
+              }}
+              onMap={(map) => {
+                setSession((before) => (before.state === 'open' ? { ...before, map } : before));
+              }}
+            />
+          </div>
+        ) : null}
       </div>
     </main>
   );
