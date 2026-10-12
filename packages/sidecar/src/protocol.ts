@@ -69,6 +69,7 @@ export type SidecarErrorCode =
   | 'provider-failed'
   | 'proposal-refused'
   | 'already-curated'
+  | 'malformed-curation'
   | 'map-file-refused'
   | 'unknown-flow'
   | 'already-traced'

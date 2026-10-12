@@ -207,6 +207,23 @@ describe('discovery, curation, and cost through the command surface', () => {
     expect(existsSync(join(repo, '.archmap'))).toBe(false);
   });
 
+  it('refuses a curation record it cannot read as a malformed curation, not a refused proposal', async () => {
+    const h = harness();
+    const { repo, documents } = await opened(h);
+    mkdirSync(join(repo, '.archmap'), { recursive: true });
+    writeFileSync(join(repo, '.archmap/curation.json'), 'not json\n');
+
+    const curating = await h.refusal({
+      command: 'curate',
+      repo,
+      documents,
+      accept: [placeAnOrder],
+      reject: [],
+    });
+    expect(curating.code).toBe('malformed-curation');
+    expect((await h.refusal({ command: 'map', repo, documents })).code).toBe('malformed-curation');
+  });
+
   it('commits the curation results to the map file in the repo', async () => {
     const h = harness();
     const { repo, documents } = await opened(h);

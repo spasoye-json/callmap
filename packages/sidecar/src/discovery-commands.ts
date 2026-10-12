@@ -118,12 +118,7 @@ export const createDiscoveryCommands = (options: AiOptions = {}): ReadonlyMap<st
     try {
       round = curate({ accept, reject }, mapOf(repo, graph), { referenceGraph: graph });
     } catch (error) {
-      if (error instanceof CurationError) {
-        throw new Refusal(
-          error.code === 'already-curated' ? 'already-curated' : 'proposal-refused',
-          error.message,
-        );
-      }
+      if (error instanceof CurationError) throw new Refusal(error.code, error.message);
       throw error;
     }
     for (const candidate of round.candidates) writeFlowDocument(repo, candidate);

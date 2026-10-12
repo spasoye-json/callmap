@@ -51,8 +51,8 @@ export const mapOf = (repo: string, graph: ReferenceGraph): MapFile => {
   try {
     return readMapFile(repo, graph);
   } catch (error) {
-    if (error instanceof CurationError || error instanceof StalenessError)
-      throw new Refusal('map-file-refused', error.message);
+    if (error instanceof CurationError) throw new Refusal(error.code, error.message);
+    if (error instanceof StalenessError) throw new Refusal('map-file-refused', error.message);
     throw error;
   }
 };
