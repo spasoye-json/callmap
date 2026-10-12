@@ -3,3 +3,6 @@ dist/
 target/
 out/
 .env
+
+# Tauri writes its config schemas here on every build.
+packages/app/src-tauri/gen/
