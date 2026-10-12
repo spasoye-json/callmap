@@ -15,6 +15,7 @@ export default tseslint.config(
       'packages/*/fixture/**',
       'packages/*/dist/**',
       'packages/app/src-tauri/**',
+      '.claude/**',
     ],
   },
   js.configs.recommended,
