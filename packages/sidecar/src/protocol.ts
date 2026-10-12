@@ -8,6 +8,7 @@
  */
 
 import type { ReferenceGraphDocument } from '@archmap/reference-graph';
+import type { DiscoveryRequest, DiscoveryResults } from './discovery-protocol.ts';
 
 /** Point the sidecar at a repo, under scope globs, and learn which languages it holds there. */
 export interface OpenRequest {
@@ -54,7 +55,7 @@ export interface ExtractResult {
   readonly summary: ReferenceGraphSummary;
 }
 
-export type SidecarRequest = OpenRequest | ExtractRequest;
+export type SidecarRequest = OpenRequest | ExtractRequest | DiscoveryRequest;
 
 export type SidecarErrorCode =
   | 'malformed-request'
@@ -63,6 +64,11 @@ export type SidecarErrorCode =
   | 'unknown-language'
   | 'extractor-failed'
   | 'graph-refused'
+  | 'no-api-key'
+  | 'provider-failed'
+  | 'proposal-refused'
+  | 'already-curated'
+  | 'map-file-refused'
   | 'internal-error';
 
 export interface SidecarError {
@@ -75,7 +81,7 @@ export type SidecarResponse<Result> =
   | { readonly ok: false; readonly error: SidecarError };
 
 /** What each command answers with, so a client is typed by the command it sends. */
-export interface SidecarResults {
+export interface SidecarResults extends DiscoveryResults {
   readonly open: OpenResult;
   readonly extract: ExtractResult;
 }

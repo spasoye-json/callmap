@@ -4,7 +4,6 @@
  * about standard input or a window, so a test drives the whole surface by calling `handle`.
  */
 
-import { resolve } from 'node:path';
 import {
   readReferenceGraphDocument,
   ReferenceGraphError,
@@ -13,13 +12,18 @@ import {
 import type { ReferenceGraph, ReferenceGraphDocument } from '@archmap/reference-graph';
 import { ExtractorFailure } from './extractors.ts';
 import { REGISTERED_EXTRACTORS } from './registered-extractors.ts';
-import { filesInScope, isDirectory } from './repo.ts';
+import { createDiscoveryCommands } from './discovery-commands.ts';
+import type { AiOptions } from './discovery-commands.ts';
+import { filesInScope } from './repo.ts';
+import { isRecord, Refusal, requireRepo, requireStrings } from './requests.ts';
 import type { ExtractorRegistration, ExtractorRun } from './extractors.ts';
-import type { ExtractResult, OpenResult, SidecarErrorCode, SidecarResponse } from './protocol.ts';
+import type { ExtractResult, OpenResult, SidecarResponse } from './protocol.ts';
 
 export interface SidecarOptions {
   /** The extractors a repo is read with. The ones version one ships, unless a test says otherwise. */
   readonly extractors?: readonly ExtractorRegistration[];
+  /** Where the key and the spend live and which provider a key opens. A test hands in a fake. */
+  readonly ai?: AiOptions;
 }
 
 export interface Sidecar {
@@ -27,48 +31,9 @@ export interface Sidecar {
   handle(request: unknown): Promise<SidecarResponse<unknown>>;
 }
 
-/**
- * A refusal the reader sees. A command throws it, and `handle` turns it into an answer, so every
- * command refuses in the same shape and anything else that throws is not mistaken for one.
- */
-class Refusal extends Error {
-  override readonly name = 'Refusal';
-  readonly code: SidecarErrorCode;
-
-  constructor(code: SidecarErrorCode, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const requireString = (request: Record<string, unknown>, field: string): string => {
-  const value = request[field];
-  if (typeof value !== 'string' || value === '') {
-    throw new Refusal('malformed-request', `'${field}' must be a non-empty string`);
-  }
-  return value;
-};
-
-const requireStrings = (request: Record<string, unknown>, field: string): readonly string[] => {
-  const value = request[field];
-  if (!Array.isArray(value) || !value.every((item) => typeof item === 'string' && item !== '')) {
-    throw new Refusal('malformed-request', `'${field}' must be a list of non-empty strings`);
-  }
-  return value as readonly string[];
-};
-
-/** The repo a request names, as an absolute path, refused when it is not a directory. */
-const requireRepo = (request: Record<string, unknown>): string => {
-  const repo = resolve(requireString(request, 'repo'));
-  if (!isDirectory(repo)) throw new Refusal('repo-not-found', `${repo} is not a directory`);
-  return repo;
-};
-
 export const createSidecar = (options: SidecarOptions = {}): Sidecar => {
   const extractors = options.extractors ?? REGISTERED_EXTRACTORS;
+  const discoveryCommands = createDiscoveryCommands(options.ai);
 
   const open = (request: Record<string, unknown>): OpenResult => {
     const repo = requireRepo(request);
@@ -147,6 +112,9 @@ export const createSidecar = (options: SidecarOptions = {}): Sidecar => {
     const command = request['command'];
     if (command === 'open') return open(request);
     if (command === 'extract') return extract(request);
+    const discoveryCommand =
+      typeof command === 'string' ? discoveryCommands.get(command) : undefined;
+    if (discoveryCommand !== undefined) return discoveryCommand(request);
     throw new Refusal('unknown-command', `'${String(command)}' is not a command the sidecar knows`);
   };
 
