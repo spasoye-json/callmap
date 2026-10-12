@@ -9,7 +9,7 @@ Archmap keeps a true map of a software system, business logic first, so a review
 
 ## Status
 
-The walking skeleton is under way. The core seam modules are ported, as typed TypeScript packages under `packages/`:
+The walking skeleton is done: one flow runs from a TypeScript screen into a Rails controller, through every stage from open to the stale mark. The core seam modules are typed TypeScript packages under `packages/`:
 
 | Package                    | What it owns                                                                       |
 | -------------------------- | ---------------------------------------------------------------------------------- |
@@ -72,6 +72,8 @@ Tracing is lazy (ADR-0005). Opening a candidate in the app shows `estimate-trace
 The map file is the `.archmap/` directory the target repo commits (ADR-0007): `flows/<flow id>.json` holds one flow document per flow, `curation.json` holds the rejected proposals, and `flow-anchors.json` holds the anchor stamps (ADR-0008).
 
 Staleness is a content hash of the anchor set (ADR-0008). After `trace` saves a flow, it stamps that flow and no other: the sha256 of every file the flow's nodes point at goes into `flow-anchors.json`. `map` compares each stamp with the files as they stand now and answers with one mark per flow, so the check runs when the map is read and never on a git event. The picker shows `stale` on a flow whose anchored file changed, is gone, or was gained or dropped, and shows no mark on an unchanged one. A stale flow is marked and never traced again on its own. The stamps hash file bytes and hold no absolute path, so a teammate who clones the repo reads the same map and the same marks with no key and no provider call.
+
+The skeleton's proof is `test/the-skeleton-end-to-end.test.ts`. It drives the sidecar command surface with a fake provider over a copy of the mixed fixture: `open`, `extract`, `discover`, `curate`, `trace` and the stamp it leaves, then a change to an anchored Ruby file that `map` answers with as a stale mark. The traced flow has a TypeScript lane and a Ruby lane, and the only edge between them is an inferred `http` edge, drawn dashed, whose evidence quotes the route line in `shop/config/routes.rb`.
 
 ### How these modules got here
 
