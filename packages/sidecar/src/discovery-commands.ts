@@ -15,6 +15,7 @@ import {
 } from '@archmap/discovery';
 import type { ProposedEntryPoint } from '@archmap/discovery';
 import type { ReferenceGraph } from '@archmap/reference-graph';
+import { marksOf } from './anchors.ts';
 import { writeCuration, writeFlowDocument } from './map-file.ts';
 import { aiRequestOf, createAiAccount, graphOf, mapOf, sourcesOf, withProvider } from './passes.ts';
 import type { AiOptions, Command } from './passes.ts';
@@ -39,6 +40,16 @@ const requireProposals = (
   return value as readonly ProposedEntryPoint[];
 };
 
+const mapResultOf = (repo: string, graph: ReferenceGraph): MapResult => {
+  const map = mapOf(repo, graph);
+  return {
+    flows: map.flows,
+    refused: map.refused,
+    curation: map.curation,
+    marks: marksOf(repo, map),
+  };
+};
+
 export const createDiscoveryCommands = (options: AiOptions = {}): ReadonlyMap<string, Command> => {
   const ai = createAiAccount(options);
 
@@ -49,7 +60,7 @@ export const createDiscoveryCommands = (options: AiOptions = {}): ReadonlyMap<st
 
   const map = (request: Record<string, unknown>): Promise<MapResult> => {
     const repo = requireRepo(request);
-    return Promise.resolve(mapOf(repo, graphOf(request)));
+    return Promise.resolve(mapResultOf(repo, graphOf(request)));
   };
 
   const estimateDiscovery = async (request: Record<string, unknown>): Promise<EstimateResult> => {
@@ -117,7 +128,7 @@ export const createDiscoveryCommands = (options: AiOptions = {}): ReadonlyMap<st
     }
     for (const candidate of round.candidates) writeFlowDocument(repo, candidate);
     if (reject.length > 0) writeCuration(repo, round.curation);
-    return Promise.resolve(mapOf(repo, graph));
+    return Promise.resolve(mapResultOf(repo, graph));
   };
 
   const account = (): Promise<AccountResult> =>

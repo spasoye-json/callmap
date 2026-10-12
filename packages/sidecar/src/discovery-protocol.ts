@@ -15,9 +15,13 @@ import type {
 } from '@archmap/discovery';
 import type { FlowDocument } from '@archmap/flow-document';
 import type { ReferenceGraphDocument } from '@archmap/reference-graph';
+import type { StalenessMark } from '@archmap/staleness';
 import type { RefusedFlowFile } from './map-file.ts';
 
-/** Read the map file the repo commits: its flow documents and its curation record. */
+/**
+ * Read the map file the repo commits: its flow documents and its curation record, with every flow
+ * marked against the files as they stand now.
+ */
 export interface MapRequest {
   readonly command: 'map';
   readonly repo: string;
@@ -29,6 +33,8 @@ export interface MapResult {
   readonly flows: readonly FlowDocument[];
   readonly refused: readonly RefusedFlowFile[];
   readonly curation: CurationRecord;
+  /** One mark per flow, in id order. A stale flow is marked here and never traced again. */
+  readonly marks: readonly StalenessMark[];
 }
 
 /** Count what a discovery pass would cost, without running it. */

@@ -129,7 +129,7 @@ describe('discovery, curation, and cost through the command surface', () => {
     const { repo, documents } = await opened(h);
 
     const before = await h.send<MapResult>({ command: 'map', repo, documents });
-    expect(before).toEqual({ flows: [], refused: [], curation: { rejected: [] } });
+    expect(before).toEqual({ flows: [], refused: [], curation: { rejected: [] }, marks: [] });
 
     await h.send<AccountResult>({ command: 'set-key', key: API_KEY });
     const estimate = await h.send<EstimateResult>({
@@ -162,6 +162,7 @@ describe('discovery, curation, and cost through the command surface', () => {
       flows: [candidate],
       refused: [],
       curation: { rejected: [printAReceipt] },
+      marks: [{ flowId: 'place-an-order', state: 'candidate', reasons: [] }],
     });
 
     const after = await h.send<MapResult>({ command: 'map', repo, documents });

@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { addSpend, CurationError, monthOf, spendIn } from '@archmap/discovery';
 import type { MonthlySpend, SourceFile, TokenUsage } from '@archmap/discovery';
 import { ReferenceGraphError, referenceGraphFromDocuments } from '@archmap/reference-graph';
+import { StalenessError } from '@archmap/staleness';
 import type { ReferenceGraph } from '@archmap/reference-graph';
 import { createAnthropicProvider } from './anthropic-provider.ts';
 import { createLocalStore, defaultConfigDir } from './local-store.ts';
@@ -50,7 +51,8 @@ export const mapOf = (repo: string, graph: ReferenceGraph): MapFile => {
   try {
     return readMapFile(repo, graph);
   } catch (error) {
-    if (error instanceof CurationError) throw new Refusal('map-file-refused', error.message);
+    if (error instanceof CurationError || error instanceof StalenessError)
+      throw new Refusal('map-file-refused', error.message);
     throw error;
   }
 };
