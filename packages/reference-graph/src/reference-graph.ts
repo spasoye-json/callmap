@@ -8,6 +8,14 @@
  * extractor already emitted.
  */
 
+import {
+  EDGE_FIELDS,
+  ReferenceGraphError,
+  requireArray,
+  requireFields,
+  requireNonEmpty,
+} from './contract.ts';
+
 /** The tag an extractor stamps on the files it claims, such as `typescript` or `ruby`. */
 export type LanguageTag = string;
 
@@ -27,11 +35,6 @@ export interface ReferenceEdge {
 export interface ReferenceGraphInput {
   readonly files: readonly ReferenceGraphFile[];
   readonly edges: readonly ReferenceEdge[];
-}
-
-/** Thrown when an extractor's output cannot form a graph. */
-export class ReferenceGraphError extends Error {
-  override readonly name = 'ReferenceGraphError';
 }
 
 /**
@@ -63,42 +66,8 @@ const comparePaths = (left: string, right: string): number =>
 const byPath = (a: ReferenceGraphFile, b: ReferenceGraphFile): number =>
   comparePaths(a.path, b.path);
 
-const requireNonEmpty = (value: unknown, what: string): string => {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new ReferenceGraphError(`${what} must be a non-empty string`);
-  }
-  return value;
-};
-
-type Fields = Record<string, unknown>;
-
 const OUTPUT_FIELDS: readonly string[] = ['files', 'edges'];
 const FILE_FIELDS: readonly string[] = ['path', 'language'];
-const EDGE_FIELDS: readonly string[] = ['from', 'to'];
-
-const requireFields = (value: unknown, what: string, allowed: readonly string[]): Fields => {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new ReferenceGraphError(`${what} must be an object`);
-  }
-  const fields = value as Fields;
-  for (const key of Object.keys(fields)) {
-    if (!allowed.includes(key)) {
-      throw new ReferenceGraphError(`${what} carries '${key}', which the contract does not allow`);
-    }
-  }
-  return fields;
-};
-
-const requireArray = (fields: Fields, key: string, what: string): readonly unknown[] => {
-  if (!Object.hasOwn(fields, key)) {
-    throw new ReferenceGraphError(`${what} must name its '${key}'`);
-  }
-  const value = fields[key];
-  if (!Array.isArray(value)) {
-    throw new ReferenceGraphError(`the '${key}' ${what} names must be an array`);
-  }
-  return value as readonly unknown[];
-};
 
 /**
  * Read one extractor's output against the contract.

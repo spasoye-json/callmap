@@ -58,6 +58,14 @@ _Avoid_: import graph, dependency graph, module graph, call graph
 The per-language pass that produces the reference graph. The core never reads source code, only what an extractor emits.
 _Avoid_: parser, analyzer, scanner
 
+**Reference graph document**:
+What one extractor emits for one repo: the files it claims, the reference edges between them, its language tag, and the scope it was built under. The core owns the contract and every extractor conforms to it.
+_Avoid_: graph JSON, payload, manifest
+
+**Scope**:
+The globs an extractor is run under, which limit which files enter its document, so a monorepo is mapped one subtree at a time. A document built under no glob was built over the whole repo.
+_Avoid_: filter, include path, root
+
 **Edge**:
 A link from one node to the next in a flow.
 _Avoid_: arrow, transition, connection
