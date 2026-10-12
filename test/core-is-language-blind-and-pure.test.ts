@@ -114,7 +114,7 @@ describe('the ported core', () => {
 
 describe('the extractors it ships', () => {
   it('holds one package per language version one supports, so far', () => {
-    expect(extractorPackages).toEqual(['extractor-typescript']);
+    expect(extractorPackages).toEqual(['extractor-ruby', 'extractor-typescript']);
   });
 
   it.each(extractorPackages)('%s is the side of the contract that reads a repo', (name) => {
