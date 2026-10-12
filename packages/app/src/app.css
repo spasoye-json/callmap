@@ -250,6 +250,19 @@ body {
   font-size: 12px;
 }
 
+.picker .refused h3 {
+  margin: 12px 0 4px;
+  font-size: 13px;
+}
+
+.picker .refused li {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .trace,
 .flow-canvas {
   padding: 12px;

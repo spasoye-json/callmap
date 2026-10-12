@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { appendFileSync, cpSync, mkdtempSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  MIXED_ORDER,
   MIXED_ORDERS_CONTROLLER,
   placeAnOrderProposal,
   placeAnOrderTraceAnswer,
@@ -86,5 +87,33 @@ describe('the stale mark in the flow picker', { timeout: 4 * OPEN_TIMEOUT_MS }, 
 
     const picker = await openRepo(repo);
     expect(within(rowOf(picker, /Place an order/)).getByText('stale')).toBeTruthy();
+  });
+
+  it('marks the flow stale once an anchored file is gone, and keeps it in the picker', async () => {
+    const { repo, sidecar } = await tracedRepo();
+    rmSync(join(repo, MIXED_ORDER));
+    render(<App client={{ send: (request) => sidecar.handle(request) } as SidecarClient} />);
+
+    const picker = await openRepo(repo);
+    expect(within(rowOf(picker, /Place an order/)).getByText('stale')).toBeTruthy();
+  });
+});
+
+describe('a flow file the map cannot read', { timeout: 4 * OPEN_TIMEOUT_MS }, () => {
+  it('is listed in the picker with the reason it was refused', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'archmap-refused-repo-'));
+    cpSync(MIXED_FIXTURE, repo, { recursive: true });
+    mkdirSync(join(repo, '.archmap/flows'), { recursive: true });
+    writeFileSync(join(repo, '.archmap/flows/broken.json'), 'not json\n');
+    const sidecar = createSidecar({
+      ai: { configDir: mkdtempSync(join(tmpdir(), 'archmap-refused-config-')) },
+    });
+    render(<App client={{ send: (request) => sidecar.handle(request) } as SidecarClient} />);
+
+    const refused = within(await openRepo(repo)).getByRole('region', {
+      name: 'Refused flow files',
+    });
+    expect(within(refused).getByText('.archmap/flows/broken.json')).toBeTruthy();
+    expect(within(refused).getByText(/not valid JSON/)).toBeTruthy();
   });
 });
