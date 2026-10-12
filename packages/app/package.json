@@ -9,8 +9,12 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@archmap/canvas-model": "*",
+    "@archmap/flow-document": "*",
     "@archmap/flow-library": "*",
+    "@archmap/layout": "*",
     "@tauri-apps/api": "^2.12.3",
+    "cytoscape": "^3.34.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
