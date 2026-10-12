@@ -7,15 +7,14 @@
 
 import type {
   AlreadyCurated,
-  CostEstimate,
   CurationRecord,
-  MonthlySpend,
   ProposalRejection,
   ProposedEntryPoint,
 } from '@archmap/discovery';
 import type { FlowDocument } from '@archmap/flow-document';
 import type { ReferenceGraphDocument } from '@archmap/reference-graph';
 import type { StalenessMark } from '@archmap/staleness';
+import type { CostEstimate, EstimateResult, MonthlySpend } from './cost-protocol.ts';
 import type { RefusedFlowFile } from './map-file.ts';
 
 /**
@@ -42,12 +41,6 @@ export interface EstimateDiscoveryRequest {
   readonly command: 'estimate-discovery';
   readonly repo: string;
   readonly documents: readonly ReferenceGraphDocument[];
-}
-
-export interface EstimateResult {
-  readonly estimate: CostEstimate;
-  /** The month so far, before this pass. */
-  readonly month: MonthlySpend;
 }
 
 /** Run the discovery pass and answer with the proposals still to curate. */

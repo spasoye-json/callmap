@@ -4,17 +4,14 @@
  * about standard input or a window, so a test drives the whole surface by calling `handle`.
  */
 
-import {
-  readReferenceGraphDocument,
-  ReferenceGraphError,
-  referenceGraphFromDocuments,
-} from '@archmap/reference-graph';
-import type { ReferenceGraph, ReferenceGraphDocument } from '@archmap/reference-graph';
+import { readReferenceGraphDocument, ReferenceGraphError } from '@archmap/reference-graph';
+import type { ReferenceGraphDocument } from '@archmap/reference-graph';
 import { ExtractorFailure } from './extractors.ts';
 import { REGISTERED_EXTRACTORS } from './registered-extractors.ts';
 import { createDiscoveryCommands } from './discovery-commands.ts';
 import { createEditorCommands, systemUrlOpener } from './editor.ts';
 import type { UrlOpener } from './editor.ts';
+import { mergedGraphOf } from './passes.ts';
 import type { AiOptions } from './passes.ts';
 import { createTraceCommands } from './trace-commands.ts';
 import { filesInScope } from './repo.ts';
@@ -95,13 +92,7 @@ export const createSidecar = (options: SidecarOptions = {}): Sidecar => {
     const documents = await Promise.all(
       chosen.map((extractor) => documentOf(extractor, { repo, scope })),
     );
-    let graph: ReferenceGraph;
-    try {
-      graph = referenceGraphFromDocuments(...documents);
-    } catch (error) {
-      if (error instanceof ReferenceGraphError) throw new Refusal('graph-refused', error.message);
-      throw error;
-    }
+    const graph = mergedGraphOf(documents);
     return {
       documents,
       summary: {

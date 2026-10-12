@@ -9,7 +9,6 @@ import {
   CurationError,
   DiscoveryError,
   discoveryPrompt,
-  estimateOf,
   pendingProposals,
   readDiscoveryAnswer,
 } from '@archmap/discovery';
@@ -17,15 +16,11 @@ import type { ProposedEntryPoint } from '@archmap/discovery';
 import type { ReferenceGraph } from '@archmap/reference-graph';
 import { marksOf } from './anchors.ts';
 import { writeCuration, writeFlowDocument } from './map-file.ts';
-import { aiRequestOf, createAiAccount, graphOf, mapOf, sourcesOf, withProvider } from './passes.ts';
+import { createAiAccount, graphOf, mapOf, passRequestOf, sourcesOf } from './passes.ts';
 import type { AiOptions, Command } from './passes.ts';
 import { Refusal, requireRepo, requireString } from './requests.ts';
-import type {
-  AccountResult,
-  DiscoverResult,
-  EstimateResult,
-  MapResult,
-} from './discovery-protocol.ts';
+import type { EstimateResult } from './cost-protocol.ts';
+import type { AccountResult, DiscoverResult, MapResult } from './discovery-protocol.ts';
 
 export type { AiOptions } from './passes.ts';
 
@@ -53,45 +48,24 @@ const mapResultOf = (repo: string, graph: ReferenceGraph): MapResult => {
 export const createDiscoveryCommands = (options: AiOptions = {}): ReadonlyMap<string, Command> => {
   const ai = createAiAccount(options);
 
-  const discoveryRequest = (repo: string, graph: ReferenceGraph) => {
-    const prompt = discoveryPrompt({ referenceGraph: graph, sources: sourcesOf(repo, graph) });
-    return { request: aiRequestOf(prompt), expectedOutputTokens: prompt.expectedOutputTokens };
-  };
+  const discoveryPass = (repo: string, graph: ReferenceGraph) => () =>
+    passRequestOf(discoveryPrompt({ referenceGraph: graph, sources: sourcesOf(repo, graph) }));
 
   const map = (request: Record<string, unknown>): Promise<MapResult> => {
     const repo = requireRepo(request);
     return Promise.resolve(mapResultOf(repo, graphOf(request)));
   };
 
-  const estimateDiscovery = async (request: Record<string, unknown>): Promise<EstimateResult> => {
+  const estimateDiscovery = (request: Record<string, unknown>): Promise<EstimateResult> => {
     const repo = requireRepo(request);
-    const graph = graphOf(request);
-    const provider = ai.provider();
-    const { request: aiRequest, expectedOutputTokens } = discoveryRequest(repo, graph);
-    const inputTokens = await withProvider(() => provider.countInputTokens(aiRequest));
-    return {
-      estimate: estimateOf(
-        provider.model,
-        { inputTokens, outputTokens: expectedOutputTokens },
-        provider.price,
-      ),
-      month: ai.thisMonth(),
-    };
+    return ai.estimate(discoveryPass(repo, graphOf(request)));
   };
 
-  /**
-   * The spend is recorded before the answer is read: the tokens are spent whether or not the
-   * answer can be read, and the monthly total must not hide a failed pass.
-   */
   const discover = async (request: Record<string, unknown>): Promise<DiscoverResult> => {
     const repo = requireRepo(request);
     const graph = graphOf(request);
     const curated = mapOf(repo, graph);
-    const provider = ai.provider();
-    const answer = await withProvider(() =>
-      provider.complete(discoveryRequest(repo, graph).request),
-    );
-    const month = ai.recordSpend(answer);
+    const answer = await ai.run(discoveryPass(repo, graph));
     let reading;
     try {
       reading = readDiscoveryAnswer(answer.text, { referenceGraph: graph });
@@ -104,8 +78,8 @@ export const createDiscoveryCommands = (options: AiOptions = {}): ReadonlyMap<st
       proposals: pending,
       rejections: reading.rejections,
       alreadyCurated,
-      spent: estimateOf(answer.model, answer.usage, answer.price),
-      month,
+      spent: answer.spent,
+      month: answer.month,
     };
   };
 

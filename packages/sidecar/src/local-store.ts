@@ -7,8 +7,8 @@
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { parseSpend, serialiseSpend } from '@archmap/discovery';
-import type { SpendRecord } from '@archmap/discovery';
+import { parseSpend, serialiseSpend } from '@archmap/cost';
+import type { SpendRecord } from '@archmap/cost';
 
 const CREDENTIALS_FILE = 'credentials.json';
 const SPEND_FILE = 'spend.json';

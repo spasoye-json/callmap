@@ -5,7 +5,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import type { TokenPrice } from '@archmap/discovery';
+import type { TokenPrice } from '@archmap/cost';
 import { ProviderFailure } from './provider.ts';
 import type { AiAnswer, AiProvider, AiRequest } from './provider.ts';
 

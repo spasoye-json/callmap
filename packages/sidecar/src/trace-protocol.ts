@@ -4,10 +4,9 @@
  * its id in the map file. Types only, so the UI imports them by type.
  */
 
-import type { CostEstimate, MonthlySpend } from '@archmap/discovery';
 import type { FlowDocument } from '@archmap/flow-document';
 import type { ReferenceGraphDocument } from '@archmap/reference-graph';
-import type { EstimateResult } from './discovery-protocol.ts';
+import type { CostEstimate, EstimateResult, MonthlySpend } from './cost-protocol.ts';
 
 /** Count what the trace of one candidate would cost, without running it. */
 export interface EstimateTraceRequest {

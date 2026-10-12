@@ -4,7 +4,7 @@
  * every test, so no test reaches the network or spends a token.
  */
 
-import type { TokenPrice, TokenUsage } from '@archmap/discovery';
+import type { TokenPrice, TokenUsage } from '@archmap/cost';
 
 /** One request to a model: instructions, the material, and the answer shape asked for. */
 export interface AiRequest {

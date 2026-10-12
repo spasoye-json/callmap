@@ -17,6 +17,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
     "@archmap/canvas-model": "*",
+    "@archmap/cost": "*",
     "@archmap/discovery": "*",
     "@archmap/extractor-go": "*",
     "@archmap/extractor-ruby": "*",

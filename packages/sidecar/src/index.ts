@@ -14,6 +14,7 @@ export {
   typescriptExtractor,
 } from './registered-extractors.ts';
 export type * from './protocol.ts';
+export type { EstimateResult } from './cost-protocol.ts';
 export type * from './discovery-protocol.ts';
 export type * from './trace-protocol.ts';
 export { createAnthropicProvider, DEFAULT_MODEL } from './anthropic-provider.ts';

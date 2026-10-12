@@ -3,7 +3,7 @@
  * token, which is enough for a cost to be non-zero and to grow with the request.
  */
 
-import type { TokenPrice } from '@archmap/discovery';
+import type { TokenPrice } from '@archmap/cost';
 import type { AiAnswer, AiProvider, AiRequest } from './provider.ts';
 
 export interface FakeProviderOptions {

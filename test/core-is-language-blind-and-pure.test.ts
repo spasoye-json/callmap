@@ -82,6 +82,7 @@ describe('the ported core', () => {
   it('holds every seam module the skeleton needs', () => {
     expect(corePackages).toEqual([
       'canvas-model',
+      'cost',
       'discovery',
       'flow-document',
       'flow-library',
