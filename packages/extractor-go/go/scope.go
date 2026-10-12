@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// The glob rule of every extractor, ported from packages/extractor-typescript/src/scope.ts so that
+// The glob rule of every extractor, ported from packages/scope/src/scope.ts so that
 // one scope takes the same files whichever language reads it: `*` inside one segment, `**` across
 // segments, `?` for one character inside a segment, everything else literal, whole path only.
 

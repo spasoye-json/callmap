@@ -15,10 +15,11 @@ import type {
   ExtractResult,
   MapResult,
   OpenResult,
-  SidecarResponse,
+  RefusedFlowFile,
 } from '@archmap/sidecar';
-import { Discovery, formatUsd } from './Discovery.tsx';
+import { Discovery } from './Discovery.tsx';
 import { FlowCanvas } from './FlowCanvas.tsx';
+import { formatUsd, plural, resultOf } from './shared.tsx';
 import { Trace } from './Trace.tsx';
 import type { SidecarClient } from './sidecar-client.ts';
 
@@ -41,14 +42,6 @@ const globsOf = (text: string): readonly string[] =>
     .map((glob) => glob.trim())
     .filter((glob) => glob !== '');
 
-const resultOf = <Result,>(response: SidecarResponse<Result>): Result => {
-  if (!response.ok) throw new Error(response.error.message);
-  return response.result;
-};
-
-const plural = (count: number, one: string, many: string): string =>
-  `${String(count)} ${count === 1 ? one : many}`;
-
 const GraphSummary = ({ extracted }: { readonly extracted: ExtractResult }) => (
   <section aria-label="Reference graph" className="summary">
     <h2>Reference graph</h2>
@@ -69,12 +62,30 @@ const GraphSummary = ({ extracted }: { readonly extracted: ExtractResult }) => (
   </section>
 );
 
+/** A flow file the map could not read stays in view, so a broken file is never lost silently. */
+const RefusedFlows = ({ refused }: { readonly refused: readonly RefusedFlowFile[] }) =>
+  refused.length === 0 ? null : (
+    <section aria-label="Refused flow files" className="refused">
+      <h3>Refused flow files</h3>
+      <ul>
+        {refused.map((flowFile) => (
+          <li key={flowFile.file}>
+            <code>{flowFile.file}</code>
+            <span>{flowFile.errors.map((error) => error.message).join('; ')}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+
 const FlowPicker = ({
   rows,
+  refused,
   openId,
   onOpen,
 }: {
   readonly rows: readonly FlowPickerRow[];
+  readonly refused: readonly RefusedFlowFile[];
   readonly openId: string | null;
   readonly onOpen: (flowId: string) => void;
 }) => (
@@ -100,6 +111,7 @@ const FlowPicker = ({
         ))}
       </ul>
     )}
+    <RefusedFlows refused={refused} />
   </nav>
 );
 
@@ -120,6 +132,7 @@ export const App = ({ client }: { readonly client: SidecarClient }) => {
     setEditorProblem(null);
     const response = await client.send({
       command: 'open-in-editor',
+      repo: repoRoot,
       url: editorUrl(repoRoot, anchor),
     });
     if (!response.ok) setEditorProblem(response.error.message);
@@ -211,7 +224,12 @@ export const App = ({ client }: { readonly client: SidecarClient }) => {
         </p>
       ) : null}
       <div className="workspace">
-        <FlowPicker rows={pickerRows} openId={openId} onOpen={setOpenId} />
+        <FlowPicker
+          rows={pickerRows}
+          refused={session.state === 'open' ? session.map.refused : []}
+          openId={openId}
+          onOpen={setOpenId}
+        />
         {session.state === 'open' ? (
           <div className="panels">
             {editorProblem === null ? null : <p role="alert">{editorProblem}</p>}

@@ -20,6 +20,7 @@
   "devDependencies": {
     "@archmap/app": "*",
     "@archmap/canvas-model": "*",
+    "@archmap/cost": "*",
     "@archmap/discovery": "*",
     "@archmap/extractor-go": "*",
     "@archmap/extractor-ruby": "*",
@@ -28,6 +29,7 @@
     "@archmap/flow-library": "*",
     "@archmap/layout": "*",
     "@archmap/reference-graph": "*",
+    "@archmap/scope": "*",
     "@archmap/sidecar": "*",
     "@archmap/staleness": "*",
     "@archmap/testing": "*",

@@ -1,13 +1,12 @@
 /**
- * The commands of the lazy trace and the editor door (ADR-0005, ADR-0006). A trace command takes
+ * The commands of the lazy trace (ADR-0005). A trace command takes
  * back the documents an extract answered with, like every discovery command, and names the flow by
  * its id in the map file. Types only, so the UI imports them by type.
  */
 
-import type { CostEstimate, MonthlySpend } from '@archmap/discovery';
 import type { FlowDocument } from '@archmap/flow-document';
 import type { ReferenceGraphDocument } from '@archmap/reference-graph';
-import type { EstimateResult } from './discovery-protocol.ts';
+import type { CostEstimate, EstimateResult, MonthlySpend } from './cost-protocol.ts';
 
 /** Count what the trace of one candidate would cost, without running it. */
 export interface EstimateTraceRequest {
@@ -34,20 +33,9 @@ export interface TraceResult {
   readonly month: MonthlySpend;
 }
 
-/** Hand an editor deep link to the system, which opens the editor at the file and line. */
-export interface OpenInEditorRequest {
-  readonly command: 'open-in-editor';
-  readonly url: string;
-}
-
-export interface OpenInEditorResult {
-  readonly opened: string;
-}
-
-export type TraceCommandRequest = EstimateTraceRequest | TraceRequest | OpenInEditorRequest;
+export type TracePassRequest = EstimateTraceRequest | TraceRequest;
 
 export interface TraceResults {
   readonly 'estimate-trace': EstimateResult;
   readonly trace: TraceResult;
-  readonly 'open-in-editor': OpenInEditorResult;
 }

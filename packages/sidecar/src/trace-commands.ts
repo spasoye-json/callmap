@@ -4,7 +4,6 @@
  * its candidate in the map file, so reopening it reads the file and calls no provider.
  */
 
-import { estimateOf } from '@archmap/discovery';
 import { isTracedFlow } from '@archmap/flow-document';
 import type { FlowDocument } from '@archmap/flow-document';
 import type { ReferenceGraph } from '@archmap/reference-graph';
@@ -12,10 +11,10 @@ import { readTraceAnswer, tracePrompt } from '@archmap/trace';
 import type { TraceRefusal } from '@archmap/trace';
 import { stampTracedFlow } from './anchors.ts';
 import { writeFlowDocument } from './map-file.ts';
-import { aiRequestOf, createAiAccount, graphOf, mapOf, sourcesOf, withProvider } from './passes.ts';
+import { createAiAccount, graphOf, mapOf, passRequestOf, sourcesOf } from './passes.ts';
 import type { AiOptions, Command } from './passes.ts';
 import { Refusal, requireRepo, requireString } from './requests.ts';
-import type { EstimateResult } from './discovery-protocol.ts';
+import type { EstimateResult } from './cost-protocol.ts';
 import type { TraceResult } from './trace-protocol.ts';
 
 /**
@@ -54,41 +53,21 @@ const saveTracedFlow = (repo: string, graph: ReferenceGraph, flow: FlowDocument)
 export const createTraceCommands = (options: AiOptions = {}): ReadonlyMap<string, Command> => {
   const ai = createAiAccount(options);
 
-  const traceRequest = (repo: string, graph: ReferenceGraph, flow: FlowDocument) => {
-    const prompt = tracePrompt({ flow, referenceGraph: graph, sources: sourcesOf(repo, graph) });
-    return { request: aiRequestOf(prompt), expectedOutputTokens: prompt.expectedOutputTokens };
-  };
+  const tracePass = (repo: string, graph: ReferenceGraph, flow: FlowDocument) => () =>
+    passRequestOf(tracePrompt({ flow, referenceGraph: graph, sources: sourcesOf(repo, graph) }));
 
-  const estimateTrace = async (request: Record<string, unknown>): Promise<EstimateResult> => {
+  const estimateTrace = (request: Record<string, unknown>): Promise<EstimateResult> => {
     const repo = requireRepo(request);
     const graph = graphOf(request);
     const flow = candidateNamed(repo, graph, requireString(request, 'flowId'));
-    const provider = ai.provider();
-    const { request: aiRequest, expectedOutputTokens } = traceRequest(repo, graph, flow);
-    const inputTokens = await withProvider(() => provider.countInputTokens(aiRequest));
-    return {
-      estimate: estimateOf(
-        provider.model,
-        { inputTokens, outputTokens: expectedOutputTokens },
-        provider.price,
-      ),
-      month: ai.thisMonth(),
-    };
+    return ai.estimate(tracePass(repo, graph, flow));
   };
 
-  /**
-   * The spend is recorded before the answer is read, as for discovery: a refused trace still
-   * spent its tokens, and the monthly total must not hide it.
-   */
   const trace = async (request: Record<string, unknown>): Promise<TraceResult> => {
     const repo = requireRepo(request);
     const graph = graphOf(request);
     const flow = candidateNamed(repo, graph, requireString(request, 'flowId'));
-    const provider = ai.provider();
-    const answer = await withProvider(() =>
-      provider.complete(traceRequest(repo, graph, flow).request),
-    );
-    const month = ai.recordSpend(answer.usage, provider);
+    const answer = await ai.run(tracePass(repo, graph, flow));
     const reading = readTraceAnswer(answer.text, { flow, referenceGraph: graph });
     if (!reading.ok) {
       throw new Refusal(
@@ -97,11 +76,7 @@ export const createTraceCommands = (options: AiOptions = {}): ReadonlyMap<string
       );
     }
     saveTracedFlow(repo, graph, reading.document);
-    return {
-      flow: reading.document,
-      spent: estimateOf(provider.model, answer.usage, provider.price),
-      month,
-    };
+    return { flow: reading.document, spent: answer.spent, month: answer.month };
   };
 
   return new Map<string, Command>([

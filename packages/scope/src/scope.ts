@@ -1,6 +1,6 @@
 /**
- * Scope globs: what an extractor was pointed at, so a monorepo is mapped one subtree at a time
- * (ADR-0009).
+ * Scope globs: what a repo was opened under, so a monorepo is mapped one subtree at a time
+ * (ADR-0009, ADR-0011). The host and every extractor read a scope through this one reader.
  *
  * The syntax is the small part of glob a scope needs and no more: `*` for anything inside one path
  * segment, `**` for anything across segments, `?` for one character inside a segment. Everything
@@ -29,8 +29,8 @@ const globPattern = (glob: string): string =>
     .join('');
 
 /**
- * Whether a repo-relative path is in scope. An empty scope narrows nothing, so every file the
- * extractor understands is in it.
+ * Whether a repo-relative path is in scope. An empty scope narrows nothing, so every file of the
+ * repo is in it.
  */
 export const inScope = (path: string, scope: readonly string[]): boolean =>
   scope.length === 0 || scope.some((glob) => new RegExp(`^${globPattern(glob)}$`).test(path));

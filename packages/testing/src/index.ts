@@ -29,3 +29,11 @@ export {
   placeAnOrderTraceAnswer,
   placeAnOrderTraced,
 } from './mixed-flow.ts';
+export {
+  curatePlaceAnOrder,
+  extractedDocuments,
+  resultOfCommand,
+  TEST_API_KEY,
+  tracePlaceAnOrder,
+} from './command-chain.ts';
+export type { CommandAnswer, CommandSurface } from './command-chain.ts';

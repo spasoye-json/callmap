@@ -9,7 +9,8 @@
 
 import type { ReferenceGraphDocument } from '@archmap/reference-graph';
 import type { DiscoveryRequest, DiscoveryResults } from './discovery-protocol.ts';
-import type { TraceCommandRequest, TraceResults } from './trace-protocol.ts';
+import type { EditorResults, OpenInEditorRequest } from './editor-protocol.ts';
+import type { TracePassRequest, TraceResults } from './trace-protocol.ts';
 
 /** Point the sidecar at a repo, under scope globs, and learn which languages it holds there. */
 export interface OpenRequest {
@@ -56,7 +57,8 @@ export interface ExtractResult {
   readonly summary: ReferenceGraphSummary;
 }
 
-export type SidecarRequest = OpenRequest | ExtractRequest | DiscoveryRequest | TraceCommandRequest;
+export type SidecarRequest =
+  OpenRequest | ExtractRequest | DiscoveryRequest | TracePassRequest | OpenInEditorRequest;
 
 export type SidecarErrorCode =
   | 'malformed-request'
@@ -69,10 +71,12 @@ export type SidecarErrorCode =
   | 'provider-failed'
   | 'proposal-refused'
   | 'already-curated'
+  | 'malformed-curation'
   | 'map-file-refused'
   | 'unknown-flow'
   | 'already-traced'
   | 'trace-refused'
+  | 'outside-repo'
   | 'editor-failed'
   | 'internal-error';
 
@@ -86,7 +90,7 @@ export type SidecarResponse<Result> =
   | { readonly ok: false; readonly error: SidecarError };
 
 /** What each command answers with, so a client is typed by the command it sends. */
-export interface SidecarResults extends DiscoveryResults, TraceResults {
+export interface SidecarResults extends DiscoveryResults, TraceResults, EditorResults {
   readonly open: OpenResult;
   readonly extract: ExtractResult;
 }

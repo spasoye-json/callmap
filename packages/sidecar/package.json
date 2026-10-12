@@ -16,12 +16,15 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
+    "@archmap/canvas-model": "*",
+    "@archmap/cost": "*",
     "@archmap/discovery": "*",
     "@archmap/extractor-go": "*",
     "@archmap/extractor-ruby": "*",
     "@archmap/extractor-typescript": "*",
     "@archmap/flow-document": "*",
     "@archmap/reference-graph": "*",
+    "@archmap/scope": "*",
     "@archmap/staleness": "*",
     "@archmap/trace": "*"
   }

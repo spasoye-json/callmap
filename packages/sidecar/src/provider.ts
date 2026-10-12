@@ -4,7 +4,7 @@
  * every test, so no test reaches the network or spends a token.
  */
 
-import type { TokenPrice, TokenUsage } from '@archmap/discovery';
+import type { TokenPrice, TokenUsage } from '@archmap/cost';
 
 /** One request to a model: instructions, the material, and the answer shape asked for. */
 export interface AiRequest {
@@ -17,6 +17,10 @@ export interface AiRequest {
 export interface AiAnswer {
   readonly text: string;
   readonly usage: TokenUsage;
+  /** The model that wrote the answer, which a server-side fallback can make another model. */
+  readonly model: string;
+  /** The price the answer is billed at: the price of the model that wrote it. */
+  readonly price: TokenPrice;
 }
 
 export interface AiProvider {

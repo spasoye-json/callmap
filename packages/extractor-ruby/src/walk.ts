@@ -4,14 +4,7 @@
  */
 
 import { readdirSync } from 'node:fs';
-
-/**
- * Directories that hold no source of the repo being mapped. `vendor` is where Bundler installs
- * other people's gems, `node_modules` holds other people's packages, and a dot directory holds a
- * tool's bookkeeping.
- */
-const skipped = (name: string): boolean =>
-  name === 'vendor' || name === 'node_modules' || name.startsWith('.');
+import { isSkippedDirectory } from '@archmap/scope';
 
 /**
  * Every Ruby file of the repo by repo-relative path, in path order, whatever the scope. Zeitwerk
@@ -25,7 +18,7 @@ export const rubyFilesOf = (repo: string): readonly string[] => {
 
   const walk = (directory: string): void => {
     for (const entry of readdirSync(`${repo}/${directory}`, { withFileTypes: true })) {
-      if (skipped(entry.name)) continue;
+      if (isSkippedDirectory(entry.name)) continue;
       const path = directory === '' ? entry.name : `${directory}/${entry.name}`;
       if (entry.isDirectory()) walk(path);
       else if (entry.isFile() && entry.name.endsWith('.rb')) found.push(path);

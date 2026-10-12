@@ -12,12 +12,19 @@
  * by every extractor, so the map file never enters the reference graph it is checked against.
  */
 
-import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { EMPTY_CURATION, FLOW_ID, parseCuration, serialiseCuration } from '@archmap/discovery';
 import type { CurationRecord } from '@archmap/discovery';
-import { parseFlowDocument } from '@archmap/flow-document';
-import type { FlowDocument, ValidationCode } from '@archmap/flow-document';
+import { parseFlowDocument, validateFlowDocument } from '@archmap/flow-document';
+import type { FlowDocument, ValidationCode, ValidationResult } from '@archmap/flow-document';
 import type { ReferenceGraph } from '@archmap/reference-graph';
 import { parseAnchorStore, serialiseAnchorStore } from '@archmap/staleness';
 import type { AnchorStore } from '@archmap/staleness';
@@ -77,16 +84,58 @@ const flowFilesIn = (repo: string): readonly string[] => {
   }
 };
 
+const nodeFilesOf = (text: string): readonly string[] => {
+  const value: unknown = JSON.parse(text);
+  if (typeof value !== 'object' || value === null || !('nodes' in value)) return [];
+  const { nodes } = value;
+  if (!Array.isArray(nodes)) return [];
+  return nodes.flatMap((node: unknown) =>
+    typeof node === 'object' && node !== null && 'file' in node && typeof node.file === 'string'
+      ? [node.file]
+      : [],
+  );
+};
+
+/**
+ * The graph as it stands, plus the anchored files that are gone from the repo. A claim about a
+ * gone file cannot be proved again, and the stale mark is what says so, so the validator takes it
+ * as it was proved when the flow was traced.
+ */
+const rememberingGone = (graph: ReferenceGraph, gone: ReadonlySet<string>): ReferenceGraph => ({
+  ...graph,
+  knows: (path) => gone.has(path) || graph.knows(path),
+  joins: (a, b) => gone.has(a) || gone.has(b) || graph.joins(a, b),
+  sameLanguage: (a, b) => gone.has(a) || gone.has(b) || graph.sameLanguage(a, b),
+});
+
+/**
+ * Validate one saved flow. A flow refused only because an anchored file is gone from the repo is
+ * read anyway: ADR-0008 calls that flow stale, and the stale mark shows it in the picker.
+ */
+const readSavedFlow = (repo: string, text: string, graph: ReferenceGraph): ValidationResult => {
+  const result = parseFlowDocument(text, { referenceGraph: graph });
+  if (result.ok || !result.errors.every((error) => error.code === 'unknown-file')) return result;
+  const gone = new Set(
+    nodeFilesOf(text).filter((file) => !graph.knows(file) && !existsSync(join(repo, file))),
+  );
+  if (gone.size === 0) return result;
+  const remembered = validateFlowDocument(JSON.parse(text), {
+    referenceGraph: rememberingGone(graph, gone),
+  });
+  return remembered.ok ? remembered : result;
+};
+
 /**
  * Read the map file of a repo. Every flow document is validated against the reference graph as it
- * stands today, so a flow whose anchor left the graph is refused and listed, not drawn.
+ * stands today. A flow that names a file the graph does not know is refused and listed, not
+ * drawn, unless that file is an anchored file gone from the repo, which makes the flow stale.
  */
 export const readMapFile = (repo: string, referenceGraph: ReferenceGraph): MapFile => {
   const flows: FlowDocument[] = [];
   const refused: RefusedFlowFile[] = [];
   for (const name of flowFilesIn(repo)) {
     const file = `${MAP_FILE_PATHS.flows}/${name}`;
-    const result = parseFlowDocument(readFileSync(join(repo, file), 'utf8'), { referenceGraph });
+    const result = readSavedFlow(repo, readFileSync(join(repo, file), 'utf8'), referenceGraph);
     if (!result.ok) {
       refused.push({ file, errors: result.errors });
     } else if (`${result.document.id}.json` !== name) {

@@ -6,7 +6,7 @@
 import { createRequire } from 'node:module';
 import { GO, GoExtractionError, goExtractorBinary } from '@archmap/extractor-go';
 import { RUBY } from '@archmap/extractor-ruby';
-import { understood } from '@archmap/extractor-typescript/walk';
+import { TYPESCRIPT, understood } from '@archmap/extractor-typescript/walk';
 import { ExtractorFailure, extractorArguments, runExtractorProcess } from './extractors.ts';
 import type { ExtractorRegistration } from './extractors.ts';
 
@@ -14,7 +14,7 @@ const resolvePackage = createRequire(import.meta.url).resolve;
 
 /** The TypeScript extractor, which also reads JavaScript. Node runs its `.ts` CLI as it stands. */
 export const typescriptExtractor: ExtractorRegistration = {
-  language: 'typescript',
+  language: TYPESCRIPT,
   claims: (path) => understood(path),
   extract: (run) =>
     runExtractorProcess(process.execPath, [

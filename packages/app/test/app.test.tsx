@@ -1,9 +1,8 @@
-// @vitest-environment jsdom
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { createSidecar } from '@archmap/sidecar';
 import { App } from '../src/App.tsx';
 import type { SidecarClient } from '../src/sidecar-client.ts';
@@ -33,8 +32,6 @@ const inProcessClient = (): SidecarClient => {
   });
   return { send: (request) => sidecar.handle(request) } as SidecarClient;
 };
-
-afterEach(cleanup);
 
 describe('the app', () => {
   it('boots and renders the flow picker', () => {

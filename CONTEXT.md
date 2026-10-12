@@ -16,6 +16,10 @@ _Avoid_: journey, path, trace (as a noun), use case
 The record of one flow as data: its entry point, its lanes, its nodes, and its edges. Every producer writes it and every consumer reads it.
 _Avoid_: flow file, flow JSON, diagram data
 
+**Proposal**:
+An entry point the discovery pass proposes for a flow, before a person decides on it. The validator rejects a proposal whose file the reference graph does not know. A person accepts a proposal, which makes it a candidate, or rejects it.
+_Avoid_: suggestion, guess, candidate (before it is accepted)
+
 **Candidate**:
 A flow that is named and anchored to an entry point but not yet traced. It carries no nodes and no edges.
 _Avoid_: proposal, stub, draft flow

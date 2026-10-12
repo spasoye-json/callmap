@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { appendFileSync, cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -104,6 +104,53 @@ describe('the stale mark the map answers with', () => {
     ]);
     expect(provider.completed).toHaveLength(1);
     expect(readFileSync(join(repo, '.archmap/flows/place-an-order.json'), 'utf8')).toBe(before);
+  });
+});
+
+const extractedFrom = async (
+  sidecar: ReturnType<typeof createSidecar>,
+  repo: string,
+  scope: readonly string[],
+): Promise<ExtractResult['documents']> => {
+  const opened = await send<OpenResult>(sidecar, { command: 'open', repo, scope });
+  const extracted = await send<ExtractResult>(sidecar, {
+    command: 'extract',
+    repo,
+    scope,
+    languages: opened.languages,
+  });
+  return extracted.documents;
+};
+
+describe('a traced flow whose anchored file is gone', () => {
+  it('stays in the map with a stale mark, and is not refused', async () => {
+    const { repo, sidecar } = await tracedRepo();
+    rmSync(join(repo, MIXED_ORDER));
+
+    const map = await send<MapResult>(sidecar, {
+      command: 'map',
+      repo,
+      documents: await extractedFrom(sidecar, repo, []),
+    });
+    expect(map.refused).toEqual([]);
+    expect(map.flows.map((flow) => flow.id)).toEqual(['place-an-order']);
+    expect(map.marks).toEqual([
+      { flowId: 'place-an-order', state: 'stale', reasons: [{ code: 'gone', file: MIXED_ORDER }] },
+    ]);
+  });
+
+  it('is still refused when a file it names is in the repo but outside the graph', async () => {
+    const { repo, sidecar } = await tracedRepo();
+
+    const map = await send<MapResult>(sidecar, {
+      command: 'map',
+      repo,
+      documents: await extractedFrom(sidecar, repo, ['web/**']),
+    });
+    expect(map.flows).toEqual([]);
+    expect(map.refused.map((refused) => refused.file)).toEqual([
+      '.archmap/flows/place-an-order.json',
+    ]);
   });
 });
 

@@ -14,8 +14,10 @@ export {
   typescriptExtractor,
 } from './registered-extractors.ts';
 export type * from './protocol.ts';
+export type { EstimateResult } from './cost-protocol.ts';
 export type * from './discovery-protocol.ts';
 export type * from './trace-protocol.ts';
+export type * from './editor-protocol.ts';
 export { createAnthropicProvider, DEFAULT_MODEL } from './anthropic-provider.ts';
 export type { AnthropicProviderOptions } from './anthropic-provider.ts';
 export { createFakeProvider } from './fake-provider.ts';
@@ -23,7 +25,7 @@ export type { FakeProvider, FakeProviderOptions } from './fake-provider.ts';
 export { ProviderFailure } from './provider.ts';
 export type { AiAnswer, AiProvider, AiRequest } from './provider.ts';
 export type { AiOptions } from './passes.ts';
-export { systemUrlOpener } from './editor.ts';
+export { systemOpenerCommand, systemUrlOpener } from './editor.ts';
 export type { UrlOpener } from './editor.ts';
 export { MAP_DIRECTORY, MAP_FILE_PATHS, flowDocumentPath } from './map-file.ts';
 export type { MapFileError, RefusedFlowFile } from './map-file.ts';

@@ -16,8 +16,10 @@
     "archmap-extract-ruby": "./src/cli.ts"
   },
   "devDependencies": {
-    "@archmap/extractor-typescript": "*",
     "@archmap/flow-document": "*",
     "@archmap/reference-graph": "*"
+  },
+  "dependencies": {
+    "@archmap/scope": "*"
   }
 }

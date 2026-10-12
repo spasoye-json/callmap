@@ -1,9 +1,8 @@
-// @vitest-environment jsdom
 import { cpSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { createFakeProvider, createSidecar } from '@archmap/sidecar';
 import { App } from '../src/App.tsx';
 import type { SidecarClient } from '../src/sidecar-client.ts';
@@ -44,8 +43,6 @@ const discoveryClient = (): { client: SidecarClient; repo: string } => {
   });
   return { client: { send: (request) => sidecar.handle(request) } as SidecarClient, repo };
 };
-
-afterEach(cleanup);
 
 const openRepo = async (repo: string): Promise<HTMLElement> => {
   fireEvent.change(screen.getByLabelText('Repo folder'), { target: { value: repo } });

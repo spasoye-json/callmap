@@ -3,7 +3,7 @@
  * token, which is enough for a cost to be non-zero and to grow with the request.
  */
 
-import type { TokenPrice } from '@archmap/discovery';
+import type { TokenPrice } from '@archmap/cost';
 import type { AiAnswer, AiProvider, AiRequest } from './provider.ts';
 
 export interface FakeProviderOptions {
@@ -11,6 +11,8 @@ export interface FakeProviderOptions {
   readonly answers: readonly string[];
   readonly model?: string;
   readonly price?: TokenPrice;
+  /** The model that answers in place of the one asked, as a server-side fallback would. */
+  readonly servedBy?: { readonly model: string; readonly price: TokenPrice };
 }
 
 export interface FakeProvider extends AiProvider {
@@ -27,9 +29,12 @@ export const createFakeProvider = (options: FakeProviderOptions): FakeProvider =
   const completed: AiRequest[] = [];
   const inputTokensOf = (request: AiRequest): number =>
     tokensIn(request.system) + tokensIn(request.prompt);
+  const model = options.model ?? 'fake-model';
+  const price = options.price ?? { inputPerMillionTokens: 4, outputPerMillionTokens: 20 };
+  const served = options.servedBy ?? { model, price };
   return {
-    model: options.model ?? 'fake-model',
-    price: options.price ?? { inputPerMillionTokens: 4, outputPerMillionTokens: 20 },
+    model,
+    price,
     counted,
     completed,
     countInputTokens: (request) => {
@@ -42,6 +47,8 @@ export const createFakeProvider = (options: FakeProviderOptions): FakeProvider =
       return Promise.resolve({
         text,
         usage: { inputTokens: inputTokensOf(request), outputTokens: tokensIn(text) },
+        model: served.model,
+        price: served.price,
       });
     },
   };
