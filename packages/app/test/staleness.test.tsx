@@ -16,6 +16,9 @@ import type { SidecarClient } from '../src/sidecar-client.ts';
 
 const MIXED_FIXTURE = join(import.meta.dirname, '../../sidecar/fixture');
 
+/** Opening runs every extractor as its own process, which takes seconds on a loaded machine. */
+const OPEN_TIMEOUT_MS = 10_000;
+
 afterEach(cleanup);
 
 const send = async (sidecar: Sidecar, request: Record<string, unknown>): Promise<unknown> => {
@@ -57,7 +60,7 @@ const tracedRepo = async (): Promise<{ repo: string; sidecar: Sidecar }> => {
 const openRepo = async (repo: string): Promise<HTMLElement> => {
   fireEvent.change(screen.getByLabelText('Repo folder'), { target: { value: repo } });
   fireEvent.click(screen.getByRole('button', { name: 'Open' }));
-  await screen.findByRole('region', { name: 'Reference graph' });
+  await screen.findByRole('region', { name: 'Reference graph' }, { timeout: OPEN_TIMEOUT_MS });
   return screen.getByRole('navigation', { name: 'Flow picker' });
 };
 
@@ -67,7 +70,7 @@ const rowOf = (picker: HTMLElement, name: RegExp): HTMLElement => {
   return row;
 };
 
-describe('the stale mark in the flow picker', () => {
+describe('the stale mark in the flow picker', { timeout: 4 * OPEN_TIMEOUT_MS }, () => {
   it('shows no mark on a flow whose anchored files are unchanged', async () => {
     const { repo, sidecar } = await tracedRepo();
     render(<App client={{ send: (request) => sidecar.handle(request) } as SidecarClient} />);
