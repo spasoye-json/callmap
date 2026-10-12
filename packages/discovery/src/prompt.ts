@@ -109,8 +109,12 @@ const ANSWER_SCHEMA: Readonly<Record<string, unknown>> = {
   additionalProperties: false,
 };
 
-/** The request a discovery pass sends for one repo under one scope. */
-export const discoveryPrompt = (input: DiscoveryPromptInput): DiscoveryPrompt => {
+/**
+ * The repo as every AI pass reads it: the files in scope with their language, the reference edges,
+ * and the numbered source of each file the graph knows. A source the graph does not know is left
+ * out, so a pass is never shown a file it may not anchor to.
+ */
+export const repoMaterial = (input: DiscoveryPromptInput): string => {
   const { referenceGraph } = input;
   const files = referenceGraph.files.map((file) => `${file.path} (${file.language})`);
   const edges = referenceGraph.edges.map((edge) => `${edge.from} -> ${edge.to}`);
@@ -118,7 +122,7 @@ export const discoveryPrompt = (input: DiscoveryPromptInput): DiscoveryPrompt =>
   const sources = input.sources
     .filter((source) => known.has(source.path))
     .map((source) => `=== ${source.path}\n${numbered(source.text)}`);
-  const prompt = [
+  return [
     '## Files in scope',
     files.join('\n'),
     '## Reference edges',
@@ -126,14 +130,16 @@ export const discoveryPrompt = (input: DiscoveryPromptInput): DiscoveryPrompt =>
     '## Source',
     sources.join('\n\n'),
   ].join('\n\n');
-  return {
-    system: DISCOVERY_SYSTEM,
-    prompt,
-    outputSchema: ANSWER_SCHEMA,
-    maxOutputTokens: MAX_OUTPUT_TOKENS,
-    expectedOutputTokens: Math.min(
-      MAX_OUTPUT_TOKENS,
-      BASE_OUTPUT_TOKENS + OUTPUT_TOKENS_PER_FILE * referenceGraph.files.length,
-    ),
-  };
 };
+
+/** The request a discovery pass sends for one repo under one scope. */
+export const discoveryPrompt = (input: DiscoveryPromptInput): DiscoveryPrompt => ({
+  system: DISCOVERY_SYSTEM,
+  prompt: repoMaterial(input),
+  outputSchema: ANSWER_SCHEMA,
+  maxOutputTokens: MAX_OUTPUT_TOKENS,
+  expectedOutputTokens: Math.min(
+    MAX_OUTPUT_TOKENS,
+    BASE_OUTPUT_TOKENS + OUTPUT_TOKENS_PER_FILE * input.referenceGraph.files.length,
+  ),
+});

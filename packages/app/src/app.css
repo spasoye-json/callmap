@@ -6,6 +6,10 @@
   --panel: #ffffff;
   --rule: #d9dee4;
   --accent: #2f6fdf;
+  --lane: #eef1f4;
+  --verified: #2e7d4f;
+  --inferred: #b06a00;
+  --error: #c0392b;
   font-family: system-ui, sans-serif;
   font-size: 15px;
 }
@@ -18,6 +22,10 @@
     --panel: #1d2329;
     --rule: #323a43;
     --accent: #7aa7ff;
+    --lane: #232a31;
+    --verified: #7ee2a0;
+    --inferred: #f2b134;
+    --error: #ff8a7a;
   }
 }
 
@@ -215,4 +223,140 @@ body {
 .spend {
   margin: 0;
   font-size: 13px;
+}
+
+.picker li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app .picker button {
+  padding: 4px 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.app .picker button[aria-current='true'] {
+  font-weight: 600;
+}
+
+.trace,
+.flow-canvas {
+  padding: 12px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.trace h2 {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.trace .actions,
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toolbar .spacer {
+  flex: 1;
+}
+
+.app .toolbar button {
+  padding: 4px 10px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.canvas-body {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) minmax(200px, 280px);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.cytoscape {
+  min-height: 560px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--paper);
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 560px;
+  overflow-y: auto;
+}
+
+.app .steps button {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+
+.steps .num {
+  min-width: 1.5em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.steps .kind-error .num {
+  color: var(--error);
+}
+
+.steps .folded {
+  opacity: 0.45;
+}
+
+.steps .current button {
+  font-weight: 600;
+}
+
+.selection h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.selection p {
+  margin: 0 0 8px;
+}
+
+.selection code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.evidence {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evidence blockquote {
+  margin: 0 0 4px;
+  padding-left: 8px;
+  border-left: 3px solid var(--inferred);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .canvas-body {
+    grid-template-columns: 1fr;
+  }
 }

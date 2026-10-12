@@ -16,10 +16,11 @@ The walking skeleton is under way. The core seam modules are ported, as typed Ty
 | `@archmap/reference-graph` | The ground truth: files, reference edges, and a language tag, merged per extractor |
 | `@archmap/flow-document`   | The seam format and the deterministic validator that guards it                     |
 | `@archmap/layout`          | The deterministic layout: a rectangle per node and per lane, or a refusal to place  |
-| `@archmap/canvas-model`    | What the canvas draws: shapes, inks, lane collapse, evidence on selection          |
+| `@archmap/canvas-model`    | What the canvas draws: shapes, inks, folding, evidence, steps, the editor link     |
 | `@archmap/flow-library`    | Every flow a repo holds, and the picker a reader switches flows with               |
 | `@archmap/staleness`       | The anchor set, the anchor stamp, and the mark                                     |
 | `@archmap/discovery`       | The discovery prompt, proposed entry points, curation, and the cost of a pass      |
+| `@archmap/trace`           | The trace prompt, and the reader that holds a trace answer to the validator        |
 | `@archmap/testing`         | One mixed-language fixture repo, held as data, that the tests are written against  |
 
 The extractors are here too, and they are not core: they are the other side of the contract.
@@ -66,6 +67,8 @@ The Tauri shell starts that process and gives the UI one command, `sidecar`, tha
 
 Discovery runs through the same surface (ADR-0010). `estimate-discovery` shows what the pass costs, `discover` runs it and answers with the proposed entry points the validator anchored, and `curate` turns accepted ones into candidates. `map` reads the map file and `account` and `set-key` hold the reader's key and monthly spend. The AI provider is Anthropic on `claude-opus-5-5` with the reader's own key. The key and the spend live in `$ARCHMAP_CONFIG_DIR`, or `$XDG_CONFIG_HOME/archmap`, never in a repo.
 
+Tracing is lazy (ADR-0005). Opening a candidate in the app shows `estimate-trace` first, and `trace` runs the pass, validates the flow over the merged reference graph, and saves it over the candidate. A traced flow is drawn from the map file, so reopening it calls no provider. The canvas is Cytoscape, bundled with the app, on the deterministic layout: pan, zoom, lane folding, the ordered step list, solid verified edges and dashed inferred edges with their evidence on selection. A node click sends `open-in-editor` with a `vscode://file` deep link, and the sidecar hands it to the system opener.
+
 The map file is the `.archmap/` directory the target repo commits (ADR-0007): `flows/<flow id>.json` holds one flow document per flow, `curation.json` holds the rejected proposals, and `flow-anchors.json` holds the anchor stamps (ADR-0008).
 
 ### How these modules got here
@@ -74,9 +77,9 @@ The `archmap-prototype` repo was not reachable when this port was made, so the m
 
 The TypeScript extractor was written the same way, and its alias resolution is the same guarantee reached a second way rather than a diff against the prototype's extraction: it resolves every specifier with the TypeScript compiler's own resolver, against the target repo's own `tsconfig.json`, which is the resolver the prototype's extraction was built on (ADR-0001). What the extractor calls a reference is therefore what the compiler itself would have imported, alias for alias.
 
-Still to come: the canvas in the app, and the review scene.
+Still to come: the review scene.
 
-Also still to come, and named here because `CONTEXT.md` and `docs/adr/` already define them, so their absence would otherwise read as an oversight: tracing, the AI pass that fills a candidate in (ADR-0005); the component map, its components and its unassigned tray, which are the context layer a flow is drawn across (ADR-0002); and the stamping command of ADR-0008, which exists so a page build can never re-stamp what it was meant to show. The stamping *rules* are here and tested; only the command boundary around them is not.
+Also still to come, and named here because `CONTEXT.md` and `docs/adr/` already define them, so their absence would otherwise read as an oversight: the component map, its components and its unassigned tray, which are the context layer a flow is drawn across (ADR-0002); and the stamping command of ADR-0008, which exists so a page build can never re-stamp what it was meant to show. The stamping *rules* are here and tested; only the command boundary around them is not.
 
 ## Checks
 

@@ -13,7 +13,10 @@ import type { ReferenceGraph, ReferenceGraphDocument } from '@archmap/reference-
 import { ExtractorFailure } from './extractors.ts';
 import { REGISTERED_EXTRACTORS } from './registered-extractors.ts';
 import { createDiscoveryCommands } from './discovery-commands.ts';
-import type { AiOptions } from './discovery-commands.ts';
+import { createEditorCommands, systemUrlOpener } from './editor.ts';
+import type { UrlOpener } from './editor.ts';
+import type { AiOptions } from './passes.ts';
+import { createTraceCommands } from './trace-commands.ts';
 import { filesInScope } from './repo.ts';
 import { isRecord, Refusal, requireRepo, requireStrings } from './requests.ts';
 import type { ExtractorRegistration, ExtractorRun } from './extractors.ts';
@@ -24,6 +27,8 @@ export interface SidecarOptions {
   readonly extractors?: readonly ExtractorRegistration[];
   /** Where the key and the spend live and which provider a key opens. A test hands in a fake. */
   readonly ai?: AiOptions;
+  /** How an editor deep link reaches the editor. The system opener, unless a test records it. */
+  readonly openUrl?: UrlOpener;
 }
 
 export interface Sidecar {
@@ -33,7 +38,11 @@ export interface Sidecar {
 
 export const createSidecar = (options: SidecarOptions = {}): Sidecar => {
   const extractors = options.extractors ?? REGISTERED_EXTRACTORS;
-  const discoveryCommands = createDiscoveryCommands(options.ai);
+  const commands = new Map([
+    ...createDiscoveryCommands(options.ai),
+    ...createTraceCommands(options.ai),
+    ...createEditorCommands(options.openUrl ?? systemUrlOpener),
+  ]);
 
   const open = (request: Record<string, unknown>): OpenResult => {
     const repo = requireRepo(request);
@@ -112,9 +121,8 @@ export const createSidecar = (options: SidecarOptions = {}): Sidecar => {
     const command = request['command'];
     if (command === 'open') return open(request);
     if (command === 'extract') return extract(request);
-    const discoveryCommand =
-      typeof command === 'string' ? discoveryCommands.get(command) : undefined;
-    if (discoveryCommand !== undefined) return discoveryCommand(request);
+    const named = typeof command === 'string' ? commands.get(command) : undefined;
+    if (named !== undefined) return named(request);
     throw new Refusal('unknown-command', `'${String(command)}' is not a command the sidecar knows`);
   };
 

@@ -5,6 +5,9 @@
  */
 
 import { useState } from 'react';
+import { editorUrl } from '@archmap/canvas-model';
+import type { Anchor } from '@archmap/canvas-model';
+import { isTracedFlow } from '@archmap/flow-document';
 import { buildFlowPicker, createFlowLibrary } from '@archmap/flow-library';
 import type { FlowPickerRow } from '@archmap/flow-library';
 import type {
@@ -15,6 +18,8 @@ import type {
   SidecarResponse,
 } from '@archmap/sidecar';
 import { Discovery, formatUsd } from './Discovery.tsx';
+import { FlowCanvas } from './FlowCanvas.tsx';
+import { Trace } from './Trace.tsx';
 import type { SidecarClient } from './sidecar-client.ts';
 
 type Session =
@@ -64,7 +69,15 @@ const GraphSummary = ({ extracted }: { readonly extracted: ExtractResult }) => (
   </section>
 );
 
-const FlowPicker = ({ rows }: { readonly rows: readonly FlowPickerRow[] }) => (
+const FlowPicker = ({
+  rows,
+  openId,
+  onOpen,
+}: {
+  readonly rows: readonly FlowPickerRow[];
+  readonly openId: string | null;
+  readonly onOpen: (flowId: string) => void;
+}) => (
   <nav aria-label="Flow picker" className="picker">
     <h2>Flows</h2>
     {rows.length === 0 ? (
@@ -73,7 +86,15 @@ const FlowPicker = ({ rows }: { readonly rows: readonly FlowPickerRow[] }) => (
       <ul>
         {rows.map((row) => (
           <li key={row.id} className={row.openable ? 'traced' : 'candidate'}>
-            {row.name}
+            <button
+              type="button"
+              aria-current={row.id === openId ? 'true' : undefined}
+              onClick={() => {
+                onOpen(row.id);
+              }}
+            >
+              {row.name}
+            </button>
             {row.badge === null ? null : <span className="badge">{row.badge}</span>}
           </li>
         ))}
@@ -86,12 +107,33 @@ export const App = ({ client }: { readonly client: SidecarClient }) => {
   const [repo, setRepo] = useState('');
   const [scope, setScope] = useState('');
   const [session, setSession] = useState<Session>({ state: 'closed' });
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [editorProblem, setEditorProblem] = useState<string | null>(null);
   const pickerRows = buildFlowPicker(
     createFlowLibrary(session.state === 'open' ? session.map.flows : []),
   );
+  const openFlow =
+    session.state === 'open' ? session.map.flows.find((flow) => flow.id === openId) : undefined;
+
+  const openInEditor = async (repoRoot: string, anchor: Anchor): Promise<void> => {
+    setEditorProblem(null);
+    const response = await client.send({
+      command: 'open-in-editor',
+      url: editorUrl(repoRoot, anchor),
+    });
+    if (!response.ok) setEditorProblem(response.error.message);
+  };
+
+  /** The traced flow is read back from the map file, so the canvas draws what was saved. */
+  const traced = async (repoRoot: string, documents: ExtractResult['documents']) => {
+    const map = resultOf(await client.send({ command: 'map', repo: repoRoot, documents }));
+    const account = resultOf(await client.send({ command: 'account' }));
+    setSession((before) => (before.state === 'open' ? { ...before, map, account } : before));
+  };
 
   const open = async (): Promise<void> => {
     setSession({ state: 'opening' });
+    setOpenId(null);
     try {
       const opened = resultOf(await client.send({ command: 'open', repo, scope: globsOf(scope) }));
       const extracted = resultOf(
@@ -168,9 +210,30 @@ export const App = ({ client }: { readonly client: SidecarClient }) => {
         </p>
       ) : null}
       <div className="workspace">
-        <FlowPicker rows={pickerRows} />
+        <FlowPicker rows={pickerRows} openId={openId} onOpen={setOpenId} />
         {session.state === 'open' ? (
           <div className="panels">
+            {editorProblem === null ? null : <p role="alert">{editorProblem}</p>}
+            {openFlow === undefined ? null : isTracedFlow(openFlow) ? (
+              <FlowCanvas
+                key={openFlow.id}
+                flow={openFlow}
+                onOpenAnchor={(anchor) => {
+                  void openInEditor(session.opened.repo, anchor);
+                }}
+              />
+            ) : (
+              <Trace
+                key={openFlow.id}
+                client={client}
+                repo={session.opened.repo}
+                documents={session.extracted.documents}
+                flow={openFlow}
+                onTraced={() => {
+                  void traced(session.opened.repo, session.extracted.documents);
+                }}
+              />
+            )}
             <GraphSummary extracted={session.extracted} />
             <Discovery
               client={client}
