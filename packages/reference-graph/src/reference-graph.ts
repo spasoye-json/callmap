@@ -113,8 +113,10 @@ const linked = (adjacency: Adjacency, from: string, to: string): boolean =>
  *
  * Refuses output the contract does not allow, a file with an empty path or an empty language tag, a
  * file claimed twice with two different languages, an edge that names a file the graph does not
- * list, and an edge from a file to itself. The same-file case of a verified edge is decided by the
- * file path alone, so a self-reference would only ever be noise.
+ * list, an edge between two languages, and an edge from a file to itself. A reference between two
+ * languages is a boundary, which is inferred and carries evidence, so a graph that held it would
+ * let a verified edge ride across it (ADR-0004, ADR-0009). The same-file case of a verified edge is
+ * decided by the file path alone, so a self-reference would only ever be noise.
  */
 export const createReferenceGraph = (input: ReferenceGraphInput): ReferenceGraph =>
   indexOutput(readOutput(input));
@@ -145,6 +147,13 @@ const indexOutput = (output: ReferenceGraphInput): ReferenceGraph => {
           `the reference edge ${from} to ${to} names ${path}, which the graph does not list`,
         );
       }
+    }
+    const fromLanguage = languages.get(from);
+    const toLanguage = languages.get(to);
+    if (fromLanguage !== toLanguage) {
+      throw new ReferenceGraphError(
+        `the reference edge ${from} to ${to} runs from ${String(fromLanguage)} into ${String(toLanguage)}; a reference edge never crosses a language`,
+      );
     }
     link(directed, from, to);
     link(undirected, from, to);
@@ -177,7 +186,8 @@ const indexOutput = (output: ReferenceGraphInput): ReferenceGraph => {
 /**
  * Merge the output of every extractor that matched a repo into one reference graph (ADR-0009).
  * Merging is a union of files and of edges; a file two extractors claim with different languages
- * is a contradiction and is refused.
+ * is a contradiction and is refused, and so is an edge one extractor names into a file another
+ * extractor claims in another language.
  */
 export const mergeReferenceGraphs = (...inputs: readonly ReferenceGraphInput[]): ReferenceGraph => {
   /** Every output is read against the contract first, so one malformed extractor is refused alone. */

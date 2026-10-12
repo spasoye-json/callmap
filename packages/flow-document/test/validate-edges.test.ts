@@ -13,7 +13,8 @@ import {
   UNREFERENCED_FILE,
   verifiedEdge,
 } from '@archmap/testing';
-import { mergeReferenceGraphs } from '@archmap/reference-graph';
+import { createReferenceGraph } from '@archmap/reference-graph';
+import type { ReferenceGraph } from '@archmap/reference-graph';
 import { validateFlowDocument } from '../src/index.ts';
 import { codesOf, errorsOf, expectAccepted, expectRefusal, validate } from './support.ts';
 
@@ -440,15 +441,23 @@ describe('a verified edge whose lane could not be read', () => {
   });
 });
 
-describe('a verified edge over a pair one merge joined across two languages', () => {
-  const joinedAcrossLanguages = mergeReferenceGraphs(
-    {
-      files: [{ path: ORDERS_CLIENT_FILE, language: 'typescript' }],
-      edges: [{ from: ORDERS_CLIENT_FILE, to: CONTROLLER_FILE }],
-    },
-    { files: [{ path: CONTROLLER_FILE, language: 'ruby' }], edges: [] },
-  );
+/**
+ * The merged graph refuses a reference edge across two languages, so this graph is built by hand.
+ * The validator takes any reference graph, and it must not lean on the merge to hold the rule.
+ */
+const joinedAcrossLanguages: ReferenceGraph = {
+  ...createReferenceGraph({
+    files: [
+      { path: ORDERS_CLIENT_FILE, language: 'typescript' },
+      { path: CONTROLLER_FILE, language: 'ruby' },
+    ],
+    edges: [],
+  }),
+  references: (from, to) => from === ORDERS_CLIENT_FILE && to === CONTROLLER_FILE,
+  joins: (a, b) => [a, b].includes(ORDERS_CLIENT_FILE) && [a, b].includes(CONTROLLER_FILE),
+};
 
+describe('a verified edge over a pair a reference graph joins across two languages', () => {
   const result = validateFlowDocument(
     pairFlow(backend(ORDERS_CLIENT_FILE), backend(CONTROLLER_FILE), verifiedEdge('a', 'b')),
     { referenceGraph: joinedAcrossLanguages },
