@@ -21,6 +21,7 @@
     "@archmap/extractor-ruby": "*",
     "@archmap/extractor-typescript": "*",
     "@archmap/flow-document": "*",
-    "@archmap/reference-graph": "*"
+    "@archmap/reference-graph": "*",
+    "@archmap/trace": "*"
   }
 }
