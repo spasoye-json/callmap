@@ -1,3 +1,4 @@
+export { editorUrl } from './editor-url.ts';
 export {
   boundariesOf,
   buildCanvasModel,
@@ -14,6 +15,7 @@ export type {
   CanvasNode,
   CanvasNodeKind,
   CanvasSelection,
+  CanvasStep,
   EdgeInk,
   NodeShape,
 } from './canvas-model.ts';
