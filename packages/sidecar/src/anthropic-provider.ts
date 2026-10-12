@@ -14,7 +14,22 @@ export const DEFAULT_MODEL = 'claude-opus-5-5';
 /** US dollars per million tokens, from Anthropic's price list for the first-party API. */
 const PRICES: Readonly<Record<string, TokenPrice>> = {
   'claude-opus-5-5': { inputPerMillionTokens: 4, outputPerMillionTokens: 20 },
+  'claude-opus-5': { inputPerMillionTokens: 5, outputPerMillionTokens: 25 },
+  'claude-opus-4-8': { inputPerMillionTokens: 5, outputPerMillionTokens: 25 },
 };
+
+const costPerToken = (price: TokenPrice): number =>
+  price.inputPerMillionTokens + price.outputPerMillionTokens;
+
+/**
+ * A fallback can land on a model this list does not price yet. The dearest known price stands in,
+ * so the monthly total can read high but never hides spend.
+ */
+const DEAREST_PRICE = Object.values(PRICES).reduce((dearest, price) =>
+  costPerToken(price) > costPerToken(dearest) ? price : dearest,
+);
+
+const priceOf = (model: string): TokenPrice => PRICES[model] ?? DEAREST_PRICE;
 
 /**
  * A model declining a request ends the pass with no answer. The server-side fallback re-runs it on
@@ -103,6 +118,8 @@ export const createAnthropicProvider = (options: AnthropicProviderOptions): AiPr
           (usage.cache_read_input_tokens ?? 0),
         outputTokens: usage.output_tokens,
       },
+      model: message.model,
+      price: priceOf(message.model),
     };
   };
 

@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { addSpend, CurationError, monthOf, spendIn } from '@archmap/discovery';
-import type { MonthlySpend, SourceFile, TokenUsage } from '@archmap/discovery';
+import type { MonthlySpend, SourceFile } from '@archmap/discovery';
 import { ReferenceGraphError, referenceGraphFromDocuments } from '@archmap/reference-graph';
 import { StalenessError } from '@archmap/staleness';
 import type { ReferenceGraph } from '@archmap/reference-graph';
@@ -17,7 +17,7 @@ import { createLocalStore, defaultConfigDir } from './local-store.ts';
 import { readMapFile } from './map-file.ts';
 import type { MapFile } from './map-file.ts';
 import { ProviderFailure } from './provider.ts';
-import type { AiProvider, AiRequest } from './provider.ts';
+import type { AiAnswer, AiProvider, AiRequest } from './provider.ts';
 import { Refusal, requireDocuments } from './requests.ts';
 
 export interface AiOptions {
@@ -81,8 +81,8 @@ export interface AiAccount {
   storeKey(key: string): void;
   /** The month so far. */
   thisMonth(): MonthlySpend;
-  /** Add what one pass used to the month and answer with the month so far. */
-  recordSpend(usage: TokenUsage, provider: AiProvider): MonthlySpend;
+  /** Add what one answer cost to the month and answer with the month so far. */
+  recordSpend(answer: AiAnswer): MonthlySpend;
 }
 
 export const createAiAccount = (options: AiOptions = {}): AiAccount => {
@@ -103,9 +103,9 @@ export const createAiAccount = (options: AiOptions = {}): AiAccount => {
       store.writeKey(key);
     },
     thisMonth: () => spendIn(store.readSpend(), monthOf(now())),
-    recordSpend: (usage, provider) => {
+    recordSpend: (answer) => {
       const month = monthOf(now());
-      store.writeSpend(addSpend(store.readSpend(), month, usage, provider.price));
+      store.writeSpend(addSpend(store.readSpend(), month, answer.usage, answer.price));
       return spendIn(store.readSpend(), month);
     },
   };

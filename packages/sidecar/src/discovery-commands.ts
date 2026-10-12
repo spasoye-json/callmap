@@ -91,7 +91,7 @@ export const createDiscoveryCommands = (options: AiOptions = {}): ReadonlyMap<st
     const answer = await withProvider(() =>
       provider.complete(discoveryRequest(repo, graph).request),
     );
-    const month = ai.recordSpend(answer.usage, provider);
+    const month = ai.recordSpend(answer);
     let reading;
     try {
       reading = readDiscoveryAnswer(answer.text, { referenceGraph: graph });
@@ -104,7 +104,7 @@ export const createDiscoveryCommands = (options: AiOptions = {}): ReadonlyMap<st
       proposals: pending,
       rejections: reading.rejections,
       alreadyCurated,
-      spent: estimateOf(provider.model, answer.usage, provider.price),
+      spent: estimateOf(answer.model, answer.usage, answer.price),
       month,
     };
   };

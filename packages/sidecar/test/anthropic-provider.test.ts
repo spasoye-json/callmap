@@ -20,7 +20,7 @@ const sse = (events: readonly Record<string, unknown>[]): string =>
     .map((event) => `event: ${String(event['type'])}\ndata: ${JSON.stringify(event)}\n\n`)
     .join('');
 
-const streamedMessage = (text: string, stopReason: string): string =>
+const streamedMessage = (text: string, stopReason: string, model = DEFAULT_MODEL): string =>
   sse([
     {
       type: 'message_start',
@@ -28,7 +28,7 @@ const streamedMessage = (text: string, stopReason: string): string =>
         id: 'msg_fake',
         type: 'message',
         role: 'assistant',
-        model: DEFAULT_MODEL,
+        model,
         content: [],
         stop_reason: null,
         stop_sequence: null,
@@ -98,6 +98,8 @@ describe('the Anthropic provider', () => {
     expect(await provider.complete(request)).toEqual({
       text: '{"proposedEntryPoints": []}',
       usage: { inputTokens: 1200, outputTokens: 340 },
+      model: 'claude-opus-5-5',
+      price: { inputPerMillionTokens: 4, outputPerMillionTokens: 20 },
     });
     expect(sent[0]?.body).toMatchObject({
       model: 'claude-opus-5-5',
@@ -111,6 +113,28 @@ describe('the Anthropic provider', () => {
       fallbacks: 'default',
     });
     expect(sent[0]?.headers.get('anthropic-beta')).toContain('server-side-fallback-2026-07-01');
+  });
+
+  it('prices an answer a fallback served at the price of the model that served it', async () => {
+    const { fetch } = fakeFetch(() =>
+      streamed(streamedMessage('{"proposedEntryPoints": []}', 'end_turn', 'claude-opus-5')),
+    );
+    const provider = createAnthropicProvider({ apiKey: 'sk-ant-test', fetch });
+    expect(await provider.complete(request)).toMatchObject({
+      model: 'claude-opus-5',
+      price: { inputPerMillionTokens: 5, outputPerMillionTokens: 25 },
+    });
+  });
+
+  it('prices an answer from a model with no known price at the dearest known price', async () => {
+    const { fetch } = fakeFetch(() =>
+      streamed(streamedMessage('{"proposedEntryPoints": []}', 'end_turn', 'claude-unknown-9')),
+    );
+    const provider = createAnthropicProvider({ apiKey: 'sk-ant-test', fetch });
+    expect(await provider.complete(request)).toMatchObject({
+      model: 'claude-unknown-9',
+      price: { inputPerMillionTokens: 5, outputPerMillionTokens: 25 },
+    });
   });
 
   it('fails on an answer the token limit cut off, because half an answer cannot be read', async () => {

@@ -20,6 +20,7 @@ import type {
   EstimateResult,
   ExtractResult,
   FakeProvider,
+  FakeProviderOptions,
   MapResult,
   OpenResult,
   Sidecar,
@@ -70,10 +71,13 @@ interface Harness {
   refusal(request: Record<string, unknown>): Promise<{ code: string; message: string }>;
 }
 
-const harness = (answers: readonly string[] = [cannedAnswer]): Harness => {
+const harness = (
+  answers: readonly string[] = [cannedAnswer],
+  servedBy?: FakeProviderOptions['servedBy'],
+): Harness => {
   const repo = fixtureCopy();
   const configDir = mkdtempSync(join(tmpdir(), 'archmap-discovery-config-'));
-  const provider = createFakeProvider({ answers });
+  const provider = createFakeProvider({ answers, ...(servedBy === undefined ? {} : { servedBy }) });
   const keysAsked: string[] = [];
   const sidecar = createSidecar({
     ai: {
@@ -302,6 +306,24 @@ describe('the key and the monthly total', () => {
     expect(account.month).toEqual(discovered.month);
     expect(existsSync(join(h.configDir, 'spend.json'))).toBe(true);
     expect(existsSync(join(repo, '.archmap'))).toBe(false);
+  });
+
+  it('prices a pass at the model that served it, when that is not the one asked', async () => {
+    const plain = harness();
+    const served = harness([cannedAnswer], {
+      model: 'fallback-model',
+      price: { inputPerMillionTokens: 40, outputPerMillionTokens: 200 },
+    });
+    const spentBy = async (h: Harness): Promise<DiscoverResult> => {
+      const { repo, documents } = await opened(h);
+      await h.send({ command: 'set-key', key: API_KEY });
+      return h.send<DiscoverResult>({ command: 'discover', repo, documents });
+    };
+    const asked = await spentBy(plain);
+    const fallback = await spentBy(served);
+    expect(fallback.spent.model).toBe('fallback-model');
+    expect(fallback.spent.usd).toBeCloseTo(asked.spent.usd * 10, 12);
+    expect(fallback.month.usd).toBeCloseTo(asked.month.usd * 10, 12);
   });
 
   it('counts a pass whose answer cannot be read, because its tokens were spent', async () => {

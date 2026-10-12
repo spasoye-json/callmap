@@ -17,6 +17,10 @@ export interface AiRequest {
 export interface AiAnswer {
   readonly text: string;
   readonly usage: TokenUsage;
+  /** The model that wrote the answer, which a server-side fallback can make another model. */
+  readonly model: string;
+  /** The price the answer is billed at: the price of the model that wrote it. */
+  readonly price: TokenPrice;
 }
 
 export interface AiProvider {

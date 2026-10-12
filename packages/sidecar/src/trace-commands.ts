@@ -88,7 +88,7 @@ export const createTraceCommands = (options: AiOptions = {}): ReadonlyMap<string
     const answer = await withProvider(() =>
       provider.complete(traceRequest(repo, graph, flow).request),
     );
-    const month = ai.recordSpend(answer.usage, provider);
+    const month = ai.recordSpend(answer);
     const reading = readTraceAnswer(answer.text, { flow, referenceGraph: graph });
     if (!reading.ok) {
       throw new Refusal(
@@ -99,7 +99,7 @@ export const createTraceCommands = (options: AiOptions = {}): ReadonlyMap<string
     saveTracedFlow(repo, graph, reading.document);
     return {
       flow: reading.document,
-      spent: estimateOf(provider.model, answer.usage, provider.price),
+      spent: estimateOf(answer.model, answer.usage, answer.price),
       month,
     };
   };
