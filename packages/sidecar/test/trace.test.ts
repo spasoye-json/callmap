@@ -9,7 +9,8 @@ import {
   placeAnOrderTraceAnswer,
   placeAnOrderTraced,
 } from '@archmap/testing';
-import { createFakeProvider, createSidecar } from '@archmap/sidecar';
+import { editorUrl } from '@archmap/canvas-model';
+import { createFakeProvider, createSidecar, systemOpenerCommand } from '@archmap/sidecar';
 import type {
   EstimateResult,
   ExtractResult,
@@ -211,28 +212,79 @@ describe('a trace the sidecar refuses', () => {
 });
 
 describe('opening the editor', () => {
-  it('hands the deep link to the system opener', async () => {
+  const editorHarness = (opened: string[]): Harness =>
+    harnessOn(MIXED_FIXTURE, mkdtempSync(join(tmpdir(), 'archmap-trace-config-')), [], opened);
+
+  it('hands the deep link of a file in the repo to the system opener', async () => {
     const opened: string[] = [];
-    const h = harnessOn(
-      MIXED_FIXTURE,
-      mkdtempSync(join(tmpdir(), 'archmap-trace-config-')),
-      [],
-      opened,
-    );
-    await h.send({ command: 'open-in-editor', url: 'vscode://file/r/web/src/a.ts:3' });
-    expect(opened).toEqual(['vscode://file/r/web/src/a.ts:3']);
+    const url = editorUrl(MIXED_FIXTURE, { file: 'web/src/a.ts', line: 3 });
+    await editorHarness(opened).send({ command: 'open-in-editor', repo: MIXED_FIXTURE, url });
+    expect(opened).toEqual([url]);
   });
 
   it('refuses a link that is not an editor deep link', async () => {
     const opened: string[] = [];
-    const h = harnessOn(
-      MIXED_FIXTURE,
-      mkdtempSync(join(tmpdir(), 'archmap-trace-config-')),
-      [],
-      opened,
-    );
-    const refused = await h.refusal({ command: 'open-in-editor', url: 'https://example.com' });
+    const refused = await editorHarness(opened).refusal({
+      command: 'open-in-editor',
+      repo: MIXED_FIXTURE,
+      url: 'https://example.com',
+    });
     expect(refused.code).toBe('malformed-request');
     expect(opened).toEqual([]);
   });
+
+  it('refuses a request that names no repo', async () => {
+    const opened: string[] = [];
+    const refused = await editorHarness(opened).refusal({
+      command: 'open-in-editor',
+      url: editorUrl(MIXED_FIXTURE, { file: 'web/src/a.ts', line: 3 }),
+    });
+    expect(refused.code).toBe('malformed-request');
+    expect(opened).toEqual([]);
+  });
+
+  it('refuses a file outside the repo', async () => {
+    const opened: string[] = [];
+    const refused = await editorHarness(opened).refusal({
+      command: 'open-in-editor',
+      repo: MIXED_FIXTURE,
+      url: editorUrl('/etc', { file: 'passwd', line: 1 }),
+    });
+    expect(refused.code).toBe('outside-repo');
+    expect(opened).toEqual([]);
+  });
+
+  it('refuses a link that climbs out of the repo', async () => {
+    const opened: string[] = [];
+    const refused = await editorHarness(opened).refusal({
+      command: 'open-in-editor',
+      repo: MIXED_FIXTURE,
+      url: editorUrl(MIXED_FIXTURE, { file: '../../outside.ts', line: 1 }),
+    });
+    expect(refused.code).toBe('outside-repo');
+    expect(opened).toEqual([]);
+  });
+
+  it('hands the opener a link with no character a shell reads as a command', async () => {
+    const opened: string[] = [];
+    await editorHarness(opened).send({
+      command: 'open-in-editor',
+      repo: MIXED_FIXTURE,
+      url: `vscode://file${MIXED_FIXTURE}/a&calc.ts:1`,
+    });
+    expect(opened).toEqual([`vscode://file${MIXED_FIXTURE}/a%26calc.ts:1`]);
+  });
+});
+
+describe('the system opener', () => {
+  const url = 'vscode://file/r/a.ts:1';
+
+  it.each(['darwin', 'linux', 'win32'] as const)(
+    'runs a program with the link as one argument and no shell on %s',
+    (platform) => {
+      const [program, args] = systemOpenerCommand(platform, url);
+      expect(['cmd', 'cmd.exe', 'sh', 'bash', 'powershell', 'pwsh']).not.toContain(program);
+      expect(args.at(-1)).toBe(url);
+    },
+  );
 });

@@ -120,6 +120,7 @@ export const App = ({ client }: { readonly client: SidecarClient }) => {
     setEditorProblem(null);
     const response = await client.send({
       command: 'open-in-editor',
+      repo: repoRoot,
       url: editorUrl(repoRoot, anchor),
     });
     if (!response.ok) setEditorProblem(response.error.message);

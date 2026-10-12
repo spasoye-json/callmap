@@ -1,4 +1,5 @@
-export { editorUrl } from './editor-url.ts';
+export { EDITOR_SCHEME, editorUrl, readEditorUrl } from './editor-url.ts';
+export type { EditorTarget } from './editor-url.ts';
 export {
   boundariesOf,
   buildCanvasModel,

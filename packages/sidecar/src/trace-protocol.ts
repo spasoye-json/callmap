@@ -34,9 +34,13 @@ export interface TraceResult {
   readonly month: MonthlySpend;
 }
 
-/** Hand an editor deep link to the system, which opens the editor at the file and line. */
+/**
+ * Hand an editor deep link to the system, which opens the editor at the file and line. The link
+ * must name a file inside the repo the request names.
+ */
 export interface OpenInEditorRequest {
   readonly command: 'open-in-editor';
+  readonly repo: string;
   readonly url: string;
 }
 

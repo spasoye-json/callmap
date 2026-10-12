@@ -73,6 +73,7 @@ export type SidecarErrorCode =
   | 'unknown-flow'
   | 'already-traced'
   | 'trace-refused'
+  | 'outside-repo'
   | 'editor-failed'
   | 'internal-error';
 

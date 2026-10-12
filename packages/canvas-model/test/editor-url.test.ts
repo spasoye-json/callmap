@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { editorUrl } from '../src/index.ts';
+import { editorUrl, readEditorUrl } from '../src/index.ts';
 
 describe('the editor deep link', () => {
   it('opens the file at the line in the editor', () => {
@@ -26,9 +26,21 @@ describe('the editor deep link', () => {
     );
   });
 
-  it('keeps a route bracket, because the editor reads it as it is', () => {
+  it('escapes a route bracket, which the editor decodes back', () => {
     expect(editorUrl('/r', { file: 'app/order/[id].tsx', line: 352 })).toBe(
-      'vscode://file/r/app/order/[id].tsx:352',
+      'vscode://file/r/app/order/%5Bid%5D.tsx:352',
+    );
+  });
+
+  it('escapes every character a shell reads as a command', () => {
+    expect(editorUrl('/r', { file: 'a&b|c^d<e>f;g`h$i\'j"k!l(m)n*o.ts', line: 1 })).toBe(
+      'vscode://file/r/a%26b%7Cc%5Ed%3Ce%3Ef%3Bg%60h%24i%27j%22k%21l%28m%29n%2Ao.ts:1',
+    );
+  });
+
+  it('escapes a character outside ASCII as its UTF-8 bytes', () => {
+    expect(editorUrl('/r', { file: 'caf\u00e9.ts', line: 1 })).toBe(
+      'vscode://file/r/caf%C3%A9.ts:1',
     );
   });
 
@@ -40,5 +52,33 @@ describe('the editor deep link', () => {
 
   it('refuses a relative repo root, because it cannot open a file', () => {
     expect(() => editorUrl('shop', { file: 'a.ts', line: 1 })).toThrow(TypeError);
+  });
+});
+
+describe('reading an editor deep link back', () => {
+  it('reads the file path and the line out of a link it built', () => {
+    expect(readEditorUrl(editorUrl('/home/two words', { file: 'a&b/[id].ts', line: 7 }))).toEqual({
+      path: '/home/two words/a&b/[id].ts',
+      line: 7,
+    });
+  });
+
+  it('reads a Windows drive path back without the leading slash', () => {
+    expect(readEditorUrl('vscode://file/C:/work/shop/web/a.ts:4')).toEqual({
+      path: 'C:/work/shop/web/a.ts',
+      line: 4,
+    });
+  });
+
+  it('reads nothing from a link under another scheme', () => {
+    expect(readEditorUrl('https://example.com/a.ts:1')).toBeNull();
+  });
+
+  it('reads nothing from a link with no line', () => {
+    expect(readEditorUrl('vscode://file/r/a.ts')).toBeNull();
+  });
+
+  it('reads nothing from a link whose escapes do not decode', () => {
+    expect(readEditorUrl('vscode://file/r/a%E0%A4%A.ts:1')).toBeNull();
   });
 });
