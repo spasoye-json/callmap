@@ -71,7 +71,7 @@ interface Harness {
   refusal(request: Record<string, unknown>): Promise<{ code: string; message: string }>;
 }
 
-const harness = (
+const createHarness = (
   answers: readonly string[] = [cannedAnswer],
   servedBy?: FakeProviderOptions['servedBy'],
 ): Harness => {
@@ -110,10 +110,14 @@ const harness = (
 
 /** Open and extract, as the app does, and hand back what every later command takes. */
 const opened = async (
-  h: Harness,
+  harness: Harness,
 ): Promise<{ repo: string; documents: ExtractResult['documents'] }> => {
-  const open = await h.send<OpenResult>({ command: 'open', repo: h.repo, scope: ['src/**'] });
-  const extracted = await h.send<ExtractResult>({
+  const open = await harness.send<OpenResult>({
+    command: 'open',
+    repo: harness.repo,
+    scope: ['src/**'],
+  });
+  const extracted = await harness.send<ExtractResult>({
     command: 'extract',
     repo: open.repo,
     scope: open.scope,
@@ -129,32 +133,32 @@ const filesUnder = (directory: string): readonly string[] =>
 
 describe('discovery, curation, and cost through the command surface', () => {
   it('discovers, curates, and lists candidates with the fake provider', async () => {
-    const h = harness();
-    const { repo, documents } = await opened(h);
+    const harness = createHarness();
+    const { repo, documents } = await opened(harness);
 
-    const before = await h.send<MapResult>({ command: 'map', repo, documents });
+    const before = await harness.send<MapResult>({ command: 'map', repo, documents });
     expect(before).toEqual({ flows: [], refused: [], curation: { rejected: [] }, marks: [] });
 
-    await h.send<AccountResult>({ command: 'set-key', key: API_KEY });
-    const estimate = await h.send<EstimateResult>({
+    await harness.send<AccountResult>({ command: 'set-key', key: API_KEY });
+    const estimate = await harness.send<EstimateResult>({
       command: 'estimate-discovery',
       repo,
       documents,
     });
-    expect(estimate.estimate.model).toBe(h.provider.model);
+    expect(estimate.estimate.model).toBe(harness.provider.model);
     expect(estimate.estimate.inputTokens).toBeGreaterThan(0);
     expect(estimate.estimate.usd).toBeGreaterThan(0);
     expect(estimate.month).toMatchObject({ month: '2026-10', passes: 0, usd: 0 });
-    expect(h.provider.completed).toEqual([]);
+    expect(harness.provider.completed).toEqual([]);
 
-    const discovered = await h.send<DiscoverResult>({ command: 'discover', repo, documents });
+    const discovered = await harness.send<DiscoverResult>({ command: 'discover', repo, documents });
     expect(discovered.proposals).toEqual([placeAnOrder, printAReceipt]);
     expect(discovered.month).toMatchObject({ month: '2026-10', passes: 1 });
     expect(discovered.month.usd).toBeGreaterThan(0);
     expect(discovered.month.usd).toBe(discovered.spent.usd);
-    expect(h.keysAsked).toContain(API_KEY);
+    expect(harness.keysAsked).toContain(API_KEY);
 
-    const curated = await h.send<CurateResult>({
+    const curated = await harness.send<CurateResult>({
       command: 'curate',
       repo,
       documents,
@@ -169,10 +173,10 @@ describe('discovery, curation, and cost through the command surface', () => {
       marks: [{ flowId: 'place-an-order', state: 'candidate', reasons: [] }],
     });
 
-    const after = await h.send<MapResult>({ command: 'map', repo, documents });
+    const after = await harness.send<MapResult>({ command: 'map', repo, documents });
     expect(after.flows).toEqual([candidate]);
 
-    const again = await h.send<DiscoverResult>({ command: 'discover', repo, documents });
+    const again = await harness.send<DiscoverResult>({ command: 'discover', repo, documents });
     expect(again.proposals).toEqual([]);
     expect(again.alreadyCurated).toEqual([
       { id: 'place-an-order', decision: 'accepted' },
@@ -182,11 +186,11 @@ describe('discovery, curation, and cost through the command surface', () => {
   });
 
   it('never lets a proposal anchored to an unknown file reach curation', async () => {
-    const h = harness();
-    const { repo, documents } = await opened(h);
-    await h.send({ command: 'set-key', key: API_KEY });
+    const harness = createHarness();
+    const { repo, documents } = await opened(harness);
+    await harness.send({ command: 'set-key', key: API_KEY });
 
-    const discovered = await h.send<DiscoverResult>({ command: 'discover', repo, documents });
+    const discovered = await harness.send<DiscoverResult>({ command: 'discover', repo, documents });
     expect(discovered.proposals.map((proposal) => proposal.id)).not.toContain('refund-an-order');
     expect(discovered.rejections).toEqual([
       expect.objectContaining({
@@ -196,7 +200,7 @@ describe('discovery, curation, and cost through the command surface', () => {
       }),
     ]);
 
-    const refused = await h.refusal({
+    const refused = await harness.refusal({
       command: 'curate',
       repo,
       documents,
@@ -208,12 +212,12 @@ describe('discovery, curation, and cost through the command surface', () => {
   });
 
   it('refuses a curation record it cannot read as a malformed curation, not a refused proposal', async () => {
-    const h = harness();
-    const { repo, documents } = await opened(h);
+    const harness = createHarness();
+    const { repo, documents } = await opened(harness);
     mkdirSync(join(repo, '.archmap'), { recursive: true });
     writeFileSync(join(repo, '.archmap/curation.json'), 'not json\n');
 
-    const curating = await h.refusal({
+    const curating = await harness.refusal({
       command: 'curate',
       repo,
       documents,
@@ -221,13 +225,15 @@ describe('discovery, curation, and cost through the command surface', () => {
       reject: [],
     });
     expect(curating.code).toBe('malformed-curation');
-    expect((await h.refusal({ command: 'map', repo, documents })).code).toBe('malformed-curation');
+    expect((await harness.refusal({ command: 'map', repo, documents })).code).toBe(
+      'malformed-curation',
+    );
   });
 
   it('commits the curation results to the map file in the repo', async () => {
-    const h = harness();
-    const { repo, documents } = await opened(h);
-    await h.send({
+    const harness = createHarness();
+    const { repo, documents } = await opened(harness);
+    await harness.send({
       command: 'curate',
       repo,
       documents,
@@ -248,16 +254,16 @@ describe('discovery, curation, and cost through the command surface', () => {
   });
 
   it('refuses to decide again on a flow the map file already carries', async () => {
-    const h = harness();
-    const { repo, documents } = await opened(h);
+    const harness = createHarness();
+    const { repo, documents } = await opened(harness);
     const curate = { command: 'curate', repo, documents, accept: [placeAnOrder], reject: [] };
-    await h.send(curate);
-    expect((await h.refusal(curate)).code).toBe('already-curated');
+    await harness.send(curate);
+    expect((await harness.refusal(curate)).code).toBe('already-curated');
   });
 
   it('lists a flow document the map file holds but the validator refuses', async () => {
-    const h = harness();
-    const { repo, documents } = await opened(h);
+    const harness = createHarness();
+    const { repo, documents } = await opened(harness);
     mkdirSync(join(repo, '.archmap/flows'), { recursive: true });
     writeFileSync(
       join(repo, '.archmap/flows/gone.json'),
@@ -272,7 +278,7 @@ describe('discovery, curation, and cost through the command surface', () => {
     );
     writeFileSync(join(repo, '.archmap/flows/broken.json'), '{');
 
-    const map = await h.send<MapResult>({ command: 'map', repo, documents });
+    const map = await harness.send<MapResult>({ command: 'map', repo, documents });
     expect(map.flows).toEqual([]);
     expect(map.refused.map((refused) => [refused.file, refused.errors[0]?.code])).toEqual([
       ['.archmap/flows/broken.json', 'invalid-json'],
@@ -283,23 +289,25 @@ describe('discovery, curation, and cost through the command surface', () => {
 
 describe('the key and the monthly total', () => {
   it('refuses to estimate or discover before a key is stored, and calls no provider', async () => {
-    const h = harness();
-    const { repo, documents } = await opened(h);
-    expect((await h.refusal({ command: 'estimate-discovery', repo, documents })).code).toBe(
+    const harness = createHarness();
+    const { repo, documents } = await opened(harness);
+    expect((await harness.refusal({ command: 'estimate-discovery', repo, documents })).code).toBe(
       'no-api-key',
     );
-    expect((await h.refusal({ command: 'discover', repo, documents })).code).toBe('no-api-key');
-    expect(h.keysAsked).toEqual([]);
+    expect((await harness.refusal({ command: 'discover', repo, documents })).code).toBe(
+      'no-api-key',
+    );
+    expect(harness.keysAsked).toEqual([]);
   });
 
   it('stores the key outside the repo, readable by its owner alone', async () => {
-    const h = harness();
-    const { repo, documents } = await opened(h);
-    const account = await h.send<AccountResult>({ command: 'set-key', key: API_KEY });
+    const harness = createHarness();
+    const { repo, documents } = await opened(harness);
+    const account = await harness.send<AccountResult>({ command: 'set-key', key: API_KEY });
     expect(account.keyStored).toBe(true);
-    await h.send({ command: 'discover', repo, documents });
+    await harness.send({ command: 'discover', repo, documents });
 
-    const keyFile = join(h.configDir, 'credentials.json');
+    const keyFile = join(harness.configDir, 'credentials.json');
     expect(readFileSync(keyFile, 'utf8')).toContain(API_KEY);
     expect(statSync(keyFile).mode & 0o777).toBe(0o600);
     const inRepo = filesUnder(repo).filter((file) =>
@@ -309,32 +317,32 @@ describe('the key and the monthly total', () => {
   });
 
   it('keeps the monthly total outside the repo, and reports it on account', async () => {
-    const h = harness();
-    const { repo, documents } = await opened(h);
-    const fresh = await h.send<AccountResult>({ command: 'account' });
+    const harness = createHarness();
+    const { repo, documents } = await opened(harness);
+    const fresh = await harness.send<AccountResult>({ command: 'account' });
     expect(fresh).toEqual({
       keyStored: false,
       month: { month: '2026-10', passes: 0, inputTokens: 0, outputTokens: 0, usd: 0 },
     });
 
-    await h.send({ command: 'set-key', key: API_KEY });
-    const discovered = await h.send<DiscoverResult>({ command: 'discover', repo, documents });
-    const account = await h.send<AccountResult>({ command: 'account' });
+    await harness.send({ command: 'set-key', key: API_KEY });
+    const discovered = await harness.send<DiscoverResult>({ command: 'discover', repo, documents });
+    const account = await harness.send<AccountResult>({ command: 'account' });
     expect(account.month).toEqual(discovered.month);
-    expect(existsSync(join(h.configDir, 'spend.json'))).toBe(true);
+    expect(existsSync(join(harness.configDir, 'spend.json'))).toBe(true);
     expect(existsSync(join(repo, '.archmap'))).toBe(false);
   });
 
   it('prices a pass at the model that served it, when that is not the one asked', async () => {
-    const plain = harness();
-    const served = harness([cannedAnswer], {
+    const plain = createHarness();
+    const served = createHarness([cannedAnswer], {
       model: 'fallback-model',
       price: { inputPerMillionTokens: 40, outputPerMillionTokens: 200 },
     });
-    const spentBy = async (h: Harness): Promise<DiscoverResult> => {
-      const { repo, documents } = await opened(h);
-      await h.send({ command: 'set-key', key: API_KEY });
-      return h.send<DiscoverResult>({ command: 'discover', repo, documents });
+    const spentBy = async (harness: Harness): Promise<DiscoverResult> => {
+      const { repo, documents } = await opened(harness);
+      await harness.send({ command: 'set-key', key: API_KEY });
+      return harness.send<DiscoverResult>({ command: 'discover', repo, documents });
     };
     const asked = await spentBy(plain);
     const fallback = await spentBy(served);
@@ -344,28 +352,28 @@ describe('the key and the monthly total', () => {
   });
 
   it('counts a pass whose answer cannot be read, because its tokens were spent', async () => {
-    const h = harness(['I found these flows: checkout and receipts.']);
-    const { repo, documents } = await opened(h);
-    await h.send({ command: 'set-key', key: API_KEY });
-    expect((await h.refusal({ command: 'discover', repo, documents })).code).toBe(
+    const harness = createHarness(['I found these flows: checkout and receipts.']);
+    const { repo, documents } = await opened(harness);
+    await harness.send({ command: 'set-key', key: API_KEY });
+    expect((await harness.refusal({ command: 'discover', repo, documents })).code).toBe(
       'provider-failed',
     );
-    expect((await h.send<AccountResult>({ command: 'account' })).month.passes).toBe(1);
+    expect((await harness.send<AccountResult>({ command: 'account' })).month.passes).toBe(1);
   });
 
   it('refuses an empty key', async () => {
-    const h = harness();
-    expect((await h.refusal({ command: 'set-key', key: '' })).code).toBe('malformed-request');
+    const harness = createHarness();
+    expect((await harness.refusal({ command: 'set-key', key: '' })).code).toBe('malformed-request');
   });
 });
 
 describe('what the provider is asked', () => {
   it('sends the reference graph and the numbered source of every file in it', async () => {
-    const h = harness();
-    const { repo, documents } = await opened(h);
-    await h.send({ command: 'set-key', key: API_KEY });
-    await h.send({ command: 'discover', repo, documents });
-    const [request] = h.provider.completed;
+    const harness = createHarness();
+    const { repo, documents } = await opened(harness);
+    await harness.send({ command: 'set-key', key: API_KEY });
+    await harness.send({ command: 'discover', repo, documents });
+    const [request] = harness.provider.completed;
     expect(request?.prompt).toContain('src/screens/checkout.tsx (typescript)');
     expect(request?.prompt).toContain('6| export const Checkout');
     expect(request?.prompt).not.toContain('tools/build.ts');

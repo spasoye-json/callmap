@@ -84,16 +84,16 @@ const harnessOn = (
 const withCandidate = async (answers: readonly string[] = [placeAnOrderTraceAnswer()]) => {
   const repo = mkdtempSync(join(tmpdir(), 'archmap-trace-repo-'));
   cpSync(MIXED_FIXTURE, repo, { recursive: true });
-  const h = harnessOn(repo, mkdtempSync(join(tmpdir(), 'archmap-trace-config-')), answers);
-  await h.send({
+  const harness = harnessOn(repo, mkdtempSync(join(tmpdir(), 'archmap-trace-config-')), answers);
+  await harness.send({
     command: 'curate',
     repo,
     documents,
     accept: [placeAnOrderProposal()],
     reject: [],
   });
-  await h.send({ command: 'set-key', key: 'sk-ant-test' });
-  return h;
+  await harness.send({ command: 'set-key', key: 'sk-ant-test' });
+  return harness;
 };
 
 const flowFile = (repo: string): unknown =>
@@ -101,47 +101,57 @@ const flowFile = (repo: string): unknown =>
 
 describe('the trace of a candidate', () => {
   it('estimates the cost first, without running the pass', async () => {
-    const h = await withCandidate();
-    const estimate = await h.send<EstimateResult>({
+    const harness = await withCandidate();
+    const estimate = await harness.send<EstimateResult>({
       command: 'estimate-trace',
-      repo: h.repo,
+      repo: harness.repo,
       documents,
       flowId: 'place-an-order',
     });
     expect(estimate.estimate.model).toBe('fake-model');
     expect(estimate.estimate.inputTokens).toBeGreaterThan(0);
     expect(estimate.estimate.usd).toBeGreaterThan(0);
-    expect(h.provider.completed).toEqual([]);
+    expect(harness.provider.completed).toEqual([]);
   });
 
   it('runs the pass, and saves and answers with the validated flow', async () => {
-    const h = await withCandidate();
-    const traced = await h.send<TraceResult>({
+    const harness = await withCandidate();
+    const traced = await harness.send<TraceResult>({
       command: 'trace',
-      repo: h.repo,
+      repo: harness.repo,
       documents,
       flowId: 'place-an-order',
     });
     expect(traced.flow).toEqual(placeAnOrderTraced());
-    expect(flowFile(h.repo)).toEqual(placeAnOrderTraced());
+    expect(flowFile(harness.repo)).toEqual(placeAnOrderTraced());
     expect(traced.month).toMatchObject({ month: '2026-10', passes: 1 });
     expect(traced.month.usd).toBe(traced.spent.usd);
   });
 
   it('sends the pass the flow it traces and the source it reads', async () => {
-    const h = await withCandidate();
-    await h.send({ command: 'trace', repo: h.repo, documents, flowId: 'place-an-order' });
-    const [request] = h.provider.completed;
+    const harness = await withCandidate();
+    await harness.send({
+      command: 'trace',
+      repo: harness.repo,
+      documents,
+      flowId: 'place-an-order',
+    });
+    const [request] = harness.provider.completed;
     expect(request?.prompt).toContain(`entry point: screen at ${MIXED_CHECKOUT_SCREEN}:3`);
     expect(request?.prompt).toContain('4|   const order = await placeOrder(cart);');
   });
 
   it('reopens the traced flow from disk with no provider call', async () => {
-    const h = await withCandidate();
-    await h.send({ command: 'trace', repo: h.repo, documents, flowId: 'place-an-order' });
+    const harness = await withCandidate();
+    await harness.send({
+      command: 'trace',
+      repo: harness.repo,
+      documents,
+      flowId: 'place-an-order',
+    });
 
-    const reopened = harnessOn(h.repo, h.configDir, []);
-    const map = await reopened.send<MapResult>({ command: 'map', repo: h.repo, documents });
+    const reopened = harnessOn(harness.repo, harness.configDir, []);
+    const map = await reopened.send<MapResult>({ command: 'map', repo: harness.repo, documents });
     expect(map.flows).toEqual([placeAnOrderTraced()]);
     expect(reopened.provider.counted).toEqual([]);
     expect(reopened.provider.completed).toEqual([]);
@@ -157,48 +167,64 @@ describe('a trace the sidecar refuses', () => {
         index === 0 ? { ...node, file: 'web/src/screens/invented.ts' } : node,
       ),
     };
-    const h = await withCandidate([JSON.stringify(invented)]);
-    const refused = await h.refusal({
+    const harness = await withCandidate([JSON.stringify(invented)]);
+    const refused = await harness.refusal({
       command: 'trace',
-      repo: h.repo,
+      repo: harness.repo,
       documents,
       flowId: 'place-an-order',
     });
     expect(refused.code).toBe('trace-refused');
     expect(refused.message).toContain('unknown-file');
-    expect(flowFile(h.repo)).toEqual(candidate);
-    const account = await h.send<{ month: { passes: number } }>({ command: 'account' });
+    expect(flowFile(harness.repo)).toEqual(candidate);
+    const account = await harness.send<{ month: { passes: number } }>({ command: 'account' });
     expect(account.month.passes).toBe(1);
   });
 
   it('refuses a flow id the map file does not hold', async () => {
-    const h = await withCandidate();
-    const refused = await h.refusal({ command: 'trace', repo: h.repo, documents, flowId: 'nope' });
+    const harness = await withCandidate();
+    const refused = await harness.refusal({
+      command: 'trace',
+      repo: harness.repo,
+      documents,
+      flowId: 'nope',
+    });
     expect(refused.code).toBe('unknown-flow');
     expect(
-      (await h.refusal({ command: 'estimate-trace', repo: h.repo, documents, flowId: 'nope' }))
-        .code,
+      (
+        await harness.refusal({
+          command: 'estimate-trace',
+          repo: harness.repo,
+          documents,
+          flowId: 'nope',
+        })
+      ).code,
     ).toBe('unknown-flow');
   });
 
   it('refuses to trace a traced flow again, because its trace is already paid for', async () => {
-    const h = await withCandidate();
-    await h.send({ command: 'trace', repo: h.repo, documents, flowId: 'place-an-order' });
-    const refused = await h.refusal({
+    const harness = await withCandidate();
+    await harness.send({
       command: 'trace',
-      repo: h.repo,
+      repo: harness.repo,
+      documents,
+      flowId: 'place-an-order',
+    });
+    const refused = await harness.refusal({
+      command: 'trace',
+      repo: harness.repo,
       documents,
       flowId: 'place-an-order',
     });
     expect(refused.code).toBe('already-traced');
-    expect(h.provider.completed).toHaveLength(1);
+    expect(harness.provider.completed).toHaveLength(1);
   });
 
   it('refuses to trace before a key is stored', async () => {
     const repo = mkdtempSync(join(tmpdir(), 'archmap-trace-repo-'));
     cpSync(MIXED_FIXTURE, repo, { recursive: true });
-    const h = harnessOn(repo, mkdtempSync(join(tmpdir(), 'archmap-trace-config-')), []);
-    await h.send({
+    const harness = harnessOn(repo, mkdtempSync(join(tmpdir(), 'archmap-trace-config-')), []);
+    await harness.send({
       command: 'curate',
       repo,
       documents,
@@ -206,7 +232,7 @@ describe('a trace the sidecar refuses', () => {
       reject: [],
     });
     expect(
-      (await h.refusal({ command: 'trace', repo, documents, flowId: 'place-an-order' })).code,
+      (await harness.refusal({ command: 'trace', repo, documents, flowId: 'place-an-order' })).code,
     ).toBe('no-api-key');
   });
 });

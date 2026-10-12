@@ -16,6 +16,8 @@ import { canvasStyle, coloursOf, elementsOf } from './canvas-elements.ts';
 export interface FlowCanvasProps {
   readonly flow: FlowDocument;
   readonly onOpenAnchor: (anchor: Anchor) => void;
+  /** Hands over the Cytoscape graph once it is created, for a caller that drives it directly. */
+  readonly onGraph?: (graph: Core) => void;
 }
 
 const ZOOM_STEP = 1.25;
@@ -152,7 +154,7 @@ const StepList = ({
   </ol>
 );
 
-export const FlowCanvas = ({ flow, onOpenAnchor }: FlowCanvasProps) => {
+export const FlowCanvas = ({ flow, onOpenAnchor, onGraph }: FlowCanvasProps) => {
   const [collapsed, setCollapsed] = useState<readonly string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const model = useMemo(
@@ -162,8 +164,8 @@ export const FlowCanvas = ({ flow, onOpenAnchor }: FlowCanvasProps) => {
   const container = useRef<HTMLDivElement>(null);
   const graph = useRef<Core | null>(null);
   const fitted = useRef(false);
-  const latest = useRef({ model, onOpenAnchor });
-  latest.current = { model, onOpenAnchor };
+  const latest = useRef({ model, onOpenAnchor, onGraph });
+  latest.current = { model, onOpenAnchor, onGraph };
 
   useEffect(() => {
     if (container.current === null) return undefined;
@@ -192,6 +194,7 @@ export const FlowCanvas = ({ flow, onOpenAnchor }: FlowCanvasProps) => {
     });
     graph.current = cy;
     fitted.current = false;
+    latest.current.onGraph?.(cy);
     return () => {
       graph.current = null;
       cy.destroy();
