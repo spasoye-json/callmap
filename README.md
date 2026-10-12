@@ -21,21 +21,23 @@ The walking skeleton is under way. The core seam modules are ported, as typed Ty
 | `@archmap/staleness`       | The anchor set, the anchor stamp, and the mark                                     |
 | `@archmap/testing`         | One mixed-language fixture repo, held as data, that the tests are written against  |
 
-The first extractor is here too, and it is not core: it is the other side of the contract.
+The extractors are here too, and they are not core: they are the other side of the contract.
 
-| Package                         | What it owns                                                                     |
-| ------------------------------- | -------------------------------------------------------------------------------- |
-| `@archmap/extractor-typescript` | TypeScript and JavaScript: a repo in scope, read into a reference graph document |
+| Package                         | What it owns                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------- |
+| `@archmap/extractor-typescript` | TypeScript and JavaScript: a repo in scope, read into a reference graph document      |
+| `@archmap/extractor-ruby`       | Ruby: constant references resolved by Zeitwerk conventions, one loader per Rails app  |
 
 No core package reads source code or a target repo's filesystem. An extractor emits the reference graph, the host reads file hashes, and the core only ever sees data. See ADR-0009. The split is guarded, not merely intended: `test/core-is-language-blind-and-pure.test.ts` reads every package's imports and holds the core to it, and holds the extractor to the opposite.
 
-The extractor runs as its own process and answers over its standard output:
+Each extractor runs as its own process and answers over its standard output:
 
 ```sh
 node packages/extractor-typescript/src/cli.ts <repo> --scope 'src/**'
+node packages/extractor-ruby/src/cli.ts <repo> --scope 'apps/**'
 ```
 
-Its own tiny fixture repo is committed under `packages/extractor-typescript/fixture/`, because an extractor is the one thing here that must be tested against files on disk.
+The Ruby extractor needs a `ruby` on the `PATH`. It parses with Ripper, which every Ruby ships, so it needs no gem. Each extractor commits its own tiny fixture repo under `packages/<extractor>/fixture/`, because an extractor is the one thing here that must be tested against files on disk.
 
 ### How these modules got here
 
@@ -43,7 +45,7 @@ The `archmap-prototype` repo was not reachable when this port was made, so the m
 
 The TypeScript extractor was written the same way, and its alias resolution is the same guarantee reached a second way rather than a diff against the prototype's extraction: it resolves every specifier with the TypeScript compiler's own resolver, against the target repo's own `tsconfig.json`, which is the resolver the prototype's extraction was built on (ADR-0001). What the extractor calls a reference is therefore what the compiler itself would have imported, alias for alias.
 
-Still to come: the Tauri shell, the Node sidecar, the Go and Ruby extractors, and the review scene.
+Still to come: the Tauri shell, the Node sidecar, the Go extractor, and the review scene.
 
 Also still to come, and named here because `CONTEXT.md` and `docs/adr/` already define them, so their absence would otherwise read as an oversight: discovery and tracing, which are the AI passes that mint a candidate and fill one in (ADR-0005); the component map, its components and its unassigned tray, which are the context layer a flow is drawn across (ADR-0002); the map file that carries curation results (ADR-0007, ADR-0010); and the stamping command of ADR-0008, which exists so a page build can never re-stamp what it was meant to show. The stamping *rules* are here and tested; only the command boundary around them is not.
 
