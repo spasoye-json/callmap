@@ -10,6 +10,7 @@ import type { FlowDocument } from '@archmap/flow-document';
 import type { ReferenceGraph } from '@archmap/reference-graph';
 import { readTraceAnswer, tracePrompt } from '@archmap/trace';
 import type { TraceRefusal } from '@archmap/trace';
+import { stampTracedFlow } from './anchors.ts';
 import { writeFlowDocument } from './map-file.ts';
 import { aiRequestOf, createAiAccount, graphOf, mapOf, sourcesOf, withProvider } from './passes.ts';
 import type { AiOptions, Command } from './passes.ts';
@@ -40,9 +41,14 @@ const describeRefusals = (errors: readonly TraceRefusal[]): string =>
     .map((error) => `${error.path === '' ? 'answer' : error.path}: ${error.code}, ${error.message}`)
     .join('; ');
 
-/** Save the traced flow over its candidate. Everything a trace leaves in the map file is written here. */
-const saveTracedFlow = (repo: string, flow: FlowDocument): void => {
+/**
+ * Save the traced flow over its candidate, then stamp it. Everything a trace leaves in the map
+ * file is written here. The flow is written first, so a stamp that fails leaves a flow that reads
+ * as unstamped, never a stamp over a candidate.
+ */
+const saveTracedFlow = (repo: string, graph: ReferenceGraph, flow: FlowDocument): void => {
   writeFlowDocument(repo, flow);
+  stampTracedFlow(repo, mapOf(repo, graph), flow);
 };
 
 export const createTraceCommands = (options: AiOptions = {}): ReadonlyMap<string, Command> => {
@@ -90,7 +96,7 @@ export const createTraceCommands = (options: AiOptions = {}): ReadonlyMap<string
         `the trace of '${flow.id}' was refused: ${describeRefusals(reading.errors)}`,
       );
     }
-    saveTracedFlow(repo, reading.document);
+    saveTracedFlow(repo, graph, reading.document);
     return {
       flow: reading.document,
       spent: estimateOf(provider.model, answer.usage, provider.price),

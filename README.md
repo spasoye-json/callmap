@@ -71,6 +71,8 @@ Tracing is lazy (ADR-0005). Opening a candidate in the app shows `estimate-trace
 
 The map file is the `.archmap/` directory the target repo commits (ADR-0007): `flows/<flow id>.json` holds one flow document per flow, `curation.json` holds the rejected proposals, and `flow-anchors.json` holds the anchor stamps (ADR-0008).
 
+Staleness is a content hash of the anchor set (ADR-0008). After `trace` saves a flow, it stamps that flow and no other: the sha256 of every file the flow's nodes point at goes into `flow-anchors.json`. `map` compares each stamp with the files as they stand now and answers with one mark per flow, so the check runs when the map is read and never on a git event. The picker shows `stale` on a flow whose anchored file changed, is gone, or was gained or dropped, and shows no mark on an unchanged one. A stale flow is marked and never traced again on its own. The stamps hash file bytes and hold no absolute path, so a teammate who clones the repo reads the same map and the same marks with no key and no provider call.
+
 ### How these modules got here
 
 The `archmap-prototype` repo was not reachable when this port was made, so the modules were written from the rules this repo already pins down: `CONTEXT.md` and `docs/adr/`. They are not a line-for-line copy of the prototype's core, and the prototype's 188 cases were not carried across as themselves. What is here instead is a suite written against the same rules, one case per rule, which is the same guarantee reached a second way. Anyone with the prototype to hand should diff the two suites and fold in whatever case this one is missing.
@@ -79,7 +81,7 @@ The TypeScript extractor was written the same way, and its alias resolution is t
 
 Still to come: the review scene.
 
-Also still to come, and named here because `CONTEXT.md` and `docs/adr/` already define them, so their absence would otherwise read as an oversight: the component map, its components and its unassigned tray, which are the context layer a flow is drawn across (ADR-0002); and the stamping command of ADR-0008, which exists so a page build can never re-stamp what it was meant to show. The stamping *rules* are here and tested; only the command boundary around them is not.
+Also still to come, and named here because `CONTEXT.md` and `docs/adr/` already define them, so their absence would otherwise read as an oversight: the component map, its components and its unassigned tray, which are the context layer a flow is drawn across (ADR-0002). Also the re-trace of a stale flow and its re-stamp, which ADR-0008 asks for by hand: `trace` refuses a traced flow, so today a stale mark is cleared only when someone puts the candidate back in the flow file by hand and traces it again.
 
 ## Checks
 

@@ -109,9 +109,10 @@ export const App = ({ client }: { readonly client: SidecarClient }) => {
   const [session, setSession] = useState<Session>({ state: 'closed' });
   const [openId, setOpenId] = useState<string | null>(null);
   const [editorProblem, setEditorProblem] = useState<string | null>(null);
-  const pickerRows = buildFlowPicker(
-    createFlowLibrary(session.state === 'open' ? session.map.flows : []),
-  );
+  const pickerRows =
+    session.state === 'open'
+      ? buildFlowPicker(createFlowLibrary(session.map.flows), session.map.marks)
+      : [];
   const openFlow =
     session.state === 'open' ? session.map.flows.find((flow) => flow.id === openId) : undefined;
 

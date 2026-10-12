@@ -5,7 +5,7 @@
  *     .archmap/
  *       flows/<flow id>.json   one flow document per flow, candidate or traced
  *       curation.json          the proposed entry points a person rejected
- *       flow-anchors.json      the anchor stamps (ADR-0008), written by the stamp command
+ *       flow-anchors.json      the anchor stamps (ADR-0008), written after a trace
  *
  * It holds no absolute path, no reference graph, no key, and no spend: an extractor recomputes the
  * graph, and the key and the spend belong to the person, not the repo. A dot directory is skipped
@@ -19,6 +19,8 @@ import type { CurationRecord } from '@archmap/discovery';
 import { parseFlowDocument } from '@archmap/flow-document';
 import type { FlowDocument, ValidationCode } from '@archmap/flow-document';
 import type { ReferenceGraph } from '@archmap/reference-graph';
+import { parseAnchorStore, serialiseAnchorStore } from '@archmap/staleness';
+import type { AnchorStore } from '@archmap/staleness';
 
 export const MAP_DIRECTORY = '.archmap';
 
@@ -51,6 +53,8 @@ export interface MapFile {
   readonly flows: readonly FlowDocument[];
   readonly refused: readonly RefusedFlowFile[];
   readonly curation: CurationRecord;
+  /** The anchor stamps, one per flow a trace stamped. Empty before the first trace. */
+  readonly anchors: AnchorStore;
 }
 
 const readTextIfPresent = (path: string): string | null => {
@@ -101,10 +105,12 @@ export const readMapFile = (repo: string, referenceGraph: ReferenceGraph): MapFi
     }
   }
   const curationText = readTextIfPresent(join(repo, MAP_FILE_PATHS.curation));
+  const anchorsText = readTextIfPresent(join(repo, MAP_FILE_PATHS.anchors));
   return {
     flows,
     refused,
     curation: curationText === null ? EMPTY_CURATION : parseCuration(curationText),
+    anchors: anchorsText === null ? {} : parseAnchorStore(anchorsText),
   };
 };
 
@@ -129,4 +135,8 @@ export const writeFlowDocument = (repo: string, document: FlowDocument): void =>
 
 export const writeCuration = (repo: string, record: CurationRecord): void => {
   writeAtomically(join(repo, MAP_FILE_PATHS.curation), serialiseCuration(record));
+};
+
+export const writeAnchorStore = (repo: string, store: AnchorStore): void => {
+  writeAtomically(join(repo, MAP_FILE_PATHS.anchors), serialiseAnchorStore(store));
 };

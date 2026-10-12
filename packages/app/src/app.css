@@ -242,6 +242,14 @@ body {
   font-weight: 600;
 }
 
+.picker .badge {
+  padding: 0 6px;
+  border: 1px solid var(--inferred);
+  border-radius: 4px;
+  color: var(--inferred);
+  font-size: 12px;
+}
+
 .trace,
 .flow-canvas {
   padding: 12px;
