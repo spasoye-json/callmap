@@ -9,7 +9,6 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { ReferenceGraphDocument } from '@archmap/reference-graph';
 import { readReferenceGraphDocument } from '@archmap/reference-graph';
 
@@ -28,7 +27,7 @@ export interface GoExtractOptions {
   readonly scope?: readonly string[];
 }
 
-const PROGRAM = fileURLToPath(new URL('../go', import.meta.url));
+const PROGRAM = join(import.meta.dirname, '../go');
 
 let built: string | undefined;
 
