@@ -59,34 +59,34 @@ describe('a language registered beside the ones version one ships', () => {
     mkdirSync(join(repo, 'svc'));
     writeFileSync(join(repo, 'web/a.ts'), "import { b } from './b';\nexport const a = b;\n");
     writeFileSync(join(repo, 'web/b.ts'), 'export const b = 1;\n');
-    writeFileSync(join(repo, 'svc/main.go'), 'package main\n');
-    writeFileSync(join(repo, 'svc/util.go'), 'package main\n');
+    writeFileSync(join(repo, 'svc/main.zig'), 'pub fn main() void {}\n');
+    writeFileSync(join(repo, 'svc/util.zig'), 'pub fn main() void {}\n');
     return repo;
   };
 
-  const goExtractor = (emit: (run: ExtractorRun) => unknown): ExtractorRegistration => ({
-    language: 'go',
-    claims: (path) => path.endsWith('.go'),
+  const zigExtractor = (emit: (run: ExtractorRun) => unknown): ExtractorRegistration => ({
+    language: 'zig',
+    claims: (path) => path.endsWith('.zig'),
     extract: (run) => Promise.resolve(emit(run)),
   });
 
-  const goDocument = (run: ExtractorRun) => ({
-    language: 'go',
+  const zigDocument = (run: ExtractorRun) => ({
+    language: 'zig',
     scope: run.scope,
-    files: ['svc/main.go', 'svc/util.go'],
-    edges: [{ from: 'svc/main.go', to: 'svc/util.go' }],
+    files: ['svc/main.zig', 'svc/util.zig'],
+    edges: [{ from: 'svc/main.zig', to: 'svc/util.zig' }],
   });
 
   it('is detected and extracted through the same two commands', async () => {
     const repo = mixedRepo();
     const sidecar = createSidecar({
-      extractors: [...REGISTERED_EXTRACTORS, goExtractor(goDocument)],
+      extractors: [...REGISTERED_EXTRACTORS, zigExtractor(zigDocument)],
     });
 
     const opened = await sidecar.handle({ command: 'open', repo, scope: [] });
     if (!opened.ok) throw new Error(opened.error.message);
     const { languages } = opened.result as OpenResult;
-    expect(languages).toEqual(['go', 'typescript']);
+    expect(languages).toEqual(['typescript', 'zig']);
 
     const extracted = await sidecar.handle({ command: 'extract', repo, scope: [], languages });
     if (!extracted.ok) throw new Error(extracted.error.message);
@@ -94,8 +94,8 @@ describe('a language registered beside the ones version one ships', () => {
       files: 4,
       edges: 2,
       languages: [
-        { language: 'go', files: 2, edges: 1 },
         { language: 'typescript', files: 2, edges: 1 },
+        { language: 'zig', files: 2, edges: 1 },
       ],
     });
   });
@@ -103,7 +103,7 @@ describe('a language registered beside the ones version one ships', () => {
   it('is left out of open when no file in scope is one it reads', async () => {
     const repo = mixedRepo();
     const sidecar = createSidecar({
-      extractors: [...REGISTERED_EXTRACTORS, goExtractor(goDocument)],
+      extractors: [...REGISTERED_EXTRACTORS, zigExtractor(zigDocument)],
     });
     const opened = await sidecar.handle({ command: 'open', repo, scope: ['web/**'] });
     expect(opened).toMatchObject({ ok: true, result: { languages: ['typescript'] } });
