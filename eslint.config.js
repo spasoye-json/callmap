@@ -7,7 +7,16 @@ export default tseslint.config(
    * as the extractor must find it: JavaScript that predates modules, an import of a package
    * nothing installed, and aliases only its own tsconfig knows.
    */
-  { ignores: ['node_modules/**', 'types/**', 'coverage/**', 'packages/*/fixture/**'] },
+  {
+    ignores: [
+      'node_modules/**',
+      'types/**',
+      'coverage/**',
+      'packages/*/fixture/**',
+      'packages/*/dist/**',
+      'packages/app/src-tauri/**',
+    ],
+  },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   {

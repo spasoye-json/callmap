@@ -1,0 +1,143 @@
+:root {
+  color-scheme: light dark;
+  --ink: #1d232a;
+  --muted: #5d6874;
+  --paper: #f7f8fa;
+  --panel: #ffffff;
+  --rule: #d9dee4;
+  --accent: #2f6fdf;
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e6e9ed;
+    --muted: #9aa5b1;
+    --paper: #15191e;
+    --panel: #1d2329;
+    --rule: #323a43;
+    --accent: #7aa7ff;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.app header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.app h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.app h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.app form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.app label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.app input,
+.app textarea {
+  min-width: 260px;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
+.app button {
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--paper);
+  font: inherit;
+  cursor: pointer;
+}
+
+.app button:disabled {
+  opacity: 0.5;
+}
+
+.opened {
+  margin: 0;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: 16px;
+}
+
+.picker,
+.summary {
+  padding: 12px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.picker ul,
+.summary ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.picker .empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+.picker .candidate {
+  color: var(--muted);
+}
+
+.summary p,
+.summary li {
+  display: flex;
+  gap: 16px;
+}
+
+.summary p {
+  margin: 0 0 8px;
+  font-size: 18px;
+}

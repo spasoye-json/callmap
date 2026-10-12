@@ -18,7 +18,11 @@ const UNDERSTOOD = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'
  */
 const skipped = (name: string): boolean => name === 'node_modules' || name.startsWith('.');
 
-const understood = (name: string): boolean =>
+/**
+ * Whether a file name is one this extractor reads. The host asks the same question of every file
+ * in scope to detect the language, so detection and extraction cannot disagree on a file.
+ */
+export const understood = (name: string): boolean =>
   UNDERSTOOD.some((extension) => name.endsWith(extension));
 
 /**
