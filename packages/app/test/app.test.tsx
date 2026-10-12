@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -13,9 +15,14 @@ const silentClient: SidecarClient = {
   send: () => Promise.reject(new Error('the app sent a request before it was asked to open')),
 };
 
-/** The sidecar in the same process: the whole command surface, with no shell and no window. */
+/**
+ * The sidecar in the same process: the whole command surface, with no shell and no window. Its
+ * config directory is a temp one, so a test never reads the key or the spend of the person running it.
+ */
 const inProcessClient = (): SidecarClient => {
-  const sidecar = createSidecar();
+  const sidecar = createSidecar({
+    ai: { configDir: mkdtempSync(join(tmpdir(), 'archmap-app-config-')) },
+  });
   return { send: (request) => sidecar.handle(request) } as SidecarClient;
 };
 
