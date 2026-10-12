@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@archmap/canvas-model": "*",
+    "@archmap/extractor-go": "*",
     "@archmap/extractor-typescript": "*",
     "@archmap/flow-document": "*",
     "@archmap/flow-library": "*",
