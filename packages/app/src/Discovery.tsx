@@ -11,24 +11,13 @@ import type {
   EstimateResult,
   ExtractResult,
   MapResult,
-  SidecarResponse,
 } from '@archmap/sidecar';
+import { EstimatedCost, plural, resultOf, useStepRunner } from './shared.tsx';
 import type { SidecarClient } from './sidecar-client.ts';
 
 type Decision = 'accept' | 'reject';
 
 type ProposedEntryPoint = DiscoverResult['proposals'][number];
-
-const resultOf = <Result,>(response: SidecarResponse<Result>): Result => {
-  if (!response.ok) throw new Error(response.error.message);
-  return response.result;
-};
-
-export const formatUsd = (usd: number): string =>
-  usd > 0 && usd < 0.01 ? 'under $0.01' : `$${usd.toFixed(2)}`;
-
-const plural = (count: number, one: string, many: string): string =>
-  `${String(count)} ${count === 1 ? one : many}`;
 
 export interface DiscoveryProps {
   readonly client: SidecarClient;
@@ -84,23 +73,10 @@ export const Discovery = ({
   onMap,
 }: DiscoveryProps) => {
   const [key, setKey] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+  const { busy, problem, run } = useStepRunner();
   const [estimate, setEstimate] = useState<EstimateResult | null>(null);
   const [discovered, setDiscovered] = useState<DiscoverResult | null>(null);
   const [decisions, setDecisions] = useState<Readonly<Record<string, Decision>>>({});
-
-  const run = async (step: () => Promise<void>): Promise<void> => {
-    setBusy(true);
-    setProblem(null);
-    try {
-      await step();
-    } catch (error) {
-      setProblem(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const storeKey = () =>
     run(async () => {
@@ -189,13 +165,7 @@ export const Discovery = ({
           )}
         </div>
       ) : null}
-      {estimate === null ? null : (
-        <p role="status" aria-label="Estimated cost">
-          About {formatUsd(estimate.estimate.usd)} on {estimate.estimate.model}:{' '}
-          {plural(estimate.estimate.inputTokens, 'input token', 'input tokens')} and up to{' '}
-          {plural(estimate.estimate.outputTokens, 'output token', 'output tokens')}
-        </p>
-      )}
+      {estimate === null ? null : <EstimatedCost estimate={estimate} />}
       {problem === null ? null : <p role="alert">{problem}</p>}
       {discovered === null ? null : (
         <>

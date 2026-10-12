@@ -6,8 +6,8 @@
 
 import { useState } from 'react';
 import type { FlowDocument } from '@archmap/flow-document';
-import type { EstimateResult, ExtractResult, SidecarResponse, TraceResult } from '@archmap/sidecar';
-import { formatUsd } from './Discovery.tsx';
+import type { EstimateResult, ExtractResult, TraceResult } from '@archmap/sidecar';
+import { EstimatedCost, resultOf, useStepRunner } from './shared.tsx';
 import type { SidecarClient } from './sidecar-client.ts';
 
 export interface TraceProps {
@@ -18,30 +18,9 @@ export interface TraceProps {
   readonly onTraced: (result: TraceResult) => void;
 }
 
-const resultOf = <Result,>(response: SidecarResponse<Result>): Result => {
-  if (!response.ok) throw new Error(response.error.message);
-  return response.result;
-};
-
-const plural = (count: number, one: string, many: string): string =>
-  `${String(count)} ${count === 1 ? one : many}`;
-
 export const Trace = ({ client, repo, documents, flow, onTraced }: TraceProps) => {
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+  const { busy, problem, run } = useStepRunner();
   const [estimate, setEstimate] = useState<EstimateResult | null>(null);
-
-  const run = async (step: () => Promise<void>): Promise<void> => {
-    setBusy(true);
-    setProblem(null);
-    try {
-      await step();
-    } catch (error) {
-      setProblem(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const estimateCost = () =>
     run(async () => {
@@ -88,13 +67,7 @@ export const Trace = ({ client, repo, documents, flow, onTraced }: TraceProps) =
           </button>
         )}
       </div>
-      {estimate === null ? null : (
-        <p role="status" aria-label="Estimated cost">
-          About {formatUsd(estimate.estimate.usd)} on {estimate.estimate.model}:{' '}
-          {plural(estimate.estimate.inputTokens, 'input token', 'input tokens')} and up to{' '}
-          {plural(estimate.estimate.outputTokens, 'output token', 'output tokens')}
-        </p>
-      )}
+      {estimate === null ? null : <EstimatedCost estimate={estimate} />}
       {problem === null ? null : <p role="alert">{problem}</p>}
     </section>
   );

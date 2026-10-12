@@ -16,10 +16,10 @@ import type {
   MapResult,
   OpenResult,
   RefusedFlowFile,
-  SidecarResponse,
 } from '@archmap/sidecar';
-import { Discovery, formatUsd } from './Discovery.tsx';
+import { Discovery } from './Discovery.tsx';
 import { FlowCanvas } from './FlowCanvas.tsx';
+import { formatUsd, plural, resultOf } from './shared.tsx';
 import { Trace } from './Trace.tsx';
 import type { SidecarClient } from './sidecar-client.ts';
 
@@ -41,14 +41,6 @@ const globsOf = (text: string): readonly string[] =>
     .split(/[\n,]/)
     .map((glob) => glob.trim())
     .filter((glob) => glob !== '');
-
-const resultOf = <Result,>(response: SidecarResponse<Result>): Result => {
-  if (!response.ok) throw new Error(response.error.message);
-  return response.result;
-};
-
-const plural = (count: number, one: string, many: string): string =>
-  `${String(count)} ${count === 1 ? one : many}`;
 
 const GraphSummary = ({ extracted }: { readonly extracted: ExtractResult }) => (
   <section aria-label="Reference graph" className="summary">
