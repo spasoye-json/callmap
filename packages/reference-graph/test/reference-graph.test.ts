@@ -236,20 +236,36 @@ describe('mergeReferenceGraphs', () => {
     expect(merged.joins('app/checkout.ts', 'app/controllers/orders_controller.rb')).toBe(false);
   });
 
-  it('joins a pair one extractor named across a file another extractor claimed', () => {
-    const graph = mergeReferenceGraphs(
-      { files: [{ path: 'a.ts', language: 'typescript' }], edges: [{ from: 'a.ts', to: 'b.rb' }] },
-      { files: [{ path: 'b.rb', language: 'ruby' }], edges: [] },
-    );
-    expect(graph.joins('a.ts', 'b.rb')).toBe(true);
+  it('refuses an edge one extractor named across a file another extractor claimed in another language', () => {
+    expect(() =>
+      mergeReferenceGraphs(
+        {
+          files: [{ path: 'a.ts', language: 'typescript' }],
+          edges: [{ from: 'a.ts', to: 'b.rb' }],
+        },
+        { files: [{ path: 'b.rb', language: 'ruby' }], edges: [] },
+      ),
+    ).toThrow(/a\.ts.*b\.rb.*typescript.*ruby/);
   });
 
-  it('leaves that pair in two languages, so nothing verified can ride across it', () => {
+  it('joins a pair one extractor named across a file another extractor claimed in its language', () => {
     const graph = mergeReferenceGraphs(
-      { files: [{ path: 'a.ts', language: 'typescript' }], edges: [{ from: 'a.ts', to: 'b.rb' }] },
-      { files: [{ path: 'b.rb', language: 'ruby' }], edges: [] },
+      { files: [{ path: 'a.ts', language: 'typescript' }], edges: [{ from: 'a.ts', to: 'b.ts' }] },
+      { files: [{ path: 'b.ts', language: 'typescript' }], edges: [] },
     );
-    expect(graph.sameLanguage('a.ts', 'b.rb')).toBe(false);
+    expect(graph.joins('a.ts', 'b.ts')).toBe(true);
+  });
+
+  it('refuses an edge across two languages that one input claims both ends of', () => {
+    expect(() =>
+      createReferenceGraph({
+        files: [
+          { path: 'a.ts', language: 'typescript' },
+          { path: 'b.rb', language: 'ruby' },
+        ],
+        edges: [{ from: 'b.rb', to: 'a.ts' }],
+      }),
+    ).toThrow(ReferenceGraphError);
   });
 
   it('refuses that same edge from one extractor alone, which claims no such file', () => {

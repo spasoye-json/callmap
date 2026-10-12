@@ -7,5 +7,10 @@ export { createSidecar } from './sidecar.ts';
 export type { Sidecar, SidecarOptions } from './sidecar.ts';
 export { ExtractorFailure, extractorArguments, runExtractorProcess } from './extractors.ts';
 export type { ExtractorRegistration, ExtractorRun } from './extractors.ts';
-export { REGISTERED_EXTRACTORS, typescriptExtractor } from './registered-extractors.ts';
+export {
+  goExtractor,
+  REGISTERED_EXTRACTORS,
+  rubyExtractor,
+  typescriptExtractor,
+} from './registered-extractors.ts';
 export type * from './protocol.ts';

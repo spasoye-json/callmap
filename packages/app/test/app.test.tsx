@@ -7,6 +7,14 @@ import { App } from '../src/App.tsx';
 import type { SidecarClient } from '../src/sidecar-client.ts';
 
 const TYPESCRIPT_FIXTURE = join(import.meta.dirname, '../../extractor-typescript/fixture');
+const GO_FIXTURE = join(import.meta.dirname, '../../extractor-go/fixture');
+const MIXED_FIXTURE = join(import.meta.dirname, '../../sidecar/fixture');
+
+/** Each language row of the summary as the reader sees it: the tag, then its counts. */
+const languageRows = (summary: HTMLElement): readonly (readonly string[])[] =>
+  within(summary)
+    .getAllByRole('listitem')
+    .map((row) => [...row.children].map((cell) => cell.textContent));
 
 /** A client that answers nothing, for a test that must not reach the sidecar at all. */
 const silentClient: SidecarClient = {
@@ -41,5 +49,29 @@ describe('the app', () => {
     expect(within(summary).getByText('9 reference edges')).toBeTruthy();
     expect(within(summary).getByText('typescript')).toBeTruthy();
     expect(screen.getByRole('navigation', { name: 'Flow picker' })).toBeTruthy();
+  });
+
+  it('opens the Go fixture and shows its summary under the go tag', async () => {
+    render(<App client={inProcessClient()} />);
+    fireEvent.change(screen.getByLabelText('Repo folder'), { target: { value: GO_FIXTURE } });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+
+    const summary = await screen.findByRole('region', { name: 'Reference graph' });
+    expect(languageRows(summary)).toEqual([['go', '8 files, 6 edges']]);
+  });
+
+  it('opens the mixed fixture and shows the merged summary per language', async () => {
+    render(<App client={inProcessClient()} />);
+    fireEvent.change(screen.getByLabelText('Repo folder'), { target: { value: MIXED_FIXTURE } });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+
+    const summary = await screen.findByRole('region', { name: 'Reference graph' });
+    expect(within(summary).getByText('10 files')).toBeTruthy();
+    expect(within(summary).getByText('5 reference edges')).toBeTruthy();
+    expect(languageRows(summary)).toEqual([
+      ['go', '2 files, 1 edge'],
+      ['ruby', '6 files, 3 edges'],
+      ['typescript', '2 files, 1 edge'],
+    ]);
   });
 });

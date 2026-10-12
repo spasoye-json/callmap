@@ -175,6 +175,15 @@ describe('referenceGraphFromDocuments', () => {
     expect(graph.sameLanguage('app/checkout.ts', 'app/models/order.rb')).toBe(false);
   });
 
+  it('refuses a document whose edge reaches a file another document claims in another language', () => {
+    const client = document({
+      language: 'typescript',
+      files: ['web/orders-client.ts'],
+      edges: [{ from: 'web/orders-client.ts', to: 'app/models/order.rb' }],
+    });
+    expect(() => referenceGraphFromDocuments(client, ruby)).toThrow(ReferenceGraphError);
+  });
+
   it('refuses an edge to a file no document in the merge claims', () => {
     expect(() =>
       referenceGraphFromDocuments(

@@ -5,7 +5,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 /** Thrown when the extractor cannot read what it was pointed at. */
 export class ExtractionError extends Error {
@@ -23,7 +23,7 @@ export interface ConstantReference {
   readonly absolute: boolean;
 }
 
-const SCRIPT = fileURLToPath(new URL('../ruby/references.rb', import.meta.url));
+const SCRIPT = join(import.meta.dirname, '../ruby/references.rb');
 
 /** A large app's references run to tens of megabytes, far past the default pipe buffer. */
 const MAX_OUTPUT = 1024 * 1024 * 1024;
