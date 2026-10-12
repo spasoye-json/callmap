@@ -14,7 +14,7 @@ export {
   spendIn,
 } from './cost.ts';
 export type { CostEstimate, MonthlySpend, SpendRecord, TokenPrice, TokenUsage } from './cost.ts';
-export { DISCOVERY_SYSTEM, discoveryPrompt } from './prompt.ts';
+export { DISCOVERY_SYSTEM, discoveryPrompt, repoMaterial } from './prompt.ts';
 export type { DiscoveryPrompt, DiscoveryPromptInput, SourceFile } from './prompt.ts';
 export {
   curate,

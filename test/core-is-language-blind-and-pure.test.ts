@@ -89,6 +89,7 @@ describe('the ported core', () => {
       'reference-graph',
       'staleness',
       TEST_SUPPORT,
+      'trace',
     ]);
   });
 
