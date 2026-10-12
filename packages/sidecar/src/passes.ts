@@ -102,7 +102,6 @@ export interface PassAnswer {
 export interface AiAccount {
   storedKey(): string | null;
   storeKey(key: string): void;
-  /** The month so far. */
   thisMonth(): MonthlySpend;
   /**
    * Count what a pass would cost, without running it. The pass is built only once a key is known

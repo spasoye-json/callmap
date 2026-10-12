@@ -85,7 +85,7 @@ The TypeScript extractor was written the same way, and its alias resolution is t
 
 Still to come: the review scene.
 
-Also still to come, and named here because `CONTEXT.md` and `docs/adr/` already define them, so their absence would otherwise read as an oversight: the component map, its components and its unassigned tray, which are the context layer a flow is drawn across (ADR-0002). Also the re-trace of a stale flow and its re-stamp, which ADR-0008 asks for by hand: `trace` refuses a traced flow, so today a stale mark is cleared only when someone puts the candidate back in the flow file by hand and traces it again.
+Also still to come, and named here because `CONTEXT.md` and `docs/adr/` already define them, so their absence would otherwise read as an oversight: the component map, its components and its unassigned tray, which are the context layer a flow is drawn across (ADR-0002). Also the re-trace of a stale flow and its re-stamp, which ADR-0008 asks for by hand: `trace` refuses a traced flow, so today a stale mark is cleared only when someone puts the candidate back in the flow document by hand and traces it again.
 
 ## Checks
 

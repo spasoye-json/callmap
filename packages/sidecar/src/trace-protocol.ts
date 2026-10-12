@@ -1,5 +1,5 @@
 /**
- * The commands of the lazy trace and the editor door (ADR-0005, ADR-0006). A trace command takes
+ * The commands of the lazy trace (ADR-0005). A trace command takes
  * back the documents an extract answered with, like every discovery command, and names the flow by
  * its id in the map file. Types only, so the UI imports them by type.
  */
@@ -33,24 +33,9 @@ export interface TraceResult {
   readonly month: MonthlySpend;
 }
 
-/**
- * Hand an editor deep link to the system, which opens the editor at the file and line. The link
- * must name a file inside the repo the request names.
- */
-export interface OpenInEditorRequest {
-  readonly command: 'open-in-editor';
-  readonly repo: string;
-  readonly url: string;
-}
-
-export interface OpenInEditorResult {
-  readonly opened: string;
-}
-
-export type TraceCommandRequest = EstimateTraceRequest | TraceRequest | OpenInEditorRequest;
+export type TracePassRequest = EstimateTraceRequest | TraceRequest;
 
 export interface TraceResults {
   readonly 'estimate-trace': EstimateResult;
   readonly trace: TraceResult;
-  readonly 'open-in-editor': OpenInEditorResult;
 }

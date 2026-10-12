@@ -6,6 +6,9 @@
 import { readdirSync } from 'node:fs';
 import { inScope, isSkippedDirectory } from '@archmap/scope';
 
+/** The tag this extractor stamps on every file it claims. */
+export const TYPESCRIPT = 'typescript';
+
 /**
  * What the TypeScript extractor understands. JavaScript rides with TypeScript, because they share
  * one module resolution and version one ships them as one extractor (ADR-0009).

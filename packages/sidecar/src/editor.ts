@@ -13,7 +13,7 @@ import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { EDITOR_SCHEME, editorUrl, readEditorUrl } from '@archmap/canvas-model';
 import { Refusal, requireRepo, requireString } from './requests.ts';
 import type { Command } from './passes.ts';
-import type { OpenInEditorResult } from './trace-protocol.ts';
+import type { OpenInEditorResult } from './editor-protocol.ts';
 
 export type UrlOpener = (url: string) => Promise<void>;
 
