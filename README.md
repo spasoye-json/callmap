@@ -11,6 +11,8 @@ archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--out <file>] [--
 
 The command compares the branch with its merge base on the default branch. The default branch is `origin/HEAD`, then `main`, then `master`. The `--base` flag names another commit. Each `--scope` glob limits the review to the files that it matches. It reads the base commit in a temporary git worktree, so the checkout never moves. It writes one reader page with no network access and opens it in the browser. Each function on the page carries an editor link for VS Code, or for a JetBrains editor with `--editor jetbrains`.
 
+The page shows the resolution rate of the branch graph. It marks each open end at its call site, as a dashed arrow that leads nowhere. It draws the one-of calls of one call site as dotted arrows, one to each implementation. A call into a library is not in the graph and does not change the rate.
+
 - `docs/product.md` holds the product record.
 - `CONTEXT.md` holds the vocabulary.
 - `docs/adr/` holds the architectural decisions. ADR-0012 tells how Archmap became a call graph reader.
@@ -20,13 +22,13 @@ The command compares the branch with its merge base on the default branch. The d
 
 The core packages read data and never read source code or a filesystem. See ADR-0009.
 
-| Package                    | What it owns                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------------- |
-| `@archmap/graph-document`  | The graph document an extractor emits: files, functions, calls, open ends, a language and a scope |
-| `@archmap/review`          | The review of a branch: the changed functions, their neighbours, and the added and removed calls  |
-| `@archmap/reference-graph` | The document the Go and Ruby extractors emit: files, references, a language tag and a scope       |
-| `@archmap/scope`           | The scope globs and the skipped directories that every walk of a repo shares                      |
-| `@archmap/editor-link`     | The editor link that opens a file at a line                                                       |
+| Package                    | What it owns                                                                                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@archmap/graph-document`  | The graph document an extractor emits: files, functions, calls with their one-of groups, open ends, a language and a scope                               |
+| `@archmap/review`          | The review of a branch: the changed functions, their neighbours, the added and removed calls, their open ends and one-of groups, and the resolution rate |
+| `@archmap/reference-graph` | The document the Go and Ruby extractors emit: files, references, a language tag and a scope                                                              |
+| `@archmap/scope`           | The scope globs and the skipped directories that every walk of a repo shares                                                                             |
+| `@archmap/editor-link`     | The editor link that opens a file at a line                                                                                                              |
 
 The extractors are the other side of the contract. Each one reads a repo and names its language.
 
@@ -38,8 +40,8 @@ The extractors are the other side of the contract. Each one reads a repo and nam
 
 The host runs the extractors and the core, and writes the reader page.
 
-| Package        | What it owns                                                                                   |
-| -------------- | ---------------------------------------------------------------------------------------------- |
+| Package        | What it owns                                                                                    |
+| -------------- | ----------------------------------------------------------------------------------------------- |
 | `@archmap/cli` | The `archmap` command: git, the extractor processes, and the reader page with Cytoscape inlined |
 
 The page script lives in `packages/cli/page/`. The CLI bundles it with Cytoscape into the page at each run. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.

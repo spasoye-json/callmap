@@ -9,6 +9,8 @@ const CART = 'src/cart.ts';
 const MONEY = 'src/money.ts';
 const CHECKOUT = 'src/checkout.ts';
 const REPORT = 'src/report.ts';
+const ALERTS = 'src/alerts.ts';
+const NOTIFY = 'src/notify.ts';
 
 let repo = '';
 let html = '';
@@ -34,6 +36,8 @@ describe('archmap review on a feature branch', () => {
       pageDataOf(html).review.functions.map(({ id, mark }) => [id, mark]),
     );
     expect(marks).toEqual({
+      [`${ALERTS}#alert`]: 'changed',
+      [`${ALERTS}#relay`]: 'added',
       [`${CART}#label`]: 'neighbour',
       [`${CART}#legacyTotal`]: 'removed',
       [`${CART}#receipt`]: 'changed',
@@ -41,6 +45,8 @@ describe('archmap review on a feature branch', () => {
       [`${CART}#taxed`]: 'added',
       [`${CHECKOUT}#checkout`]: 'neighbour',
       [`${MONEY}#format`]: 'neighbour',
+      [`${NOTIFY}#Mail.send`]: 'neighbour',
+      [`${NOTIFY}#Sms.send`]: 'neighbour',
     });
   });
 
@@ -51,6 +57,9 @@ describe('archmap review on a feature branch', () => {
 
   it('lists each added and each removed call between the functions it shows', () => {
     expect(pageDataOf(html).review.calls).toEqual([
+      { caller: `${ALERTS}#alert`, callee: `${MONEY}#format`, mark: 'added' },
+      { caller: `${ALERTS}#alert`, callee: `${NOTIFY}#Mail.send`, mark: 'added' },
+      { caller: `${ALERTS}#alert`, callee: `${NOTIFY}#Sms.send`, mark: 'added' },
       { caller: `${CART}#legacyTotal`, callee: `${CART}#subtotal`, mark: 'removed' },
       { caller: `${CART}#receipt`, callee: `${CART}#label`, mark: 'removed' },
       { caller: `${CART}#receipt`, callee: `${CART}#legacyTotal`, mark: 'removed' },
@@ -69,9 +78,11 @@ describe('archmap review on a feature branch', () => {
   it('holds the source text of every file that holds a function in the review or the search', () => {
     const { sources } = pageDataOf(html);
     expect(sources.branch).toEqual({
+      [ALERTS]: fixtureText('branch', ALERTS),
       [CART]: fixtureText('branch', CART),
       [CHECKOUT]: fixtureText('branch', CHECKOUT),
       [MONEY]: fixtureText('branch', MONEY),
+      [NOTIFY]: fixtureText('branch', NOTIFY),
       [REPORT]: fixtureText('branch', REPORT),
     });
     expect(sources.base).toEqual({ [CART]: fixtureText('base', CART) });
@@ -106,20 +117,20 @@ describe('the reader page', () => {
         .map((box) => box.id())
         .sort()
         .slice(0, 2),
-    ).toEqual([`${CART}#label`, `${CART}#legacyTotal`]);
-    expect(boxes).toHaveLength(7);
+    ).toEqual([`${ALERTS}#alert`, `${ALERTS}#relay`]);
+    expect(boxes).toHaveLength(11);
     expect(graph.getElementById(`${CART}#taxed`).parent().data('label')).toBe(CART);
     expect(
       graph
         .nodes('.file-frame')
         .map((frame) => frame.data('label') as string)
         .sort(),
-    ).toEqual([CART, CHECKOUT, MONEY]);
+    ).toEqual([ALERTS, CART, CHECKOUT, MONEY, NOTIFY]);
   });
 
   it('draws each call as an arrow from the caller to the callee, with its mark', () => {
     const { graph } = loadReaderPage(html);
-    const arrows = graph.edges().map((edge) => ({
+    const arrows = graph.edges('.call').map((edge) => ({
       caller: edge.source().id(),
       callee: edge.target().id(),
       mark: ['added', 'removed', 'kept'].find((mark) => edge.hasClass(mark)),

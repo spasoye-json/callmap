@@ -28,8 +28,12 @@ _Avoid_: unknown call, gap, hole
 One of several calls from one call site through an interface or a map of strategies, one to each implementation. Only one of them runs.
 _Avoid_: maybe call, possible call
 
+**One-of group**:
+The one-of calls of one call site. The page draws them as alternatives, and the resolution rate counts the group as one call.
+_Avoid_: call site group, alternative set
+
 **Resolution rate**:
-The share of calls into the repo's own code that the language's tools tie to one function. It tells the reader how much of the graph the tools proved.
+The share of calls into the repo's own code that the language's tools tie to one function: the calls, divided by the calls plus the open ends. A one-of group counts as one call. A call into a library and a call that no named function holds count in neither. It tells the reader how much of the graph the tools proved.
 _Avoid_: accuracy, confidence, coverage
 
 **File frame**:

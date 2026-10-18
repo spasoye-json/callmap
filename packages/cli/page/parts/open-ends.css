@@ -1,0 +1,25 @@
+.resolution-rate p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.resolution-rate .rate-value {
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.resolution-rate .open-ends {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+}
+
+.resolution-rate .open-ends li {
+  overflow-wrap: anywhere;
+}
+
+.resolution-rate .open-ends code {
+  color: var(--removed);
+}
