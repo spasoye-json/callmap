@@ -5,6 +5,7 @@ import type { GraphDocument } from '@archmap/graph-document';
 import { reviewOf } from '@archmap/review';
 import type { ReviewInvocation } from './arguments.ts';
 import { openInBrowser } from './browser.ts';
+import { changedLinesOf } from './changed-lines.ts';
 import { extractGraph } from './extractors.ts';
 import {
   commitOf,
@@ -15,6 +16,7 @@ import {
   shortCommitOf,
 } from './git.ts';
 import { readerPageOf } from './reader-page.ts';
+import { sourcesOf } from './sources.ts';
 
 export class UnreadableGraphError extends Error {
   override readonly name = 'UnreadableGraphError';
@@ -59,7 +61,13 @@ export const runReview = async (invocation: ReviewInvocation): Promise<string> =
   const branchGraph = settled(branchRead);
   const baseGraph = settled(baseRead);
   const review = reviewOf({ base: baseGraph, branch: branchGraph });
-  const html = await readerPageOf({ review, graph: branchGraph });
+  const html = await readerPageOf({
+    review,
+    graph: branchGraph,
+    sources: sourcesOf(root, base, review, branchGraph),
+    changedLines: changedLinesOf(root, base, review),
+    editor: { name: invocation.editor, repoRoot: root },
+  });
 
   const out = resolve(invocation.out ?? defaultOutOf(root));
   mkdirSync(dirname(out), { recursive: true });

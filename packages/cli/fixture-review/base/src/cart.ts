@@ -7,5 +7,7 @@ export const legacyTotal = (prices: readonly number[]): number => subtotal(price
 
 export const label = (name: string): string => name.toUpperCase();
 
-export const receipt = (prices: readonly number[]): string =>
-  `${label('total')}: ${format(legacyTotal(prices))}`;
+export const receipt = (prices: readonly number[]): string => {
+  const total = legacyTotal(prices);
+  return `${label('total')}: ${format(total)}`;
+};

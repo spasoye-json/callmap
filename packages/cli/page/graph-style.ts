@@ -1,7 +1,16 @@
 import type { StylesheetJson } from 'cytoscape';
 import { BOX_HEIGHT, BOX_WIDTH } from './layout.ts';
 
-const TOKENS = ['ink', 'muted', 'paper', 'frame', 'added', 'removed', 'changed'] as const;
+const TOKENS = [
+  'ink',
+  'muted',
+  'paper',
+  'frame',
+  'added',
+  'removed',
+  'changed',
+  'selected',
+] as const;
 
 export type Colours = Readonly<Record<(typeof TOKENS)[number], string>>;
 
@@ -54,6 +63,10 @@ export const graphStyle = (colours: Colours): StylesheetJson => [
   {
     selector: 'node.neighbour',
     style: { 'border-color': colours.muted, 'border-width': 1, color: colours.muted },
+  },
+  {
+    selector: 'node.function:selected',
+    style: { 'background-color': colours.selected, 'border-width': 4 },
   },
   {
     selector: 'edge.call',

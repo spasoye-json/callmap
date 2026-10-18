@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +40,9 @@ export const featureBranchRepo = (defaultBranch = 'main'): string => {
   commitTree(repo, 'branch', 'branch');
   return repo;
 };
+
+export const fixtureText = (tree: 'base' | 'branch', file: string): string =>
+  readFileSync(join(FIXTURE, tree, file), 'utf8');
 
 export const commitFile = (repo: string, path: string, text: string): void => {
   writeFileSync(join(repo, path), text);

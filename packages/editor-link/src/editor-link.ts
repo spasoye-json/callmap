@@ -41,5 +41,22 @@ const rootPathOf = (repoRoot: string): string => {
   throw new TypeError(`the repo root must be an absolute path, and ${repoRoot} is not`);
 };
 
-export const editorUrl = (repoRoot: string, location: Location): string =>
-  `${EDITOR_SCHEME}${rootPathOf(repoRoot)}/${escapePath(location.file.replace(/^\/+/, ''))}:${String(location.line)}`;
+export const EDITORS = ['vscode', 'jetbrains'] as const;
+
+export type Editor = (typeof EDITORS)[number];
+
+const JETBRAINS_NAVIGATE = 'jetbrains://idea/navigate/reference';
+
+const relativePathOf = (location: Location): string =>
+  `${escapePath(location.file.replace(/^\/+/, ''))}:${String(location.line)}`;
+
+const projectNameOf = (repoRoot: string): string => rootPathOf(repoRoot).split('/').pop() ?? '';
+
+export const editorUrl = (
+  repoRoot: string,
+  location: Location,
+  editor: Editor = 'vscode',
+): string =>
+  editor === 'jetbrains'
+    ? `${JETBRAINS_NAVIGATE}?project=${projectNameOf(repoRoot)}&path=${relativePathOf(location)}`
+    : `${EDITOR_SCHEME}${rootPathOf(repoRoot)}/${relativePathOf(location)}`;
