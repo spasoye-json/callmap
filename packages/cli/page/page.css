@@ -8,6 +8,9 @@
   --added: #1f8a4c;
   --removed: #c23a3a;
   --changed: #b7791f;
+  --changed-line: #fbefd5;
+  --selected: #dbe6fb;
+  --code: #f6f7f9;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,6 +23,9 @@
     --added: #4cc27f;
     --removed: #ef6b6b;
     --changed: #e0a84a;
+    --changed-line: #4a3a1c;
+    --selected: #2b3a57;
+    --code: #151920;
   }
 }
 
@@ -66,8 +72,11 @@ body {
 }
 
 #panels {
-  width: 320px;
-  max-width: 45vw;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 420px;
+  max-width: 50vw;
   overflow: auto;
   border-left: 1px solid var(--rule);
   padding: 12px 16px;

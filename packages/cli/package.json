@@ -7,6 +7,7 @@
     "archmap": "./src/cli.ts"
   },
   "dependencies": {
+    "@archmap/editor-link": "*",
     "@archmap/extractor-typescript": "*",
     "@archmap/graph-document": "*",
     "@archmap/review": "*",
@@ -14,6 +15,7 @@
     "rolldown": "^1.2.14"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
     "@types/jsdom": "^30.0.0",
     "jsdom": "^30.1.3"
   }

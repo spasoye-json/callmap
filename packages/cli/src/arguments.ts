@@ -1,4 +1,8 @@
-export const USAGE = 'usage: archmap review [<repo>] [--out <file>] [--no-open]';
+import { EDITORS } from '@archmap/editor-link';
+import type { Editor } from '@archmap/editor-link';
+
+export const USAGE =
+  'usage: archmap review [<repo>] [--out <file>] [--no-open] [--editor vscode|jetbrains]';
 
 export class CliError extends Error {
   override readonly name = 'CliError';
@@ -8,7 +12,11 @@ export interface ReviewInvocation {
   readonly repo: string;
   readonly out: string | undefined;
   readonly open: boolean;
+  readonly editor: Editor;
 }
+
+const isEditor = (value: string | undefined): value is Editor =>
+  EDITORS.some((editor) => editor === value);
 
 export const readArguments = (args: readonly string[], cwd: string): ReviewInvocation => {
   const [command, ...rest] = args;
@@ -17,6 +25,7 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
   let repo: string | undefined;
   let out: string | undefined;
   let open = true;
+  let editor: Editor = 'vscode';
 
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index] ?? '';
@@ -29,6 +38,13 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
       }
       out = value;
       index += 1;
+    } else if (argument === '--editor') {
+      const value = rest[index + 1];
+      if (!isEditor(value)) {
+        throw new CliError(`--editor needs one of ${EDITORS.join(', ')} after it`);
+      }
+      editor = value;
+      index += 1;
     } else if (argument.startsWith('--')) {
       throw new CliError(`${argument} is not a flag archmap review knows`);
     } else if (repo === undefined) {
@@ -38,5 +54,5 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
     }
   }
 
-  return { repo: repo ?? cwd, out, open };
+  return { repo: repo ?? cwd, out, open, editor };
 };

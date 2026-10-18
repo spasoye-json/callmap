@@ -4,9 +4,11 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { reviewOf } from '@archmap/review';
 import type { ReviewInvocation } from './arguments.ts';
 import { openInBrowser } from './browser.ts';
+import { changedLinesOf } from './changed-lines.ts';
 import { extractGraph } from './extractors.ts';
 import { defaultBranchOf, inWorktreeAt, mergeBaseOf, repoRootOf } from './git.ts';
 import { readerPageOf } from './reader-page.ts';
+import { sourcesOf } from './sources.ts';
 
 const defaultOutOf = (root: string): string =>
   join(tmpdir(), 'archmap', `review-${basename(root)}.html`);
@@ -19,7 +21,13 @@ export const runReview = async (invocation: ReviewInvocation): Promise<string> =
     inWorktreeAt(root, base, extractGraph),
   ]);
   const review = reviewOf({ base: baseGraph, branch: branchGraph });
-  const html = await readerPageOf({ review, graph: branchGraph });
+  const html = await readerPageOf({
+    review,
+    graph: branchGraph,
+    sources: sourcesOf(root, base, review, branchGraph),
+    changedLines: changedLinesOf(root, base, review),
+    editor: { name: invocation.editor, repoRoot: root },
+  });
 
   const out = resolve(invocation.out ?? defaultOutOf(root));
   mkdirSync(dirname(out), { recursive: true });
