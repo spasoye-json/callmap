@@ -6,7 +6,7 @@ import { reviewOf } from '@archmap/review';
 import type { ReviewInvocation } from './arguments.ts';
 import { openInBrowser } from './browser.ts';
 import { changedLinesByFileOf } from './changed-lines.ts';
-import { extractGraph } from './extractors.ts';
+import { extractGraphDocumentOf } from './extractors.ts';
 import type { ExtractorSettings } from './extractors.ts';
 import {
   commitOf,
@@ -26,13 +26,13 @@ export class UnreadableGraphError extends Error {
 const defaultOutOf = (root: string): string =>
   join(tmpdir(), 'archmap', `review-${basename(root)}.html`);
 
-const readGraph = async (
+const readGraphDocumentOf = async (
   what: string,
   path: string,
   settings: ExtractorSettings,
 ): Promise<GraphDocument> => {
   try {
-    return await extractGraph(path, settings);
+    return await extractGraphDocumentOf(path, settings);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new UnreadableGraphError(
@@ -65,9 +65,9 @@ export const runReview = async (invocation: ReviewInvocation): Promise<string> =
     tsconfig: tsconfigOf(root, invocation.tsconfig),
   };
   const [branchRead, baseRead] = await Promise.allSettled([
-    readGraph('the branch', root, settings),
+    readGraphDocumentOf('the branch', root, settings),
     inWorktreeAt(root, base, (path) =>
-      readGraph(`the base ${shortCommitOf(root, base)}`, path, settings),
+      readGraphDocumentOf(`the base ${shortCommitOf(root, base)}`, path, settings),
     ),
   ]);
   const branchGraph = settled(branchRead);

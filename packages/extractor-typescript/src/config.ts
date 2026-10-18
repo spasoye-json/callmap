@@ -29,7 +29,7 @@ const NO_INPUTS_FOUND = 18003;
  * A repo with no `tsconfig.json` at its root still has a graph document, just one with no aliases
  * in it, so a config that is not there at all is not an error. A config that is there and cannot be
  * read is one, whether the extractor found it at the root or was told to read it, because every
- * alias would quietly go missing and the document would read as if the repo held no such reference.
+ * alias would quietly go missing and each call through one would read as an open end.
  * That covers a config that is not JSON, which reading it reports, and equally a config that is
  * JSON and extends a base the compiler cannot reach, which only parsing it reports: the aliases the
  * base held are absent from a config that parsed, which is the same alias-free document by a

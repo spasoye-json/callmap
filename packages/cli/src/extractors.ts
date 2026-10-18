@@ -37,7 +37,7 @@ const argumentsOf = (repo: string, { scope, tsconfig }: ExtractorSettings): read
     : ['--tsconfig', isAbsolute(tsconfig) ? tsconfig : join(repo, tsconfig)]),
 ];
 
-export const extractGraph = async (
+export const extractGraphDocumentOf = async (
   repo: string,
   settings: ExtractorSettings,
 ): Promise<GraphDocument> =>

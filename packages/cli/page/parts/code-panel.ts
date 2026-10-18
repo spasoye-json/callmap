@@ -1,5 +1,4 @@
-import { editorUrl } from '@archmap/editor-link';
-import type { Editor } from '@archmap/editor-link';
+import { EDITORS, editorUrl } from '@archmap/editor-link';
 import type { MarkedFunction } from '@archmap/review';
 import { markedFunctionsOf, sourceLinesOf } from '../functions.ts';
 import { targetIdOf } from '../reader-page.ts';
@@ -41,16 +40,11 @@ const codeOf = (page: ReaderPage, shown: MarkedFunction): HTMLElement => {
   return pre;
 };
 
-const EDITOR_NAMES: Readonly<Record<Editor, string>> = {
-  vscode: 'VS Code',
-  jetbrains: 'JetBrains',
-};
-
 const editorLinkOf = ({ data }: ReaderPage, { file, firstLine }: MarkedFunction): HTMLElement => {
   const link = document.createElement('a');
   link.className = 'editor-link';
   link.href = editorUrl(data.editor.repoRoot, { file, line: firstLine }, data.editor.name);
-  link.textContent = `Open in ${EDITOR_NAMES[data.editor.name]}`;
+  link.textContent = `Open in ${EDITORS[data.editor.name].label}`;
   return link;
 };
 
