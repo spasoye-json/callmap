@@ -59,18 +59,24 @@ describe('the editor link for a JetBrains editor', () => {
   it('opens the file at the line in the project named after the repo folder', () => {
     expect(
       editorUrl('/home/me/shop', { file: 'web/src/screens/checkout.ts', line: 3 }, 'jetbrains'),
-    ).toBe('jetbrains://idea/navigate/reference?project=shop&path=web/src/screens/checkout.ts:3');
+    ).toBe('jetbrains://idea/navigate/reference?project=shop&path=web/src/screens/checkout.ts:2');
+  });
+
+  it('counts the line from 0, because the IDE reads it as a logical position', () => {
+    expect(editorUrl('/home/me/shop', { file: 'a.ts', line: 1 }, 'jetbrains')).toBe(
+      'jetbrains://idea/navigate/reference?project=shop&path=a.ts:0',
+    );
   });
 
   it('escapes an ampersand, an equals sign and a hash, which would end the query', () => {
     expect(editorUrl('/home/me/a&b', { file: 'x=y#z.ts', line: 7 }, 'jetbrains')).toBe(
-      'jetbrains://idea/navigate/reference?project=a%26b&path=x%3Dy%23z.ts:7',
+      'jetbrains://idea/navigate/reference?project=a%26b&path=x%3Dy%23z.ts:6',
     );
   });
 
   it('names the project after the last folder of a Windows root', () => {
     expect(editorUrl('C:\\work\\shop\\', { file: 'web/a.ts', line: 4 }, 'jetbrains')).toBe(
-      'jetbrains://idea/navigate/reference?project=shop&path=web/a.ts:4',
+      'jetbrains://idea/navigate/reference?project=shop&path=web/a.ts:3',
     );
   });
 
