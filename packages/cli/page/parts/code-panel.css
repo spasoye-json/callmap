@@ -47,6 +47,10 @@
   box-shadow: inset 3px 0 0 var(--changed);
 }
 
+.code-panel .line.removed-above {
+  box-shadow: inset 0 2px 0 var(--removed);
+}
+
 .line-number {
   display: inline-block;
   min-width: 3.5em;

@@ -1,8 +1,7 @@
-import { EDITORS } from '@archmap/editor-link';
+import { EDITOR_NAMES, isEditor } from '@archmap/editor-link';
 import type { Editor } from '@archmap/editor-link';
 
-export const USAGE =
-  'usage: archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--editor vscode|jetbrains]';
+export const USAGE = `usage: archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--editor ${EDITOR_NAMES.join('|')}]`;
 
 export class CliError extends Error {
   override readonly name = 'CliError';
@@ -19,8 +18,6 @@ export interface ReviewInvocation {
 }
 
 const VALUE_FLAGS: readonly string[] = ['--base', '--scope', '--tsconfig', '--out', '--editor'];
-
-const isEditor = (value: string): value is Editor => EDITORS.some((editor) => editor === value);
 
 export const readArguments = (args: readonly string[], cwd: string): ReviewInvocation => {
   const [command, ...rest] = args;
@@ -48,14 +45,14 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
       else if (argument === '--tsconfig') tsconfig = value;
       else if (argument === '--out') out = value;
       else if (isEditor(value)) editor = value;
-      else throw new CliError(`--editor needs one of ${EDITORS.join(', ')} after it`);
+      else throw new CliError(`--editor needs one of ${EDITOR_NAMES.join(', ')} after it`);
       index += 1;
     } else if (argument.startsWith('--')) {
       throw new CliError(`${argument} is not a flag archmap review knows`);
     } else if (repo === undefined) {
       repo = argument;
     } else {
-      throw new CliError(`'${argument}' follows no flag; only one repo is reviewed at a time`);
+      throw new CliError(`'${argument}' follows no flag. Archmap reviews one repo at a time.`);
     }
   }
 

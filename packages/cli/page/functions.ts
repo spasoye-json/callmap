@@ -4,7 +4,7 @@ import type { ReaderPageData } from './data.ts';
 
 export const markedFunctionsOf = (data: ReaderPageData): ReadonlyMap<FunctionId, MarkedFunction> =>
   new Map<FunctionId, MarkedFunction>([
-    ...data.graph.functions.map((graphFunction): [FunctionId, MarkedFunction] => [
+    ...data.branchGraph.functions.map((graphFunction): [FunctionId, MarkedFunction] => [
       graphFunction.id,
       { ...graphFunction, mark: 'neighbour' },
     ]),

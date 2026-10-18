@@ -41,24 +41,39 @@ const rootPathOf = (repoRoot: string): string => {
   throw new TypeError(`the repo root must be an absolute path, and ${repoRoot} is not`);
 };
 
-export const EDITORS = ['vscode', 'jetbrains'] as const;
-
-export type Editor = (typeof EDITORS)[number];
-
 const JETBRAINS_NAVIGATE = 'jetbrains://idea/navigate/reference';
 
-const relativePathOf = (file: string, line: number): string =>
+const pathWithLineOf = (file: string, line: number): string =>
   `${escapePath(file.replace(/^\/+/, ''))}:${String(line)}`;
 
-const zeroBasedLineOf = (location: Location): number => location.line - 1;
-
 const projectNameOf = (repoRoot: string): string => rootPathOf(repoRoot).split('/').pop() ?? '';
+
+interface EditorKind {
+  readonly label: string;
+  readonly urlOf: (repoRoot: string, location: Location) => string;
+}
+
+export const EDITORS = {
+  vscode: {
+    label: 'VS Code',
+    urlOf: (repoRoot, { file, line }) =>
+      `${EDITOR_SCHEME}${rootPathOf(repoRoot)}/${pathWithLineOf(file, line)}`,
+  },
+  jetbrains: {
+    label: 'JetBrains',
+    urlOf: (repoRoot, { file, line }) =>
+      `${JETBRAINS_NAVIGATE}?project=${projectNameOf(repoRoot)}&path=${pathWithLineOf(file, line - 1)}`,
+  },
+} as const satisfies Readonly<Record<string, EditorKind>>;
+
+export type Editor = keyof typeof EDITORS;
+
+export const EDITOR_NAMES = Object.keys(EDITORS) as readonly Editor[];
+
+export const isEditor = (name: string): name is Editor => Object.hasOwn(EDITORS, name);
 
 export const editorUrl = (
   repoRoot: string,
   location: Location,
   editor: Editor = 'vscode',
-): string =>
-  editor === 'jetbrains'
-    ? `${JETBRAINS_NAVIGATE}?project=${projectNameOf(repoRoot)}&path=${relativePathOf(location.file, zeroBasedLineOf(location))}`
-    : `${EDITOR_SCHEME}${rootPathOf(repoRoot)}/${relativePathOf(location.file, location.line)}`;
+): string => EDITORS[editor].urlOf(repoRoot, location);

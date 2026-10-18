@@ -1,3 +1,5 @@
+import { addTo, byText } from '@archmap/review';
+
 export interface Position {
   readonly x: number;
   readonly y: number;
@@ -21,8 +23,6 @@ const BOX_GAP = 14;
 const FRAME_HEADER = 34;
 const FRAME_GAP = 70;
 const COLUMN_GAP = 160;
-
-const byText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
 const columnsOf = (
   files: readonly string[],
@@ -55,9 +55,7 @@ export const layoutOf = (
     const from = fileOf.get(caller);
     const to = fileOf.get(callee);
     if (from === undefined || to === undefined || from === to) continue;
-    const known = fileCallers.get(to);
-    if (known === undefined) fileCallers.set(to, new Set([from]));
-    else known.add(from);
+    addTo(fileCallers, to, from);
   }
 
   const columns = columnsOf(files, fileCallers);

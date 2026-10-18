@@ -142,7 +142,8 @@ describe('the host that runs it', () => {
     expect(importsIn('cli')).toContain('node:child_process');
   });
 
-  it('reads no source code itself and imports no extractor', () => {
+  it('reads source text for the code panel but parses none, because it imports no parser and no extractor', () => {
+    expect(importsIn('cli')).toContain('node:fs');
     const offenders = [...importsIn('cli')].filter(
       (specifier) => specifier === 'typescript' || specifier.startsWith('@archmap/extractor-'),
     );

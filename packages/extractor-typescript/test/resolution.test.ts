@@ -4,7 +4,7 @@ import { readGraphDocument } from '@archmap/graph-document';
 import type { Call, GraphDocument } from '@archmap/graph-document';
 import { extractGraphDocument } from '../src/index.ts';
 
-const FIXTURE = fileURLToPath(new URL('../fixture-edges', import.meta.url));
+const FIXTURE = fileURLToPath(new URL('../fixture-resolution', import.meta.url));
 
 let extracted: GraphDocument | undefined;
 const document = (): GraphDocument =>

@@ -1,12 +1,17 @@
-import { editorUrl } from '@archmap/editor-link';
-import type { Editor } from '@archmap/editor-link';
+import { EDITORS, editorUrl } from '@archmap/editor-link';
 import type { MarkedFunction } from '@archmap/review';
 import { markedFunctionsOf, sourceLinesOf } from '../functions.ts';
+import { targetIdOf } from '../reader-page.ts';
 import type { PagePart, ReaderPage } from '../reader-page.ts';
 
-const lineOf = (number: number, text: string, changed: boolean): HTMLElement => {
-  const line = document.createElement(changed ? 'ins' : 'span');
-  line.className = 'line';
+type LineMark = 'changed' | 'removed-above' | 'kept';
+
+const REMOVED_ABOVE = 'The branch removed lines above this line.';
+
+const lineOf = (number: number, text: string, mark: LineMark): HTMLElement => {
+  const line = document.createElement(mark === 'changed' ? 'ins' : 'span');
+  line.className = mark === 'removed-above' ? 'line removed-above' : 'line';
+  if (mark === 'removed-above') line.title = REMOVED_ABOVE;
   const gutter = document.createElement('span');
   gutter.className = 'line-number';
   gutter.textContent = String(number);
@@ -18,29 +23,28 @@ const lineOf = (number: number, text: string, changed: boolean): HTMLElement => 
 };
 
 const codeOf = (page: ReaderPage, shown: MarkedFunction): HTMLElement => {
-  const changed = new Set(page.data.changedLines[shown.id] ?? []);
+  const lines = page.data.review.changedLines[shown.id];
+  const changed = new Set(lines?.changed);
+  const removedAbove = new Set(lines?.removedAbove);
+  const markOf = (number: number): LineMark =>
+    changed.has(number) ? 'changed' : removedAbove.has(number) ? 'removed-above' : 'kept';
   const pre = document.createElement('pre');
   const code = document.createElement('code');
   code.append(
     ...sourceLinesOf(page.data, shown).map((text, index) => {
       const number = shown.firstLine + index;
-      return lineOf(number, text, changed.has(number));
+      return lineOf(number, text, markOf(number));
     }),
   );
   pre.append(code);
   return pre;
 };
 
-const EDITOR_NAMES: Readonly<Record<Editor, string>> = {
-  vscode: 'VS Code',
-  jetbrains: 'JetBrains',
-};
-
 const editorLinkOf = ({ data }: ReaderPage, { file, firstLine }: MarkedFunction): HTMLElement => {
   const link = document.createElement('a');
   link.className = 'editor-link';
   link.href = editorUrl(data.editor.repoRoot, { file, line: firstLine }, data.editor.name);
-  link.textContent = `Open in ${EDITOR_NAMES[data.editor.name]}`;
+  link.textContent = `Open in ${EDITORS[data.editor.name].label}`;
   return link;
 };
 
@@ -66,7 +70,7 @@ const codePanel: PagePart = (page) => {
   page.panels.append(section);
 
   page.graph.on('tap', 'node.function', (event) => {
-    const shown = functions.get((event.target as { id: () => string }).id());
+    const shown = functions.get(targetIdOf(event));
     if (shown !== undefined) show(section, page, shown);
   });
 };

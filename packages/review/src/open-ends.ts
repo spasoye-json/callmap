@@ -1,8 +1,6 @@
-import type { FunctionId, GraphDocument, OpenEnd } from '@archmap/graph-document';
-
-export type GraphOfCaller = (caller: FunctionId) => GraphDocument;
-
-const byText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+import type { FunctionId, OpenEnd } from '@archmap/graph-document';
+import type { GraphOfCaller } from './graph-of-caller.ts';
+import { byText } from './order.ts';
 
 export const openEndsOf = (
   shown: Iterable<FunctionId>,

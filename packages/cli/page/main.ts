@@ -3,7 +3,7 @@ import { DATA_BLOCK_ID } from './data.ts';
 import type { ReaderPageData } from './data.ts';
 import { elementsOf } from './elements.ts';
 import { coloursOf, graphStyle } from './graph-style.ts';
-import type { PagePart, ReaderPage } from './reader-page.ts';
+import type { GraphStyle, PagePart, ReaderPage } from './reader-page.ts';
 
 const elementOf = (id: string): HTMLElement => {
   const element = document.getElementById(id);
@@ -14,10 +14,15 @@ const elementOf = (id: string): HTMLElement => {
 export const startReaderPage = (parts: readonly PagePart[]): void => {
   const data = JSON.parse(elementOf(DATA_BLOCK_ID).textContent) as ReaderPageData;
   const root = document.documentElement;
+  const styles: GraphStyle[] = [graphStyle];
+  const styleOf = () => {
+    const colours = coloursOf(root);
+    return styles.flatMap((style) => style(colours));
+  };
   const graph = cytoscape({
     container: elementOf('graph'),
     elements: elementsOf(data.review),
-    style: graphStyle(coloursOf(root)),
+    style: styleOf(),
     layout: { name: 'preset' },
     minZoom: 0.1,
     maxZoom: 2.5,
@@ -26,13 +31,18 @@ export const startReaderPage = (parts: readonly PagePart[]): void => {
   });
   graph.fit(undefined, 40);
 
+  const restyle = (): void => {
+    graph.style(styleOf());
+  };
   if ('matchMedia' in window) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-      graph.style(graphStyle(coloursOf(root)));
-    });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', restyle);
   }
 
-  const page: ReaderPage = { data, graph, panels: elementOf('panels') };
+  const addGraphStyle = (style: GraphStyle): void => {
+    styles.push(style);
+    restyle();
+  };
+  const page: ReaderPage = { data, graph, panels: elementOf('panels'), addGraphStyle };
   window.readerPage = page;
   for (const part of parts) part(page);
 };

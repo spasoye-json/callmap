@@ -27,12 +27,12 @@ archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>
 | `--base <commit>`   | The commit to compare the branch with.                                                           | The merge base with the default branch           |
 | `--scope <glob>`    | Limits the review to the files that the glob matches. Give it once for each glob.                | Every file of the repo                           |
 | `--scope '!<glob>'` | Leaves out the files that the glob matches, also when another glob takes them.                   | Nothing left out                                 |
-| `--tsconfig <file>` | The TypeScript config to read, relative to the repo root. Give it when the config is not there. | `tsconfig.json` at the repo root, if it exists   |
+| `--tsconfig <file>` | The TypeScript config to read, as an absolute path or a path relative to the repo root.          | `tsconfig.json` at the repo root, if it exists   |
 | `--out <file>`      | Where the page is written.                                                                       | `review-<repo folder>.html` in `$TMPDIR/archmap` |
 | `--no-open`         | Writes the page and does not open it, for example to attach it to a merge request.               | The page opens in the browser                    |
 | `--editor <name>`   | The editor that the editor link on each function opens: `vscode` or `jetbrains`.                 | `vscode`                                         |
 
-The default branch is `origin/HEAD`, then `main`, then `master`. The review reads the base commit in a temporary git worktree and removes it at the end, so the checkout and the uncommitted files never move. The command prints the path of the page when it ends.
+The default branch is the head of `origin`, then the head of any other remote, then `main`, then `master`. The review reads the base commit in a temporary git worktree and removes it at the end, so the checkout and the uncommitted files never move. The worktree links to the `node_modules` folders of the checkout, so the library types resolve on the base too. The command prints the path of the page when it ends.
 
 A scope glob matches a whole path from the repo root. `*` matches inside one folder, `**` matches across folders, and `?` matches one character. A glob that starts with `!` leaves files out. Quote each glob, so that the shell does not expand it.
 
@@ -46,9 +46,9 @@ Tests stay in the review unless a glob leaves them out. A test that mocks its ca
 
 ## The reader page
 
-The page is one HTML file with no network access, so it opens from a file anywhere. A click on a function shows its code, with the changed lines marked. A click on a greyed neighbour opens its own callers and callees. The search finds any function in scope by name. Each function carries an editor link that opens its file at its first line.
+The page is one HTML file with no network access, so it opens from a file anywhere. A click on a function shows its code, with the changed lines marked and a mark below each deletion. A click on a greyed neighbour opens its own callers and callees. The search finds any function in scope by name. Each function carries an editor link that opens its file at its first line.
 
-The page shows the resolution rate of the branch graph: the calls into the repo's own code that the type checker proved, out of all of them. It marks each open end at its call site, as a dashed arrow that leads nowhere. It draws the one-of calls of one call site, such as a call through an interface, as dotted arrows, one to each implementation. A call into a library is not in the graph and does not change the rate.
+The page shows the resolution rate of the whole branch graph in scope: the calls into the repo's own code that the type checker proved, out of all of them. Below the rate it lists the open ends of the functions in this review only. It marks each open end at its call site, as a dashed arrow that leads nowhere, also on a function that a next hop or a search adds. It draws the one-of calls of one call site, such as a call through an interface, as dotted arrows, one to each implementation. A call into a library is not in the graph and does not change the rate.
 
 ## Ask Claude for a review
 
