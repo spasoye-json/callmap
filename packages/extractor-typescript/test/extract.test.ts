@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -138,6 +138,17 @@ describe('the scope a document is built under', () => {
     const document = extract('src/legacy/**', 'tools/**');
     expect(document.files).toEqual([ROUND, TOTALS, BUILD]);
     expect(document.edges).toEqual([{ from: TOTALS, to: ROUND }]);
+  });
+});
+
+describe('the directories every extractor skips', () => {
+  it('leaves out node_modules, vendor, and a dot directory', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'archmap-ts-skipped-'));
+    for (const file of ['src/a.ts', 'vendor/lib.ts', 'node_modules/x/index.ts', '.cache/b.ts']) {
+      mkdirSync(join(repo, file, '..'), { recursive: true });
+      writeFileSync(join(repo, file), 'export const x = 1;\n');
+    }
+    expect(extractTypeScript({ repo, scope: [] }).files).toEqual(['src/a.ts']);
   });
 });
 

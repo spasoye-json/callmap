@@ -13,15 +13,12 @@ import { isAbsolute, relative, resolve } from 'node:path';
 import * as ts from 'typescript';
 import type { ReferenceGraphDocument } from '@archmap/reference-graph';
 import { moduleSpecifiers } from './imports.ts';
-import { sourceFilesInScope } from './walk.ts';
+import { sourceFilesInScope, TYPESCRIPT } from './walk.ts';
 
 /** Thrown when the extractor cannot read what it was pointed at. */
 export class ExtractionError extends Error {
   override readonly name = 'ExtractionError';
 }
-
-/** The tag this extractor stamps on every file it claims. */
-export const TYPESCRIPT = 'typescript';
 
 export interface ExtractOptions {
   /** The root of the repo to read. Every path in the document is relative to it. */

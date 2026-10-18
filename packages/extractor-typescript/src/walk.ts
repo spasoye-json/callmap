@@ -4,7 +4,10 @@
  */
 
 import { readdirSync } from 'node:fs';
-import { inScope } from './scope.ts';
+import { inScope, isSkippedDirectory } from '@archmap/scope';
+
+/** The tag this extractor stamps on every file it claims. */
+export const TYPESCRIPT = 'typescript';
 
 /**
  * What the TypeScript extractor understands. JavaScript rides with TypeScript, because they share
@@ -13,12 +16,10 @@ import { inScope } from './scope.ts';
 const UNDERSTOOD = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
 
 /**
- * Directories that hold no source of the repo being mapped. `node_modules` holds other people's
- * repos, and a dot directory holds a tool's bookkeeping.
+ * Whether a file name is one this extractor reads. The host asks the same question of every file
+ * in scope to detect the language, so detection and extraction cannot disagree on a file.
  */
-const skipped = (name: string): boolean => name === 'node_modules' || name.startsWith('.');
-
-const understood = (name: string): boolean =>
+export const understood = (name: string): boolean =>
   UNDERSTOOD.some((extension) => name.endsWith(extension));
 
 /**
@@ -31,7 +32,7 @@ export const sourceFilesInScope = (repo: string, scope: readonly string[]): read
 
   const walk = (directory: string): void => {
     for (const entry of readdirSync(`${repo}/${directory}`, { withFileTypes: true })) {
-      if (skipped(entry.name)) continue;
+      if (isSkippedDirectory(entry.name)) continue;
       const path = directory === '' ? entry.name : `${directory}/${entry.name}`;
       if (entry.isDirectory()) walk(path);
       else if (entry.isFile() && understood(entry.name) && inScope(path, scope)) found.push(path);

@@ -1,0 +1,25 @@
+{
+  "name": "@archmap/extractor-ruby",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./cli": "./src/cli.ts"
+  },
+  "bin": {
+    "archmap-extract-ruby": "./src/cli.ts"
+  },
+  "devDependencies": {
+    "@archmap/flow-document": "*",
+    "@archmap/reference-graph": "*"
+  },
+  "dependencies": {
+    "@archmap/scope": "*"
+  }
+}

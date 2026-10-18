@@ -19,3 +19,21 @@ export {
   UNREFERENCED_FILE,
 } from './repo.ts';
 export { candidate, checkoutFlow, clone, inferredEdge, verifiedEdge } from './flows.ts';
+export {
+  MIXED_CHECKOUT_SCREEN,
+  MIXED_ORDER,
+  MIXED_ORDERS_CLIENT,
+  MIXED_ORDERS_CONTROLLER,
+  MIXED_ROUTES,
+  placeAnOrderProposal,
+  placeAnOrderTraceAnswer,
+  placeAnOrderTraced,
+} from './mixed-flow.ts';
+export {
+  curatePlaceAnOrder,
+  extractedDocuments,
+  resultOfCommand,
+  TEST_API_KEY,
+  tracePlaceAnOrder,
+} from './command-chain.ts';
+export type { CommandAnswer, CommandSurface } from './command-chain.ts';

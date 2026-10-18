@@ -19,7 +19,7 @@ import type {
   NodeKind,
 } from '@archmap/flow-document';
 import { laidOutNodesOfLane, layOutFlow } from '@archmap/layout';
-import type { Rect, LayoutOptions } from '@archmap/layout';
+import type { FlowLayout, Rect, LayoutOptions } from '@archmap/layout';
 
 /** The shape a node is drawn as. A collapsed lane is drawn as one band. */
 export type NodeShape = 'rectangle' | 'diamond' | 'hexagon' | 'parallelogram' | 'band';
@@ -85,6 +85,19 @@ export interface CanvasLane {
   readonly selectionId: string;
 }
 
+/** One node of the flow as the step list reads it, numbered in the order the flow runs. */
+export interface CanvasStep {
+  readonly id: string;
+  /** The position in the flow, counting from one. */
+  readonly order: number;
+  readonly kind: NodeKind;
+  readonly label: string;
+  readonly lane: string;
+  readonly anchor: Anchor;
+  /** Whether the step's lane is collapsed, so the step is drawn only as part of its band. */
+  readonly folded: boolean;
+}
+
 export interface CanvasModel {
   readonly flowId: string;
   readonly flowName: string;
@@ -93,6 +106,8 @@ export interface CanvasModel {
   readonly lanes: readonly CanvasLane[];
   readonly nodes: readonly CanvasNode[];
   readonly edges: readonly CanvasEdge[];
+  /** Every node of the flow, collapsed or not, in the order the flow runs. */
+  readonly steps: readonly CanvasStep[];
   readonly size: { readonly width: number; readonly height: number };
 }
 
@@ -199,6 +214,41 @@ const boundingRect = (rects: readonly Rect[]): Rect | null => {
   const right = Math.max(...rects.map((rect) => rect.x + rect.width));
   const bottom = Math.max(...rects.map((rect) => rect.y + rect.height));
   return { x: left, y: top, width: right - left, height: bottom - top };
+};
+
+/**
+ * The steps in the order the flow runs: by column, then by the lane's place in the declared order,
+ * then by line inside the lane. That is the order a reader's eye takes across the canvas, so the
+ * list and the drawing never disagree about what comes first.
+ */
+const stepsOf = (
+  document: FlowDocument,
+  layout: FlowLayout,
+  collapsed: ReadonlySet<string>,
+): readonly CanvasStep[] => {
+  const nodesById = new Map(document.nodes.map((node) => [node.id, node]));
+  const laneIndex = new Map(layout.lanes.map((lane) => [lane.id, lane.index]));
+  const placed = [...layout.nodes].sort(
+    (left, right) =>
+      left.rank - right.rank ||
+      (laneIndex.get(left.lane) ?? 0) - (laneIndex.get(right.lane) ?? 0) ||
+      left.row - right.row,
+  );
+  return placed.flatMap((member, index) => {
+    const node = nodesById.get(member.id);
+    if (node === undefined) return [];
+    return [
+      {
+        id: node.id,
+        order: index + 1,
+        kind: node.kind,
+        label: node.label,
+        lane: node.lane,
+        anchor: { file: node.file, line: node.line },
+        folded: collapsed.has(node.lane),
+      },
+    ];
+  });
 };
 
 export const buildCanvasModel = (
@@ -330,6 +380,7 @@ export const buildCanvasModel = (
     lanes,
     nodes,
     edges: drawnEdges,
+    steps: stepsOf(document, layout, collapsed),
     size: layout.size,
   };
 };
