@@ -25,6 +25,5 @@
     "test/**/*.ts",
     "vitest.config.ts",
     "eslint.config.js"
-  ],
-  "exclude": ["packages/app"]
+  ]
 }

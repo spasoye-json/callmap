@@ -1,5 +1,7 @@
 # Staleness is a content hash of the anchor set, not a git diff
 
+> Superseded by ADR-0012. Archmap is a call graph reader, with no AI.
+
 A traced flow is stamped with the hash of every file in its anchor set at trace time. The stamp lives
 in `flow-anchors.json` next to the flow documents, and a flow reads as stale when any anchored file no
 longer hashes to its stamped value, or is gone.

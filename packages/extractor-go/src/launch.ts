@@ -1,8 +1,8 @@
 /**
- * The Go extractor as the host starts it. The extractor itself is a Go program that reads the repo
+ * The Go extractor as Node starts it. The extractor itself is a Go program that reads the repo
  * with the Go standard library's own parser (ADR-0009). This side only builds it, runs it as a
  * separate process, and reads what it wrote back through the core's contract, so a document the
- * core would refuse never reaches the sidecar as if it were a reference graph.
+ * core would refuse never reaches a caller as if it were a reference graph.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -32,8 +32,8 @@ const PROGRAM = join(import.meta.dirname, '../go');
 let built: string | undefined;
 
 /**
- * The compiled extractor, built once per host process. A fresh directory per process keeps two
- * hosts that build at the same time from writing over each other's binary. The Go build cache
+ * The compiled extractor, built once per caller process. A fresh directory per process keeps two
+ * callers that build at the same time from writing over each other's binary. The Go build cache
  * makes every build after the first a relink.
  */
 export const goExtractorBinary = (): string => {

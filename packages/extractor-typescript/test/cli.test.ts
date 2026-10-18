@@ -8,7 +8,7 @@ const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
 
 /**
- * The extractor as the host runs it: another process, answering over its standard output. Starting
+ * The extractor as the caller runs it: another process, answering over its standard output. Starting
  * one costs a whole Node process and a whole compiler, so a run is remembered by its arguments and
  * two cases that ask the same thing pay for one.
  */

@@ -19,11 +19,10 @@ asserting.
 | `shop/app/controllers/admin/refunds_controller.rb`  | A compact class name, which does not search `Admin` for `Report`                       |
 | `shop/app/jobs/receipt_job.rb`                      | An absolute `::Order` and a path `Shipping::Label` through a namespace with no file    |
 | `shop/app/services/shipping/label.rb`               | A file a directory names `Shipping::Label`                                             |
-| `shop/app/services/billing_client.rb`               | The HTTP call into the billing app, the evidence a boundary edge quotes                |
 | `shop/lib/reconcile.rb`                             | Code inside an app but outside its autoload roots, which gets no edge                  |
 | `billing/app/controllers/invoices_controller.rb`    | `Order`, which resolves to the billing app's own `Order` and not to the shop's         |
 | `billing/app/models/order.rb`                       | A name both apps define                                                                |
-| `billing/app/models/invoice.rb`                     | The far end of the HTTP call                                                           |
+| `billing/app/models/invoice.rb`                     | `Invoice`, which only the billing app defines, so the shop names it and gets no edge |
 | `tools/release.rb`                                  | Code outside every app, which gets no edge                                             |
 
 Nothing here is linted or type-checked, because it is held exactly as an extractor must find it.

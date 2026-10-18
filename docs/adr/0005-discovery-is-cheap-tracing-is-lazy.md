@@ -1,5 +1,7 @@
 # Discovery is cheap and eager, tracing is lazy
 
+> Superseded by ADR-0012. Archmap is a call graph reader, with no AI.
+
 Discovery runs one AI pass over the repo's routes, screens, and listeners and returns candidates, which is cheap enough to run on first open and gives the user the list of use cases the system contains. Tracing reads the code of one flow and costs real tokens, so it runs the first time the user opens that flow, and never for flows nobody looks at.
 
 The alternative was to trace everything up front, which makes the first open slow and bills the user for flows they will never read. Splitting the two also means a candidate and a traced flow are the same kind of document at different stages, so the canvas and the picker need no second format.

@@ -1,6 +1,6 @@
 /**
- * Scope globs: what a repo was opened under, so a monorepo is mapped one subtree at a time
- * (ADR-0009, ADR-0011). The host and every extractor read a scope through this one reader.
+ * Scope globs: the files an extractor walks, so a monorepo can be read one subtree at a time
+ * (ADR-0009, ADR-0011). Every extractor reads a scope through this one reader.
  *
  * The syntax is the small part of glob a scope needs and no more: `*` for anything inside one path
  * segment, `**` for anything across segments, `?` for one character inside a segment. Everything

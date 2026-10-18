@@ -11,14 +11,11 @@ export const TYPESCRIPT = 'typescript';
 
 /**
  * What the TypeScript extractor understands. JavaScript rides with TypeScript, because they share
- * one module resolution and version one ships them as one extractor (ADR-0009).
+ * one module resolution, so one extractor reads both (ADR-0009).
  */
 const UNDERSTOOD = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
 
-/**
- * Whether a file name is one this extractor reads. The host asks the same question of every file
- * in scope to detect the language, so detection and extraction cannot disagree on a file.
- */
+/** Whether a file name is one this extractor reads. */
 export const understood = (name: string): boolean =>
   UNDERSTOOD.some((extension) => name.endsWith(extension));
 

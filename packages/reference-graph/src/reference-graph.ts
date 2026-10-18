@@ -1,7 +1,6 @@
 /**
- * The reference graph: every static reference edge between a repo's files, as emitted by the
- * language extractors. It is the ground truth a claim about the code is checked against
- * (ADR-0001, ADR-0009).
+ * The reference graph: every static reference edge between a repo's files, as the language
+ * extractors emit them (ADR-0001, ADR-0009).
  *
  * The core is language-blind, so a language tag is any non-empty string an extractor chooses.
  * This module never reads source code and never touches a filesystem; it only indexes what an
@@ -44,20 +43,10 @@ export interface ReferenceGraphInput {
 export interface ReferenceGraph {
   readonly files: readonly ReferenceGraphFile[];
   readonly edges: readonly ReferenceEdge[];
-  /** Whether the graph knows this file at all. A claim about a file it does not know is rejected. */
-  knows(path: string): boolean;
   /** The language of a known file, or `undefined` when the graph does not know it. */
   languageOf(path: string): LanguageTag | undefined;
   /** Whether a reference edge runs from `from` to `to`. */
   references(from: string, to: string): boolean;
-  /**
-   * Whether a reference edge joins the pair in either direction. Import direction and call
-   * direction differ when a listener or a callback is registered, so a verified edge across two
-   * files accepts the pair either way round (ADR-0004).
-   */
-  joins(a: string, b: string): boolean;
-  /** Whether both files are known and carry the same language tag. */
-  sameLanguage(a: string, b: string): boolean;
 }
 
 const comparePaths = (left: string, right: string): number =>
@@ -113,10 +102,8 @@ const linked = (adjacency: Adjacency, from: string, to: string): boolean =>
  *
  * Refuses output the contract does not allow, a file with an empty path or an empty language tag, a
  * file claimed twice with two different languages, an edge that names a file the graph does not
- * list, an edge between two languages, and an edge from a file to itself. A reference between two
- * languages is a boundary, which is inferred and carries evidence, so a graph that held it would
- * let a verified edge ride across it (ADR-0004, ADR-0009). The same-file case of a verified edge is
- * decided by the file path alone, so a self-reference would only ever be noise.
+ * list, an edge between two languages, and an edge from a file to itself. Each extractor reads
+ * one language, so an edge between two languages can only come from a broken extractor.
  */
 export const createReferenceGraph = (input: ReferenceGraphInput): ReferenceGraph =>
   indexOutput(readOutput(input));
@@ -135,7 +122,6 @@ const indexOutput = (output: ReferenceGraphInput): ReferenceGraph => {
   }
 
   const directed: Adjacency = new Map();
-  const undirected: Adjacency = new Map();
 
   for (const { from, to } of output.edges) {
     if (from === to) {
@@ -156,8 +142,6 @@ const indexOutput = (output: ReferenceGraphInput): ReferenceGraph => {
       );
     }
     link(directed, from, to);
-    link(undirected, from, to);
-    link(undirected, to, from);
   }
 
   const files: readonly ReferenceGraphFile[] = [...languages]
@@ -171,15 +155,8 @@ const indexOutput = (output: ReferenceGraphInput): ReferenceGraph => {
   return {
     files,
     edges,
-    knows: (path) => languages.has(path),
     languageOf: (path) => languages.get(path),
     references: (from, to) => linked(directed, from, to),
-    joins: (a, b) => linked(undirected, a, b),
-    sameLanguage: (a, b) => {
-      const left = languages.get(a);
-      const right = languages.get(b);
-      return left !== undefined && left === right;
-    },
   };
 };
 
@@ -197,7 +174,3 @@ export const mergeReferenceGraphs = (...inputs: readonly ReferenceGraphInput[]):
     edges: outputs.flatMap((output) => output.edges),
   });
 };
-
-/** The empty reference graph: a repo no extractor has run over yet. */
-export const emptyReferenceGraph = (): ReferenceGraph =>
-  createReferenceGraph({ files: [], edges: [] });

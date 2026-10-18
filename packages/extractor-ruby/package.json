@@ -15,11 +15,8 @@
   "bin": {
     "archmap-extract-ruby": "./src/cli.ts"
   },
-  "devDependencies": {
-    "@archmap/flow-document": "*",
-    "@archmap/reference-graph": "*"
-  },
   "dependencies": {
+    "@archmap/reference-graph": "*",
     "@archmap/scope": "*"
   }
 }

@@ -46,7 +46,7 @@ func isTestFile(path string) bool {
 
 // extract reads a repo and builds its reference graph document. An import is resolved to a
 // package directory of the repo and expanded to an edge to every file of that package, which is
-// the crude reading of a Go reference the skeleton accepts: a package is the unit Go imports, so a
+// a crude reading of a Go reference: a package is the unit Go imports, so a
 // file reaches every file its package is built from. An edge is emitted only when both ends are
 // files the document claims, as every extractor does.
 func extract(repo string, scope []string) (document, error) {

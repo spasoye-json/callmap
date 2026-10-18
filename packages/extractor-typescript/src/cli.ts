@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * The extractor as the host runs it: a separate process that reads a repo and writes its reference
- * graph document to standard output (ADR-0009). Nothing but the document goes to standard output,
- * so the host can pipe it straight into the core; a refusal goes to standard error with a
+ * The extractor as a CLI: a separate process that reads a repo and writes its reference graph
+ * document to standard output (ADR-0009). Nothing but the document goes to standard output, so the
+ * caller can pipe it straight into the core. A refusal goes to standard error with a
  * non-zero exit, so a repo it could not read is never mistaken for a repo with nothing in it.
  */
 

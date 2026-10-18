@@ -1,54 +1,46 @@
 # Archmap, the product record
 
-Settled through two grilling sessions and two prototype rounds, 2026-08-18 and 2026-08-19. This file holds the product and business decisions. `CONTEXT.md` holds the vocabulary, `docs/adr/` holds the architectural decisions, and `.scratch/<feature>/` holds the specs. The prototype verdicts live in the `archmap-prototype` repo.
+Settled through two grilling sessions and two prototype rounds in 2026-08, and changed by the grilling of 2026-10-12 to 2026-10-18. This file holds the product decisions. `CONTEXT.md` holds the vocabulary and `docs/adr/` holds the architectural decisions. ADR-0012 tells how the product became a call graph reader. The records of 2026-08 and the prototype verdicts live in the `archmap-prototype` repo. The measurement behind the reader is in `docs/research/2026-10-18-call-resolution/`.
 
 ## Positioning
 
-AI writes code faster than the team can track it. No human holds the map. Archmap keeps a true map of the system, business logic first, and shows what an AI change touches before merge.
+AI writes code faster than an engineer can review it. Archmap does not replace reading the code. It makes reading faster: it shows where each change sits in the call graph and how the changed files talk to each other.
 
-- Landing line: "See what the AI actually changed before you merge it."
-- Support line: "The map of your system that stays true while AI writes the code."
-- User: a staff engineer or a tech lead who reviews AI-generated merge requests daily.
-- Daily trigger: the review scene. Check out a branch, see which flows and components it touches.
+- User: the owner first, an engineer who reviews AI-written code every day on TypeScript, Go and Ruby repos.
+- Daily trigger: the review of a branch, a pull request or a merge request.
+- Second use: reading any part of a repo by its calls, from the same page.
+- No AI. Every function and every call comes from the language's own tools, so the same code always gives the same page.
 
-## Product shape
+## The MVP
 
-A local-first desktop companion that sits next to VS Code or JetBrains. See ADR-0006.
+A CLI that writes one self-contained HTML page. See ADR-0012.
 
-The two views, and why flows lead, are ADR-0002. A flow renders as a logic flowchart with pan, zoom, collapse per lane, and click-to-editor. The component map is two levels of curated components over the reference graph, with an unassigned tray for files no glob matches.
+- **`archmap review`:** reads the git diff of the branch against the merge base with the default branch. It shows each changed function, marked added, removed or changed, and one hop of callers and callees around it, greyed. It marks the calls that the branch added or removed. A click on a greyed function opens its next hop.
+- **The page:** each function is a box inside the frame of its file, and each call is an arrow. A click on a box shows its code in a read-only panel. An editor link opens the file and line in the editor.
+- **What the page holds:** the whole call graph in scope as data, so the reader can search any function and walk its calls with no server.
+- **Honesty:** the page shows the resolution rate. A call that the tools cannot resolve is an open end. A call through an interface shows as one-of calls.
+- **A thin Claude skill:** after the CLI works, a skill of about 10 lines tells Claude to run `archmap review` and open the page. It adds no logic.
 
-## Version one, the review scene
+## Languages
 
-Local git only. The user checks out a branch, the app diffs it against the default branch, and shows changed components, new or removed component edges, and stale-flow badges. Platform integrations with GitHub and GitLab are version two.
+- TypeScript first, read with the type checker. On a private app it resolved 96.7% of backend calls and 98.8% of mobile calls.
+- Go next, read with the `golang.org/x/tools` call graph.
+- Ruby after its resolution rate is measured on an open-source Rails app. Sorbet-based `scip-ruby` is the first tool to measure. The rate on Rails code with no Sorbet types is not known yet.
+- The core is language-blind. A new language costs one extractor. See ADR-0009.
 
-Cost is visible: an estimated token cost before a trace, and a running monthly total in the app.
+## Cut from the MVP
 
-## Technical commitments not covered by an ADR
-
-- Version one ships three extractors: TypeScript with JavaScript, Go, and Ruby on Rails via Zeitwerk. A mixed repo runs every matching extractor over one reference graph, and a cross-language flow is the headline demo. Python comes later. See ADR-0009.
-- Entry points are AI-proposed, validator-anchored, and human-curated. See ADR-0010.
-- Workspace monorepos from day one. Extractors take scope globs, so a large monorepo is mapped one subtree at a time.
-- The UI is React with Vite inside the Tauri shell. Cytoscape is bundled locally, no network on first open.
-- Refresh on git events, incremental.
-- Anthropic BYOK behind one provider interface. OpenAI-compatible endpoints when a real user asks.
-
-## Cut from version one
-
-Chat over the model, multi-repo, GitHub and GitLab integrations, AI change summaries, runtime data, two-way editor sync, every language that is not TypeScript, JavaScript, Go, or Ruby, and the localhost page served by the engine for a browser.
-
-## Business
-
-- Solo, nights and weekends, no deadline. Bottom-up distribution plus essays on AI-era architecture decay.
-- Free public beta with the price shown. At 1.0: about $15 to $20 per seat monthly, free for open-source repos. Beta users keep a grandfathered discount.
+Every AI pass, flows of business logic, the branches inside a function, components, the system view, the desktop app, platform integrations with GitHub and GitLab, and hops across HTTP calls or events.
 
 ## Known risks
 
-- The map file is committed to the repo, so a team gets sharing for free and the app itself must earn the seat. See ADR-0007.
-- Understanding tools die as nice-to-haves. CodeSee, Sourcetrail, and Structurizr cloud are the record. Archmap must live inside daily review, not beside it.
-- The niche is open. No dedicated desktop architecture IDE exists today.
-- The development target is the owner's employer repo. It is local only: nothing from it appears in demos, essays, screenshots, or committed fixtures. Public material uses an open-source mixed repo.
+- VS Code and GoLand already show the call hierarchy of one function. Archmap earns its place only with the view of a whole branch across files and languages.
+- Understanding tools die as nice-to-haves. CodeSee, Sourcetrail, and Structurizr cloud are the record. Archmap must live inside the daily review.
+- The Ruby resolution rate may be too low to help on the owner's work repos.
+- Nothing from the owner's employer repos appears in demos, essays, screenshots, or committed fixtures. Public material uses a private app of the owner and open-source repos.
 
 ## Next steps
 
-1. Prototype round two, done: the interactive flow canvas and AI flow discovery against a private app. Verdict in the `archmap-prototype` repo, `.scratch/flow-canvas/verdict.md`.
-2. The walking skeleton, in this repo. The prototype repo stays as the record, and the seam modules are ported from it, not moved. The skeleton: Tauri shell, Node sidecar, all three extractors, one mixed repo scoped by globs, one traced cross-language flow, one stale badge.
+1. Spec 2, the reader MVP for TypeScript, proven on a private app. This is issue 15, with tickets 16 to 22.
+2. Measure the Go and Ruby resolution rates on open-source repos.
+3. Spec 3, the Go and Ruby extractors with calls.

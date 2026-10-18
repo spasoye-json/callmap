@@ -1,135 +1,81 @@
 # Archmap
 
-Archmap keeps a true map of a software system, business logic first, so a reviewer can see what an AI change touches before it merges. This repo holds the Archmap product. The prototypes that settled the map's shape live in the `archmap-prototype` repo. `docs/adr/` holds the architectural decisions and `docs/product.md` holds the product record.
+Archmap is a code reader for an engineer who still reads code. It builds the call graph of a repo with each language's own tools, with no AI, and writes it as one HTML page, so a reviewer can see where each change sits and how the changed files talk to each other. `docs/adr/` holds the architectural decisions and `docs/product.md` holds the product record.
 
 ## Language
 
-A word an entry lists under _Avoid_ can still stand in a settled record. ADR-0001 and ADR-0004 say _import graph_, because that is what the ground truth was called when they were decided, and ADR-0009 records its replacement by the reference graph. A decision record is not rewritten to match a later decision.
+A word an entry lists under _Avoid_ can still stand in a settled record. ADR-0001 to ADR-0011 say _flow_, _trace_, _map_ and _reference graph_, because those words named the plan when it was decided. A decision record is not rewritten to match a later decision.
 
-### Flows
+### The graph
 
-**Flow**:
-One use case traced end to end, from the screen that starts it to the last side effect it causes.
-_Avoid_: journey, path, trace (as a noun), use case
+**Function**:
+One named piece of code that can be called: a function, a method, or a constructor. It is anchored to a file and a line.
+_Avoid_: node, symbol, routine
 
-**Flow document**:
-The record of one flow as data: its entry point, its lanes, its nodes, and its edges. Every producer writes it and every consumer reads it.
-_Avoid_: flow file, flow JSON, diagram data
+**Call**:
+An arrow from one function to a function it calls, proven by the language's own tools.
+_Avoid_: edge, link, dependency
 
-**Proposal**:
-An entry point the discovery pass proposes for a flow, before a person decides on it. The validator rejects a proposal whose file the reference graph does not know. A person accepts a proposal, which makes it a candidate, or rejects it.
-_Avoid_: suggestion, guess, candidate (before it is accepted)
+**Call graph**:
+Every function in scope and every call between them.
+_Avoid_: map, dependency graph, reference graph
 
-**Candidate**:
-A flow that is named and anchored to an entry point but not yet traced. It carries no nodes and no edges.
-_Avoid_: proposal, stub, draft flow
+**Open end**:
+A call that the language's tools cannot tie to a function, such as a call on an untyped value or a callback. The page shows it, marked, and it leads nowhere.
+_Avoid_: unknown call, gap, hole
 
-**Traced flow**:
-A flow whose nodes and edges are read from the code.
-_Avoid_: complete flow, resolved flow, expanded flow
+**One-of call**:
+One of several calls from one call site through an interface or a map of strategies, one to each implementation. Only one of them runs.
+_Avoid_: maybe call, possible call
 
-**Entry point**:
-The place where a flow starts: a route, a screen, or an event listener.
-_Avoid_: trigger, origin, start node
+**Resolution rate**:
+The share of calls into the repo's own code that the language's tools tie to one function. It tells the reader how much of the graph the tools proved.
+_Avoid_: accuracy, confidence, coverage
 
-**Lane**:
-One side of a process boundary that a flow crosses, such as the mobile app, the backend request, or the async listeners. A lane groups the nodes that run in the same place.
-_Avoid_: swimlane, tier, layer, subgraph
+**File frame**:
+The box around the functions of one file.
+_Avoid_: group, cluster, module
 
-**Node**:
-One point in a flow, anchored to a file and a line. Its kind is a step, a decision, an error exit (`error` in a flow document), or a side effect (`side-effect`).
-_Avoid_: block, box, vertex
-
-**Decision**:
-A node where the code branches.
-_Avoid_: condition, guard, check, gate
-
-**Error exit**:
-A node where the flow stops early and reports a failure.
-_Avoid_: failure path, unhappy path, exception branch
-
-**Side effect**:
-A node where the flow changes state outside itself: a row written, a message sent, an event emitted.
-_Avoid_: mutation, write, action
-
-### Truth and evidence
-
-**Reference graph**:
-Every static reference edge between the repo's files, emitted by the language's extractor: imports for TypeScript and Go, resolved constant references for Ruby. It is the ground truth that a claim about the code is checked against.
-_Avoid_: import graph, dependency graph, module graph, call graph
+### Reading
 
 **Extractor**:
-The per-language pass that produces the reference graph. The core never reads source code, only what an extractor emits.
+The per-language program that reads the source code and emits the graph document. The core never reads source code, only what an extractor emits.
 _Avoid_: parser, analyzer, scanner
 
-**Reference graph document**:
-What one extractor emits for one repo: the files it claims, the reference edges between them, its language tag, and the scope it was built under. The core owns the contract and every extractor conforms to it.
+**Graph document**:
+What one extractor emits for one repo: its files, its functions, its calls, its open ends, and the scope it was built under.
 _Avoid_: graph JSON, payload, manifest
 
+**Reference graph document**:
+What the extractors emit before spec 15: the files in scope and the import edges between them. The graph document replaces it for the review, and the Go and Ruby extractors keep it until they emit functions and calls.
+_Avoid_: graph document (that holds functions and calls)
+
 **Scope**:
-The globs an extractor is run under, which limit which files enter its document, so a monorepo is mapped one subtree at a time. A document built under no glob was built over the whole repo.
+The globs an extractor is run under, which limit which files enter its document, so a monorepo is read one subtree at a time.
 _Avoid_: filter, include path, root
 
-**Edge**:
-A link from one node to the next in a flow.
-_Avoid_: arrow, transition, connection
+**Reader page**:
+The one self-contained HTML file that the CLI writes. It holds the whole call graph in scope as data, so the reader can open more of it with no server.
+_Avoid_: report, dashboard, artifact
 
-**Verified edge**:
-An edge the reference graph proves, because the two nodes sit in one file or in a pair of files with a reference edge between them.
-_Avoid_: real edge, static edge, confirmed edge
+**Editor link**:
+The link on a function that opens its file and line in the reader's editor.
+_Avoid_: deep link, jump link
 
-**Inferred edge**:
-An edge no static reference can prove, because it crosses a process boundary. It is proposed, not proven, and it must carry evidence.
-_Avoid_: guessed edge, soft edge, virtual edge
+### Review
 
-**Boundary**:
-The kind of hop an inferred edge crosses: an HTTP call or an emitted event.
-_Avoid_: bridge, gap, seam (seam means a code interface, not a process hop)
+**Review**:
+The reader page for one branch: every changed function, one hop around each, and the calls the branch added or removed, against the merge base with the default branch.
+_Avoid_: diff view, PR view, change summary
 
-**Evidence**:
-The quoted match that proposes an inferred edge, such as a route string that matches a route decorator, or an event name that matches a listener.
-_Avoid_: proof, justification, reason
+**Changed function**:
+A function that the branch added, removed, or changed in its body.
+_Avoid_: touched function, dirty function
 
-### The component map
+**Hop**:
+One call away from a function, in either direction. A caller and a callee are each one hop away.
+_Avoid_: level, step, depth
 
-**Component**:
-A curated group of files, pinned to real directories and files by globs and pins. Components are the context layer that flows are drawn across.
-_Avoid_: module, package, service, box
-
-**Component map**:
-The whole set of components and the edges between them, aggregated from the reference graph.
-_Avoid_: architecture diagram, system map, overview
-
-**Unassigned tray**:
-The holding place for files that no component glob matches.
-_Avoid_: other, misc, orphans
-
-### Keeping the map true
-
-**Discovery**:
-The pass that enumerates a repo's flow candidates from its entry points.
-_Avoid_: scanning, crawling, indexing
-
-**Trace**:
-The pass that reads the code of one flow and fills in its nodes and edges.
-_Avoid_: expand, resolve, analyse
-
-**Flow picker**:
-The list of every flow document a repo holds, traced flows openable and candidates greyed out. It is how a reader switches flows inside one page.
-_Avoid_: flow list, sidebar, index
-
-**Anchor set**:
-Every file and line a flow's nodes point at. A change inside the anchor set is what makes a flow stale.
-_Avoid_: footprint, touched files, dependencies
-
-**Stale flow**:
-A traced flow whose anchor set contains a file that changed since the trace. It is marked, not re-traced.
-_Avoid_: dirty flow, outdated flow, invalid flow
-
-**Anchor stamp**:
-The hash of every file in a flow's anchor set, recorded at trace time. Comparing it against the files today is what marks a flow stale.
-_Avoid_: snapshot, fingerprint, checksum record
-
-**Map file**:
-The committed record of the map, so it travels with git and a teammate can read it without the app.
-_Avoid_: config, manifest, cache
+**Neighbour**:
+A function one hop from a changed function that the branch did not change. The review shows it greyed, and a click opens its own next hop.
+_Avoid_: context function, related function

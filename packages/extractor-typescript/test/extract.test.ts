@@ -266,12 +266,12 @@ describe('a monorepo whose packages import each other by name', () => {
   const document = () =>
     extractTypeScript({
       repo: REPO,
-      scope: ['packages/testing/**', 'packages/reference-graph/**'],
+      scope: ['packages/extractor-go/src/**', 'packages/reference-graph/**'],
     });
 
   it('resolves a package name to the file the package points at', () => {
     expect(document().edges).toContainEqual({
-      from: 'packages/testing/src/repo.ts',
+      from: 'packages/extractor-go/src/launch.ts',
       to: 'packages/reference-graph/src/index.ts',
     });
   });
@@ -280,7 +280,8 @@ describe('a monorepo whose packages import each other by name', () => {
     expect(
       document().files.every(
         (path) =>
-          path.startsWith('packages/testing/') || path.startsWith('packages/reference-graph/'),
+          path.startsWith('packages/extractor-go/src/') ||
+          path.startsWith('packages/reference-graph/'),
       ),
     ).toBe(true);
   });
