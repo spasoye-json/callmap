@@ -12,6 +12,7 @@ export default tseslint.config(
       'node_modules/**',
       'coverage/**',
       'packages/*/fixture/**',
+      'packages/*/fixture-*/**',
       'packages/*/dist/**',
       '.claude/**',
       'docs/**',

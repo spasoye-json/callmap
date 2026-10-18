@@ -2,10 +2,11 @@ import { spawnSync } from 'node:child_process';
 import type { SpawnSyncReturns } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@archmap/reference-graph';
+import { readGraphDocument } from '@archmap/graph-document';
 
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
+const CALLS = fileURLToPath(new URL('../fixture-calls', import.meta.url));
 
 /**
  * The extractor as the caller runs it: another process, answering over its standard output. Starting
@@ -26,7 +27,7 @@ const run = (...args: readonly string[]) => {
 const documentOf = (...args: readonly string[]) => {
   const finished = run(...args);
   expect(finished.status, finished.stderr).toBe(0);
-  return readReferenceGraphDocument(JSON.parse(finished.stdout));
+  return readGraphDocument(JSON.parse(finished.stdout));
 };
 
 describe('the extractor as a separate process', () => {
@@ -34,9 +35,12 @@ describe('the extractor as a separate process', () => {
     expect(documentOf(FIXTURE).language).toBe('typescript');
   });
 
-  it('emits a document the core indexes into a reference graph', () => {
-    const graph = referenceGraphFromDocuments(documentOf(FIXTURE, '--scope', 'src/**'));
-    expect(graph.references('src/screens/checkout.tsx', 'src/api/orders-client.ts')).toBe(true);
+  it('emits the calls between the functions of the repo', () => {
+    expect(documentOf(CALLS, '--scope', 'src/**').calls).toContainEqual({
+      caller: 'src/orders.controller.ts#OrdersController.place',
+      callee: 'src/orders.service.ts#OrdersService.create',
+      line: 10,
+    });
   });
 
   it('writes the document and nothing else to standard output', () => {
@@ -64,9 +68,10 @@ describe('the extractor as a separate process', () => {
 
   it('resolves aliases through the tsconfig it is pointed at', () => {
     const document = documentOf(`${FIXTURE}/src`, '--tsconfig', `${FIXTURE}/tsconfig.json`);
-    expect(document.edges).toContainEqual({
-      from: 'screens/checkout.tsx',
-      to: 'api/orders-client.ts',
+    expect(document.calls).toContainEqual({
+      caller: 'screens/checkout.tsx#Checkout',
+      callee: 'shared/money.ts#formatMoney',
+      line: 8,
     });
   });
 
