@@ -3,8 +3,20 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+export class GitError extends Error {
+  override readonly name = 'GitError';
+}
+
 const git = (cwd: string, ...args: readonly string[]): string =>
   execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+
+const gitOr = (message: string, cwd: string, ...args: readonly string[]): string => {
+  try {
+    return git(cwd, ...args);
+  } catch {
+    throw new GitError(message);
+  }
+};
 
 const succeeds = (cwd: string, ...args: readonly string[]): boolean => {
   try {
@@ -15,17 +27,39 @@ const succeeds = (cwd: string, ...args: readonly string[]): boolean => {
   }
 };
 
-export const repoRootOf = (path: string): string => git(path, 'rev-parse', '--show-toplevel');
+export const repoRootOf = (path: string): string =>
+  gitOr(`${path} is not inside a git repo`, path, 'rev-parse', '--show-toplevel');
 
 export const defaultBranchOf = (root: string): string => {
   if (succeeds(root, 'symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD')) {
     return git(root, 'symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD');
   }
-  return succeeds(root, 'rev-parse', '--verify', '--quiet', 'refs/heads/main') ? 'main' : 'master';
+  const local = ['main', 'master'].find((branch) =>
+    succeeds(root, 'rev-parse', '--verify', '--quiet', `refs/heads/${branch}`),
+  );
+  if (local === undefined) {
+    throw new GitError(
+      `${root} has no origin/HEAD, no main and no master to find a base on; name one with --base`,
+    );
+  }
+  return local;
 };
 
 export const mergeBaseOf = (root: string, branch: string): string =>
-  git(root, 'merge-base', 'HEAD', branch);
+  gitOr(`HEAD shares no commit with ${branch} in ${root}`, root, 'merge-base', 'HEAD', branch);
+
+export const commitOf = (root: string, revision: string): string =>
+  gitOr(
+    `the base '${revision}' is not a commit in ${root}`,
+    root,
+    'rev-parse',
+    '--verify',
+    '--quiet',
+    `${revision}^{commit}`,
+  );
+
+export const shortCommitOf = (root: string, commit: string): string =>
+  git(root, 'rev-parse', '--short', commit);
 
 export const inWorktreeAt = async <T>(
   root: string,
