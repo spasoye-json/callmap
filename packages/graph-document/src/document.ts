@@ -22,6 +22,7 @@ export interface Call {
   readonly caller: FunctionId;
   readonly callee: FunctionId;
   readonly line: number;
+  readonly group?: string;
 }
 
 export interface OpenEnd {
@@ -55,7 +56,7 @@ const FUNCTION_FIELDS: readonly string[] = [
   'lastLine',
   'sourceHash',
 ];
-const CALL_FIELDS: readonly string[] = ['caller', 'callee', 'line'];
+const CALL_FIELDS: readonly string[] = ['caller', 'callee', 'line', 'group'];
 const OPEN_END_FIELDS: readonly string[] = ['caller', 'line', 'expression'];
 
 const WHAT = 'a graph document';
@@ -74,11 +75,28 @@ const readFunction = (entry: unknown): GraphFunction => {
 
 const readCall = (entry: unknown): Call => {
   const fields = requireFields(entry, 'a call', CALL_FIELDS);
-  return {
+  const call: Call = {
     caller: requireNonEmpty(fields['caller'], 'the caller of a call'),
     callee: requireNonEmpty(fields['callee'], 'the callee of a call'),
     line: requireLine(fields['line'], 'the line of a call'),
   };
+  return Object.hasOwn(fields, 'group')
+    ? { ...call, group: requireNonEmpty(fields['group'], 'the group of a one-of call') }
+    : call;
+};
+
+const requireOneCallSitePerGroup = (calls: readonly Call[]): void => {
+  const siteOf = new Map<string, Call>();
+  for (const call of calls) {
+    if (call.group === undefined) continue;
+    const first = siteOf.get(call.group);
+    if (first === undefined) siteOf.set(call.group, call);
+    else if (first.caller !== call.caller || first.line !== call.line) {
+      throw new GraphDocumentError(
+        `the one-of group '${call.group}' holds calls from more than one call site`,
+      );
+    }
+  }
 };
 
 const readOpenEnd = (entry: unknown): OpenEnd => {
@@ -131,6 +149,7 @@ export const readGraphDocument = (value: unknown): GraphDocument => {
     requireKnown(call.caller, 'the caller of a call');
     requireKnown(call.callee, 'the callee of a call');
   }
+  requireOneCallSitePerGroup(calls);
   for (const openEnd of openEnds) requireKnown(openEnd.caller, 'the caller of an open end');
 
   return { language, scope, files, functions, calls, openEnds };
