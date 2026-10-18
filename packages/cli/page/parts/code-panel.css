@@ -1,0 +1,57 @@
+.code-panel h2 {
+  margin: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.code-place,
+.code-hint {
+  margin: 4px 0 8px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.editor-link {
+  color: var(--ink);
+}
+
+.code-panel pre {
+  margin: 0;
+  padding: 8px 0;
+  overflow-x: auto;
+  background: var(--code);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  font:
+    12px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.code-panel code {
+  display: inline-block;
+  min-width: 100%;
+}
+
+.code-panel .line {
+  display: block;
+  padding-right: 12px;
+  white-space: pre;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.code-panel ins.line {
+  background: var(--changed-line);
+  box-shadow: inset 3px 0 0 var(--changed);
+}
+
+.line-number {
+  display: inline-block;
+  min-width: 3.5em;
+  padding-right: 12px;
+  text-align: right;
+  color: var(--muted);
+  user-select: none;
+}

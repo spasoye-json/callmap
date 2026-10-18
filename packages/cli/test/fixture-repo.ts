@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,11 +32,20 @@ const commitTree = (repo: string, tree: string, message: string): void => {
   git(repo, 'commit', '--quiet', '--message', message);
 };
 
-export const featureBranchRepo = (): string => {
+export const featureBranchRepo = (defaultBranch = 'main'): string => {
   const repo = mkdtempSync(join(tmpdir(), 'archmap-review-'));
-  git(repo, 'init', '--quiet', '--initial-branch', 'main');
+  git(repo, 'init', '--quiet', '--initial-branch', defaultBranch);
   commitTree(repo, 'base', 'base');
   git(repo, 'checkout', '--quiet', '-b', 'feature');
   commitTree(repo, 'branch', 'branch');
   return repo;
+};
+
+export const fixtureText = (tree: 'base' | 'branch', file: string): string =>
+  readFileSync(join(FIXTURE, tree, file), 'utf8');
+
+export const commitFile = (repo: string, path: string, text: string): void => {
+  writeFileSync(join(repo, path), text);
+  git(repo, 'add', path);
+  git(repo, 'commit', '--quiet', '--message', `write ${path}`);
 };

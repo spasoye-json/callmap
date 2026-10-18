@@ -2,12 +2,13 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { featureBranchRepo, git } from './fixture-repo.ts';
+import { featureBranchRepo, fixtureText, git } from './fixture-repo.ts';
 import { fakeOpener, loadReaderPage, pageDataOf, runArchmap } from './reader-page.ts';
 
 const CART = 'src/cart.ts';
 const MONEY = 'src/money.ts';
 const CHECKOUT = 'src/checkout.ts';
+const REPORT = 'src/report.ts';
 
 let repo = '';
 let html = '';
@@ -63,6 +64,17 @@ describe('archmap review on a feature branch', () => {
   it('holds the whole branch graph in the data block, so the page can open more of it', () => {
     const { graph } = pageDataOf(html);
     expect(graph.functions.map(({ id }) => id)).toContain(`${MONEY}#round`);
+  });
+
+  it('holds the source text of every file that holds a function in the review or the search', () => {
+    const { sources } = pageDataOf(html);
+    expect(sources.branch).toEqual({
+      [CART]: fixtureText('branch', CART),
+      [CHECKOUT]: fixtureText('branch', CHECKOUT),
+      [MONEY]: fixtureText('branch', MONEY),
+      [REPORT]: fixtureText('branch', REPORT),
+    });
+    expect(sources.base).toEqual({ [CART]: fixtureText('base', CART) });
   });
 
   it('writes the page to the path that --out names, and prints that path', () => {
