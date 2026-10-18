@@ -4,6 +4,8 @@ import type { MarkedCall } from './calls.ts';
 import { changesOf, functionsById } from './changes.ts';
 import type { ChangeMark } from './changes.ts';
 import { hopsOf, oneHopFrom } from './hops.ts';
+import { honestEdgesOf } from './honest-edges.ts';
+import type { HonestEdges } from './honest-edges.ts';
 
 export type FunctionMark = ChangeMark | 'neighbour';
 
@@ -11,7 +13,7 @@ export interface MarkedFunction extends GraphFunction {
   readonly mark: FunctionMark;
 }
 
-export interface Review {
+export interface Review extends HonestEdges {
   readonly functions: readonly MarkedFunction[];
   readonly calls: readonly MarkedCall[];
 }
@@ -48,5 +50,5 @@ export const reviewOf = ({ base, branch }: ReviewInput): Review => {
     (left, right) => byText(left.caller, right.caller) || byText(left.callee, right.callee),
   );
 
-  return { functions, calls };
+  return { functions, calls, ...honestEdgesOf({ base, branch }, marks) };
 };

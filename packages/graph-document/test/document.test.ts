@@ -42,6 +42,14 @@ describe('readGraphDocument', () => {
     const openEnds = [{ caller: CREATE, line: 7, expression: 'bcrypt.hash' }];
     expect(readGraphDocument(document({ openEnds })).openEnds).toEqual(openEnds);
   });
+
+  it('reads the one-of calls of one call site with the id of their group', () => {
+    const calls = [
+      { caller: CREATE, callee: TOTAL, line: 6, group: 'src/orders.ts:6:12' },
+      { caller: CREATE, callee: CREATE, line: 6, group: 'src/orders.ts:6:12' },
+    ];
+    expect(readGraphDocument(document({ calls })).calls).toEqual(calls);
+  });
 });
 
 describe('a graph document the contract does not allow', () => {
@@ -71,6 +79,14 @@ describe('a graph document the contract does not allow', () => {
   it('refuses a call from an unknown function id', () => {
     const calls = [{ caller: 'src/orders.ts#main', callee: TOTAL, line: 6 }];
     expect(refuse(document({ calls }))).toThrow(/src\/orders\.ts#main/);
+  });
+
+  it('refuses a one-of group whose calls leave from two call sites', () => {
+    const calls = [
+      { caller: CREATE, callee: TOTAL, line: 6, group: 'g' },
+      { caller: TOTAL, callee: CREATE, line: 2, group: 'g' },
+    ];
+    expect(refuse(document({ calls }))).toThrow(/group 'g'/);
   });
 
   it('refuses an open end from an unknown function id', () => {

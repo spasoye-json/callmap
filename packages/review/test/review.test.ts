@@ -156,6 +156,12 @@ describe('the order of a review', () => {
 
   it('gives an empty review when the branch changes no function', () => {
     const same = graph([fn(A), fn(B)], [call(A, B)]);
-    expect(reviewOf({ base: same, branch: same })).toEqual({ functions: [], calls: [] });
+    expect(reviewOf({ base: same, branch: same })).toEqual({
+      functions: [],
+      calls: [],
+      openEnds: [],
+      oneOfGroups: [],
+      resolutionRate: { resolved: 1, open: 0, rate: 1 },
+    });
   });
 });
