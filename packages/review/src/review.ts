@@ -1,11 +1,14 @@
 import type { FunctionId, GraphDocument, GraphFunction } from '@archmap/graph-document';
 import { markedCallsOf } from './calls.ts';
 import type { MarkedCall } from './calls.ts';
+import { changedLinesOf } from './changed-lines.ts';
+import type { ChangedLines, ChangedLinesByFile } from './changed-lines.ts';
 import { changesOf, functionsById } from './changes.ts';
 import type { ChangeMark } from './changes.ts';
 import { hopsOf, oneHopFrom } from './hops.ts';
-import { honestEdgesOf } from './honest-edges.ts';
-import type { HonestEdges } from './honest-edges.ts';
+import { byText } from './order.ts';
+import { resolutionOf } from './resolution.ts';
+import type { Resolution } from './resolution.ts';
 
 export type FunctionMark = ChangeMark | 'neighbour';
 
@@ -13,19 +16,20 @@ export interface MarkedFunction extends GraphFunction {
   readonly mark: FunctionMark;
 }
 
-export interface Review extends HonestEdges {
+export interface Review extends Resolution {
   readonly functions: readonly MarkedFunction[];
   readonly calls: readonly MarkedCall[];
+  readonly changedLines: ChangedLines;
 }
 
 export interface ReviewInput {
   readonly base: GraphDocument;
   readonly branch: GraphDocument;
+  readonly changedLinesByFile: ChangedLinesByFile;
 }
 
-const byText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
-
-export const reviewOf = ({ base, branch }: ReviewInput): Review => {
+export const reviewOf = (input: ReviewInput): Review => {
+  const { base, branch } = input;
   const baseFunctions = functionsById(base);
   const branchFunctions = functionsById(branch);
   const changes = changesOf(baseFunctions, branchFunctions);
@@ -50,5 +54,10 @@ export const reviewOf = ({ base, branch }: ReviewInput): Review => {
     (left, right) => byText(left.caller, right.caller) || byText(left.callee, right.callee),
   );
 
-  return { functions, calls, ...honestEdgesOf({ base, branch }, marks) };
+  return {
+    functions,
+    calls,
+    changedLines: changedLinesOf(functions, input.changedLinesByFile),
+    ...resolutionOf(input, marks),
+  };
 };

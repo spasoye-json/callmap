@@ -1,11 +1,10 @@
+import { byText } from '@archmap/review';
 import type { MarkedFunction } from '@archmap/review';
 import { markedFunctionsOf } from '../functions.ts';
 import { hopOpenerOf } from '../hops.ts';
 import type { PagePart, ReaderPage } from '../reader-page.ts';
 
 const MAX_RESULTS = 30;
-
-const byText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
 const matchesOf = (
   candidates: readonly MarkedFunction[],

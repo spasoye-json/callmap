@@ -1,11 +1,11 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { GraphDocument } from '@archmap/graph-document';
 import { reviewOf } from '@archmap/review';
 import type { ReviewInvocation } from './arguments.ts';
 import { openInBrowser } from './browser.ts';
-import { changedLinesOf } from './changed-lines.ts';
+import { changedLinesByFileOf } from './changed-lines.ts';
 import { extractGraph } from './extractors.ts';
 import type { ExtractorSettings } from './extractors.ts';
 import {
@@ -41,6 +41,14 @@ const readGraph = async (
   }
 };
 
+const tsconfigOf = (root: string, tsconfig: string | undefined): string | undefined => {
+  if (tsconfig === undefined) return undefined;
+  const absolute = resolve(root, tsconfig);
+  const path = existsSync(absolute) ? realpathSync(absolute) : absolute;
+  const inRepo = relative(root, path);
+  return inRepo.startsWith('..') || isAbsolute(inRepo) ? path : inRepo;
+};
+
 const settled = <T>(result: PromiseSettledResult<T>): T => {
   if (result.status === 'rejected') throw result.reason;
   return result.value;
@@ -52,7 +60,10 @@ export const runReview = async (invocation: ReviewInvocation): Promise<string> =
     invocation.base === undefined
       ? mergeBaseOf(root, defaultBranchOf(root))
       : commitOf(root, invocation.base);
-  const settings: ExtractorSettings = { scope: invocation.scope, tsconfig: invocation.tsconfig };
+  const settings: ExtractorSettings = {
+    scope: invocation.scope,
+    tsconfig: tsconfigOf(root, invocation.tsconfig),
+  };
   const [branchRead, baseRead] = await Promise.allSettled([
     readGraph('the branch', root, settings),
     inWorktreeAt(root, base, (path) =>
@@ -61,12 +72,15 @@ export const runReview = async (invocation: ReviewInvocation): Promise<string> =
   ]);
   const branchGraph = settled(branchRead);
   const baseGraph = settled(baseRead);
-  const review = reviewOf({ base: baseGraph, branch: branchGraph });
+  const review = reviewOf({
+    base: baseGraph,
+    branch: branchGraph,
+    changedLinesByFile: changedLinesByFileOf(root, base),
+  });
   const html = await readerPageOf({
     review,
-    graph: branchGraph,
+    branchGraph,
     sources: sourcesOf(root, base, review, branchGraph),
-    changedLines: changedLinesOf(root, base, review),
     editor: { name: invocation.editor, repoRoot: root },
   });
 

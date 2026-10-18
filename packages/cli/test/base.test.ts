@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -42,6 +42,27 @@ describe('the base of a review', () => {
     expect(marksOfReview(repo)).toMatchObject(BRANCH_CHANGES);
   }, 60_000);
 
+  it('takes the merge base with the head of another remote when origin names no head', () => {
+    const repo = featureBranchRepo();
+    git(repo, 'remote', 'add', 'upstream', repo);
+    git(repo, 'update-ref', 'refs/remotes/upstream/trunk', 'main');
+    git(repo, 'symbolic-ref', 'refs/remotes/upstream/HEAD', 'refs/remotes/upstream/trunk');
+    git(repo, 'branch', '--force', 'main', 'feature');
+    expect(marksOfReview(repo)).toMatchObject(BRANCH_CHANGES);
+  }, 60_000);
+
+  it('takes the head of origin before the head of another remote', () => {
+    const repo = featureBranchRepo();
+    git(repo, 'remote', 'add', 'origin', repo);
+    git(repo, 'remote', 'add', 'another', repo);
+    git(repo, 'update-ref', 'refs/remotes/origin/trunk', 'main');
+    git(repo, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk');
+    git(repo, 'update-ref', 'refs/remotes/another/trunk', 'feature');
+    git(repo, 'symbolic-ref', 'refs/remotes/another/HEAD', 'refs/remotes/another/trunk');
+    git(repo, 'branch', '--force', 'main', 'feature');
+    expect(marksOfReview(repo)).toMatchObject(BRANCH_CHANGES);
+  }, 60_000);
+
   it('takes the merge base with main when the remote names no head', () => {
     const repo = featureBranchRepo();
     git(repo, 'branch', 'master', 'feature');
@@ -50,6 +71,36 @@ describe('the base of a review', () => {
 
   it('takes the merge base with master when there is no main', () => {
     expect(marksOfReview(featureBranchRepo('master'))).toMatchObject(BRANCH_CHANGES);
+  }, 60_000);
+});
+
+describe('the base checkout of a review', () => {
+  it('resolves library types from the node_modules of the working tree', () => {
+    const repo = featureBranchRepo();
+    mkdirSync(join(repo, 'node_modules/shapes'), { recursive: true });
+    writeFileSync(join(repo, 'node_modules/shapes/package.json'), '{ "name": "shapes" }\n');
+    writeFileSync(
+      join(repo, 'node_modules/shapes/index.d.ts'),
+      'export declare const area: (side: number) => number;\n',
+    );
+    commitFile(repo, '.gitignore', 'node_modules/\n');
+    commitFile(
+      repo,
+      'src/area.ts',
+      "import { area } from 'shapes';\n\nexport const legacyArea = (): number => area(2);\n",
+    );
+    git(repo, 'rm', '--quiet', 'src/area.ts');
+    git(repo, 'commit', '--quiet', '--message', 'remove src/area.ts');
+
+    const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
+    const finished = runArchmap(['review', repo, '--no-open', '--out', out, '--base', 'HEAD~1']);
+    expect(finished.status, finished.stderr).toBe(0);
+    const { review } = pageDataOf(readFileSync(out, 'utf8'));
+    expect(review.functions.map(({ id, mark }) => [id, mark])).toEqual([
+      ['src/area.ts#legacyArea', 'removed'],
+    ]);
+    expect(review.openEnds).toEqual([]);
+    expect(git(repo, 'status', '--porcelain', '--ignored')).toBe('!! node_modules/');
   }, 60_000);
 });
 

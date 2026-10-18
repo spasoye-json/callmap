@@ -71,8 +71,8 @@ describe('archmap review on a feature branch', () => {
   });
 
   it('holds the whole branch graph in the data block, so the page can open more of it', () => {
-    const { graph } = pageDataOf(html);
-    expect(graph.functions.map(({ id }) => id)).toContain(`${MONEY}#round`);
+    const { branchGraph } = pageDataOf(html);
+    expect(branchGraph.functions.map(({ id }) => id)).toContain(`${MONEY}#round`);
   });
 
   it('holds the source text of every file that holds a function in the review or the search', () => {

@@ -36,7 +36,7 @@ describe('a review that cannot run', () => {
   it('says so when the repo has no default branch to find a base on', () => {
     const repo = featureBranchRepo('trunk');
     expect(failedReview(repo)).toBe(
-      `${repo} has no origin/HEAD, no main and no master to find a base on; name one with --base`,
+      `${repo} has no remote head, no main and no master to find a base on. Name one with --base.`,
     );
   }, 30_000);
 

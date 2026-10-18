@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readGraphDocument } from '@archmap/graph-document';
 import type { GraphDocument } from '@archmap/graph-document';
@@ -32,7 +32,9 @@ export interface ExtractorSettings {
 const argumentsOf = (repo: string, { scope, tsconfig }: ExtractorSettings): readonly string[] => [
   repo,
   ...scope.flatMap((glob) => ['--scope', glob]),
-  ...(tsconfig === undefined ? [] : ['--tsconfig', join(repo, tsconfig)]),
+  ...(tsconfig === undefined
+    ? []
+    : ['--tsconfig', isAbsolute(tsconfig) ? tsconfig : join(repo, tsconfig)]),
 ];
 
 export const extractGraph = async (

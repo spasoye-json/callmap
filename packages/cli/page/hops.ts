@@ -1,4 +1,5 @@
 import type { FunctionId, GraphFunction } from '@archmap/graph-document';
+import { hopsOf, oneHopFrom } from '@archmap/review';
 import { arrowOf, boxOf, callIdOf, frameIdOf, frameOf } from './elements.ts';
 import { layoutOf } from './layout.ts';
 import type { ReaderPage } from './reader-page.ts';
@@ -27,13 +28,9 @@ const relayout = ({ graph }: ReaderPage): void => {
 export const hopOpenerOf = (page: ReaderPage): HopOpener => {
   const { data, graph } = page;
   const functions = new Map(
-    data.graph.functions.map((graphFunction) => [graphFunction.id, graphFunction]),
+    data.branchGraph.functions.map((graphFunction) => [graphFunction.id, graphFunction]),
   );
-  const neighbours = new Map<FunctionId, FunctionId[]>();
-  for (const { caller, callee } of data.graph.calls) {
-    neighbours.set(caller, [...(neighbours.get(caller) ?? []), callee]);
-    neighbours.set(callee, [...(neighbours.get(callee) ?? []), caller]);
-  }
+  const hops = hopsOf(data.branchGraph.calls);
 
   const show = (ids: readonly FunctionId[]): void => {
     const fresh = [...new Set(ids)]
@@ -49,7 +46,7 @@ export const hopOpenerOf = (page: ReaderPage): HopOpener => {
         if (graph.getElementById(frameIdOf(file)).empty()) graph.add(frameOf(file));
       }
       graph.add(fresh.map((graphFunction) => boxOf(graphFunction, 'neighbour', { x: 0, y: 0 })));
-      for (const { caller, callee } of data.graph.calls) {
+      for (const { caller, callee } of data.branchGraph.calls) {
         if (!freshIds.has(caller) && !freshIds.has(callee)) continue;
         if (graph.getElementById(caller).empty() || graph.getElementById(callee).empty()) continue;
         if (graph.getElementById(callIdOf(caller, callee)).nonempty()) continue;
@@ -60,7 +57,7 @@ export const hopOpenerOf = (page: ReaderPage): HopOpener => {
   };
 
   const openHop = (id: FunctionId): void => {
-    show([id, ...(neighbours.get(id) ?? [])]);
+    show([id, ...oneHopFrom(hops, id)]);
   };
 
   return { show, openHop };

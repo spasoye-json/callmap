@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { featureBranchRepo, git } from './fixture-repo.ts';
+import { commitFile, featureBranchRepo, fixtureText, git } from './fixture-repo.ts';
 import { loadReaderPage, runArchmap } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
 
@@ -63,6 +63,38 @@ describe('the code panel', () => {
     ]);
     expect(panel.getByText('};').closest('ins')).toBeNull();
   });
+
+  it('marks the line below a deletion inside a changed function', () => {
+    const deletion = featureBranchRepo();
+    const cart = (extra: string): string =>
+      fixtureText('branch', CART).replace(
+        '  return format(total);',
+        `${extra}  return format(total);`,
+      );
+    commitFile(deletion, CART, cart('  console.log(total);\n'));
+    commitFile(deletion, CART, cart(''));
+    const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
+    const finished = runArchmap([
+      'review',
+      deletion,
+      '--no-open',
+      '--out',
+      out,
+      '--base',
+      'HEAD~1',
+    ]);
+    expect(finished.status, finished.stderr).toBe(0);
+
+    const page = loadReaderPage(readFileSync(out, 'utf8'));
+    page.graph.getElementById(`${CART}#receipt`).emit('tap');
+    const panel = codePanelOf(page);
+    expect(
+      panel
+        .getAllByTitle('The branch removed lines above this line.')
+        .map((line) => line.textContent),
+    ).toEqual(['10  return format(total);']);
+    expect(panel.queryAllByRole('insertion')).toEqual([]);
+  }, 60_000);
 });
 
 const callsOf = ({ graph }: LoadedPage): readonly string[] =>

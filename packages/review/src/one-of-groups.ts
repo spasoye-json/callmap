@@ -1,5 +1,6 @@
 import type { FunctionId } from '@archmap/graph-document';
-import type { GraphOfCaller } from './open-ends.ts';
+import type { GraphOfCaller } from './graph-of-caller.ts';
+import { byText } from './order.ts';
 
 export interface OneOfGroup {
   readonly id: string;
@@ -25,5 +26,5 @@ export const oneOfGroupsOf = (
       });
     }
   }
-  return [...groups.values()].sort((left, right) => (left.id < right.id ? -1 : 1));
+  return [...groups.values()].sort((left, right) => byText(left.id, right.id));
 };

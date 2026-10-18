@@ -9,6 +9,10 @@
   font-weight: 600;
 }
 
+.resolution-rate .open-ends-heading {
+  margin-top: 8px;
+}
+
 .resolution-rate .open-ends {
   margin: 8px 0 0;
   padding: 0;
