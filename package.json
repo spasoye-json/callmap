@@ -10,7 +10,7 @@
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/cli/page",
     "lint": "npm run format:check && npm run typecheck && eslint .",
     "test": "vitest run"
   },

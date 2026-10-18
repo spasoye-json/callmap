@@ -1,4 +1,4 @@
-import { isAbsolute, relative, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import * as ts from 'typescript';
 
 /** Thrown when the extractor cannot read what it was pointed at. */
@@ -16,7 +16,7 @@ export interface ExtractOptions {
 }
 
 /**
- * The one complaint a config can draw that says nothing about a reference graph: no input file was
+ * The one complaint a config can draw that says nothing about a graph document: no input file was
  * found. The extractor walks its own scope and hands the resolver that file list, so which files
  * the config would have compiled is not a question it ever asks.
  */
@@ -26,7 +26,7 @@ const NO_INPUTS_FOUND = 18003;
  * The compiler options the repo's own `tsconfig.json` sets, which is where path aliases live. The
  * config is read the compiler's own way, so a config that extends another inherits its aliases.
  *
- * A repo with no `tsconfig.json` at its root still has a reference graph, just one with no aliases
+ * A repo with no `tsconfig.json` at its root still has a graph document, just one with no aliases
  * in it, so a config that is not there at all is not an error. A config that is there and cannot be
  * read is one, whether the extractor found it at the root or was told to read it, because every
  * alias would quietly go missing and the document would read as if the repo held no such reference.
@@ -50,10 +50,4 @@ export const compilerOptions = (repo: string, tsconfig: string | undefined): ts.
       `${path} could not be read as a tsconfig: ${ts.flattenDiagnosticMessageText(failure.messageText, ' ')}`,
     );
   return { ...parsed.options, allowJs: true };
-};
-
-/** A resolved file as the document names it, or nothing when it lies outside the repo. */
-export const repoRelative = (repo: string, resolved: string): string | undefined => {
-  const path = relative(repo, resolved).split('\\').join('/');
-  return path === '' || path.startsWith('../') || isAbsolute(path) ? undefined : path;
 };

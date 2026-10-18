@@ -1,0 +1,20 @@
+{
+  "name": "@archmap/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "archmap": "./src/cli.ts"
+  },
+  "dependencies": {
+    "@archmap/extractor-typescript": "*",
+    "@archmap/graph-document": "*",
+    "@archmap/review": "*",
+    "cytoscape": "^3.34.4",
+    "rolldown": "^1.2.14"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^30.0.0",
+    "jsdom": "^30.1.3"
+  }
+}
