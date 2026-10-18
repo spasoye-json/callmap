@@ -23,5 +23,10 @@ const runExtractorProcess = (args: readonly string[]): Promise<string> =>
     });
   });
 
-export const extractGraph = async (repo: string): Promise<GraphDocument> =>
-  readGraphDocument(JSON.parse(await runExtractorProcess([repo])));
+export const extractGraph = async (
+  repo: string,
+  scope: readonly string[],
+): Promise<GraphDocument> =>
+  readGraphDocument(
+    JSON.parse(await runExtractorProcess([repo, ...scope.flatMap((glob) => ['--scope', glob])])),
+  );
