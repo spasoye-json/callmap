@@ -7,6 +7,7 @@ import type { ReviewInvocation } from './arguments.ts';
 import { openInBrowser } from './browser.ts';
 import { changedLinesOf } from './changed-lines.ts';
 import { extractGraph } from './extractors.ts';
+import type { ExtractorSettings } from './extractors.ts';
 import {
   commitOf,
   defaultBranchOf,
@@ -28,10 +29,10 @@ const defaultOutOf = (root: string): string =>
 const readGraph = async (
   what: string,
   path: string,
-  scope: readonly string[],
+  settings: ExtractorSettings,
 ): Promise<GraphDocument> => {
   try {
-    return await extractGraph(path, scope);
+    return await extractGraph(path, settings);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new UnreadableGraphError(
@@ -51,11 +52,11 @@ export const runReview = async (invocation: ReviewInvocation): Promise<string> =
     invocation.base === undefined
       ? mergeBaseOf(root, defaultBranchOf(root))
       : commitOf(root, invocation.base);
-  const { scope } = invocation;
+  const settings: ExtractorSettings = { scope: invocation.scope, tsconfig: invocation.tsconfig };
   const [branchRead, baseRead] = await Promise.allSettled([
-    readGraph('the branch', root, scope),
+    readGraph('the branch', root, settings),
     inWorktreeAt(root, base, (path) =>
-      readGraph(`the base ${shortCommitOf(root, base)}`, path, scope),
+      readGraph(`the base ${shortCommitOf(root, base)}`, path, settings),
     ),
   ]);
   const branchGraph = settled(branchRead);

@@ -148,11 +148,11 @@ describe('the editor link', () => {
     );
   });
 
-  it('opens the file of a function at its first line in a JetBrains editor with --editor', () => {
+  it('opens the file of a function at its first line in a JetBrains editor, which counts from 0', () => {
     const root = git(repo, 'rev-parse', '--show-toplevel');
     const page = loadReaderPage(reviewPage('--editor', 'jetbrains'));
     expect(linkOf(page, `${CART}#receipt`, 'Open in JetBrains')).toBe(
-      `jetbrains://idea/navigate/reference?project=${basename(root)}&path=${CART}:8`,
+      `jetbrains://idea/navigate/reference?project=${basename(root)}&path=${CART}:7`,
     );
   }, 120_000);
 

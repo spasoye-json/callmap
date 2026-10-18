@@ -6,6 +6,7 @@
  * segment, `**` for anything across segments, `?` for one character inside a segment. Everything
  * else in a glob is a literal, so a dot is a dot. A glob matches a whole repo-relative path and
  * never a prefix of one, because a scope of `src/checkout` must not quietly take `src/checkout.ts`.
+ * A glob that starts with `!` leaves out the files it matches, whichever other glob takes them.
  */
 
 const ESCAPED = /[.+^${}()|[\]\\]/g;
@@ -28,9 +29,20 @@ const globPattern = (glob: string): string =>
     })
     .join('');
 
+const NEGATION = '!';
+
+const matches = (path: string, glob: string): boolean =>
+  new RegExp(`^${globPattern(glob)}$`).test(path);
+
 /**
  * Whether a repo-relative path is in scope. An empty scope narrows nothing, so every file of the
  * repo is in it.
  */
-export const inScope = (path: string, scope: readonly string[]): boolean =>
-  scope.length === 0 || scope.some((glob) => new RegExp(`^${globPattern(glob)}$`).test(path));
+export const inScope = (path: string, scope: readonly string[]): boolean => {
+  const taken = scope.filter((glob) => !glob.startsWith(NEGATION));
+  const leftOut = scope.filter((glob) => glob.startsWith(NEGATION)).map((glob) => glob.slice(1));
+  return (
+    (taken.length === 0 || taken.some((glob) => matches(path, glob))) &&
+    !leftOut.some((glob) => matches(path, glob))
+  );
+};

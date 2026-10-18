@@ -47,8 +47,10 @@ export type Editor = (typeof EDITORS)[number];
 
 const JETBRAINS_NAVIGATE = 'jetbrains://idea/navigate/reference';
 
-const relativePathOf = (location: Location): string =>
-  `${escapePath(location.file.replace(/^\/+/, ''))}:${String(location.line)}`;
+const relativePathOf = (file: string, line: number): string =>
+  `${escapePath(file.replace(/^\/+/, ''))}:${String(line)}`;
+
+const zeroBasedLineOf = (location: Location): number => location.line - 1;
 
 const projectNameOf = (repoRoot: string): string => rootPathOf(repoRoot).split('/').pop() ?? '';
 
@@ -58,5 +60,5 @@ export const editorUrl = (
   editor: Editor = 'vscode',
 ): string =>
   editor === 'jetbrains'
-    ? `${JETBRAINS_NAVIGATE}?project=${projectNameOf(repoRoot)}&path=${relativePathOf(location)}`
-    : `${EDITOR_SCHEME}${rootPathOf(repoRoot)}/${relativePathOf(location)}`;
+    ? `${JETBRAINS_NAVIGATE}?project=${projectNameOf(repoRoot)}&path=${relativePathOf(location.file, zeroBasedLineOf(location))}`
+    : `${EDITOR_SCHEME}${rootPathOf(repoRoot)}/${relativePathOf(location.file, location.line)}`;

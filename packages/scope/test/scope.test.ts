@@ -50,4 +50,14 @@ describe('inScope', () => {
   it('reads a dot in a glob as a dot and not as any character', () => {
     expect(inScope('src/axts', ['src/*.ts'])).toBe(false);
   });
+
+  it('leaves out a file that a negated glob matches, though another glob takes it', () => {
+    expect(inScope('src/cart.spec.ts', ['src/**', '!**/*.spec.ts'])).toBe(false);
+    expect(inScope('src/cart.ts', ['src/**', '!**/*.spec.ts'])).toBe(true);
+  });
+
+  it('takes every file but the negated ones when no glob takes files in', () => {
+    expect(inScope('tools/build.ts', ['!**/*.spec.ts'])).toBe(true);
+    expect(inScope('src/cart.spec.ts', ['!**/*.spec.ts'])).toBe(false);
+  });
 });

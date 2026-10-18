@@ -1,17 +1,67 @@
 # Archmap
 
-Archmap is a call graph reader for an engineer who still reads code. It will read a repo with each language's own tools, with no AI, and write one HTML page for a code review. The page will show where each change of a branch sits and how the changed files talk to each other.
+Archmap is a call graph reader for an engineer who still reads code. It reads a branch of a TypeScript repo with the TypeScript type checker, with no AI, and writes one HTML page for the code review. The page shows each function that the branch added, removed or changed, inside the frame of its file. Around each one it shows its callers and its callees, and it marks each call that the branch added or removed. The same commits always give the same page.
 
-The reader is in progress under spec 15. Run it on a checked-out branch of a TypeScript repo:
+## Install
+
+Archmap needs Node 22.18 or later. Install the `archmap` command from a clone of this repo:
 
 ```sh
+npm install
 npm link -w @archmap/cli
-archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--out <file>] [--no-open] [--editor vscode|jetbrains]
 ```
 
-The command compares the branch with its merge base on the default branch. The default branch is `origin/HEAD`, then `main`, then `master`. The `--base` flag names another commit. Each `--scope` glob limits the review to the files that it matches. It reads the base commit in a temporary git worktree, so the checkout never moves. It writes one reader page with no network access and opens it in the browser. Each function on the page carries an editor link for VS Code, or for a JetBrains editor with `--editor jetbrains`.
+The link points at the clone, so a `git pull` updates the command. `npm unlink -g @archmap/cli` removes it.
 
-The page shows the resolution rate of the branch graph. It marks each open end at its call site, as a dashed arrow that leads nowhere. It draws the one-of calls of one call site as dotted arrows, one to each implementation. A call into a library is not in the graph and does not change the rate.
+## Review a branch
+
+Check out the branch, then run the review in its repo:
+
+```sh
+archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--editor vscode|jetbrains]
+```
+
+| Argument            | What it does                                                                                     | Default                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `<repo>`            | The repo to review. Any folder inside it works.                                                  | The current folder                               |
+| `--base <commit>`   | The commit to compare the branch with.                                                           | The merge base with the default branch           |
+| `--scope <glob>`    | Limits the review to the files that the glob matches. Give it once for each glob.                | Every file of the repo                           |
+| `--scope '!<glob>'` | Leaves out the files that the glob matches, also when another glob takes them.                   | Nothing left out                                 |
+| `--tsconfig <file>` | The TypeScript config to read, relative to the repo root. Give it when the config is not there. | `tsconfig.json` at the repo root, if it exists   |
+| `--out <file>`      | Where the page is written.                                                                       | `review-<repo folder>.html` in `$TMPDIR/archmap` |
+| `--no-open`         | Writes the page and does not open it, for example to attach it to a merge request.               | The page opens in the browser                    |
+| `--editor <name>`   | The editor that the editor link on each function opens: `vscode` or `jetbrains`.                 | `vscode`                                         |
+
+The default branch is `origin/HEAD`, then `main`, then `master`. The review reads the base commit in a temporary git worktree and removes it at the end, so the checkout and the uncommitted files never move. The command prints the path of the page when it ends.
+
+A scope glob matches a whole path from the repo root. `*` matches inside one folder, `**` matches across folders, and `?` matches one character. A glob that starts with `!` leaves files out. Quote each glob, so that the shell does not expand it.
+
+A backend in a subfolder of a monorepo, with its tests left out:
+
+```sh
+archmap review --tsconfig server/tsconfig.json --scope 'server/src/**' --scope '!**/*.spec.ts'
+```
+
+Tests stay in the review unless a glob leaves them out. A test that mocks its calls adds open ends, so it lowers the resolution rate.
+
+## The reader page
+
+The page is one HTML file with no network access, so it opens from a file anywhere. A click on a function shows its code, with the changed lines marked. A click on a greyed neighbour opens its own callers and callees. The search finds any function in scope by name. Each function carries an editor link that opens its file at its first line.
+
+The page shows the resolution rate of the branch graph: the calls into the repo's own code that the type checker proved, out of all of them. It marks each open end at its call site, as a dashed arrow that leads nowhere. It draws the one-of calls of one call site, such as a call through an interface, as dotted arrows, one to each implementation. A call into a library is not in the graph and does not change the rate.
+
+## Ask Claude for a review
+
+`skills/archmap-review` is a Claude Code skill that runs `archmap review` and opens the page. Install it for your user from the root of this repo:
+
+```sh
+mkdir -p ~/.claude/skills
+ln -s "$PWD/skills/archmap-review" ~/.claude/skills/archmap-review
+```
+
+Then ask Claude for an Archmap review of the branch. The skill needs the `archmap` command from the install step.
+
+## Records
 
 - `docs/product.md` holds the product record.
 - `CONTEXT.md` holds the vocabulary.
