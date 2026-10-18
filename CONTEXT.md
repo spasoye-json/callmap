@@ -63,7 +63,7 @@ The one self-contained HTML file that the CLI writes. It holds the whole call gr
 _Avoid_: report, dashboard, artifact
 
 **Editor link**:
-The link on a function that opens its file and line in the reader's editor.
+The link on a function that opens its file and line in the reader's editor. A removed function has no editor link, because its file and line are gone from the working tree.
 _Avoid_: deep link, jump link
 
 ### Review
@@ -81,5 +81,5 @@ One call away from a function, in either direction. A caller and a callee are ea
 _Avoid_: level, step, depth
 
 **Neighbour**:
-A function one hop from a changed function that the branch did not change. The review shows it greyed, and a click opens its own next hop.
+A function one hop from a changed function that the branch did not change. The review shows it greyed, and a click opens its own next hop. The hop counts in the base graph and in the branch graph, so the far end of a call that the branch removed is a neighbour too, and the page shows that call.
 _Avoid_: context function, related function
