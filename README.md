@@ -6,10 +6,10 @@ The reader is in progress under spec 15. Run it on a checked-out branch of a Typ
 
 ```sh
 npm link -w @archmap/cli
-archmap review [<repo>] [--out <file>] [--no-open]
+archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--out <file>] [--no-open]
 ```
 
-The command compares the branch with its merge base on the default branch. It reads the base commit in a temporary git worktree, so the checkout never moves. It writes one reader page with no network access and opens it in the browser.
+The command compares the branch with its merge base on the default branch. The default branch is `origin/HEAD`, then `main`, then `master`. The `--base` flag names another commit. Each `--scope` glob limits the review to the files that it matches. It reads the base commit in a temporary git worktree, so the checkout never moves. It writes one reader page with no network access and opens it in the browser.
 
 - `docs/product.md` holds the product record.
 - `CONTEXT.md` holds the vocabulary.
