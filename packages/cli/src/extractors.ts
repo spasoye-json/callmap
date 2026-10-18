@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readGraphDocument } from '@archmap/graph-document';
 import type { GraphDocument } from '@archmap/graph-document';
@@ -23,10 +24,19 @@ const runExtractorProcess = (args: readonly string[]): Promise<string> =>
     });
   });
 
+export interface ExtractorSettings {
+  readonly scope: readonly string[];
+  readonly tsconfig: string | undefined;
+}
+
+const argumentsOf = (repo: string, { scope, tsconfig }: ExtractorSettings): readonly string[] => [
+  repo,
+  ...scope.flatMap((glob) => ['--scope', glob]),
+  ...(tsconfig === undefined ? [] : ['--tsconfig', join(repo, tsconfig)]),
+];
+
 export const extractGraph = async (
   repo: string,
-  scope: readonly string[],
+  settings: ExtractorSettings,
 ): Promise<GraphDocument> =>
-  readGraphDocument(
-    JSON.parse(await runExtractorProcess([repo, ...scope.flatMap((glob) => ['--scope', glob])])),
-  );
+  readGraphDocument(JSON.parse(await runExtractorProcess(argumentsOf(repo, settings))));

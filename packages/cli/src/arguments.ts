@@ -2,7 +2,7 @@ import { EDITORS } from '@archmap/editor-link';
 import type { Editor } from '@archmap/editor-link';
 
 export const USAGE =
-  'usage: archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--out <file>] [--no-open] [--editor vscode|jetbrains]';
+  'usage: archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--editor vscode|jetbrains]';
 
 export class CliError extends Error {
   override readonly name = 'CliError';
@@ -12,12 +12,13 @@ export interface ReviewInvocation {
   readonly repo: string;
   readonly base: string | undefined;
   readonly scope: readonly string[];
+  readonly tsconfig: string | undefined;
   readonly out: string | undefined;
   readonly open: boolean;
   readonly editor: Editor;
 }
 
-const VALUE_FLAGS: readonly string[] = ['--base', '--scope', '--out', '--editor'];
+const VALUE_FLAGS: readonly string[] = ['--base', '--scope', '--tsconfig', '--out', '--editor'];
 
 const isEditor = (value: string): value is Editor => EDITORS.some((editor) => editor === value);
 
@@ -28,6 +29,7 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
   let repo: string | undefined;
   let base: string | undefined;
   const scope: string[] = [];
+  let tsconfig: string | undefined;
   let out: string | undefined;
   let open = true;
   let editor: Editor = 'vscode';
@@ -43,6 +45,7 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
       }
       if (argument === '--base') base = value;
       else if (argument === '--scope') scope.push(value);
+      else if (argument === '--tsconfig') tsconfig = value;
       else if (argument === '--out') out = value;
       else if (isEditor(value)) editor = value;
       else throw new CliError(`--editor needs one of ${EDITORS.join(', ')} after it`);
@@ -56,5 +59,5 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
     }
   }
 
-  return { repo: repo ?? cwd, base, scope, out, open, editor };
+  return { repo: repo ?? cwd, base, scope, tsconfig, out, open, editor };
 };
