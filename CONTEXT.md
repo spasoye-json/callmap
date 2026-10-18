@@ -55,7 +55,7 @@ What the extractors emit before spec 15: the files in scope and the import edges
 _Avoid_: graph document (that holds functions and calls)
 
 **Scope**:
-The globs an extractor is run under, which limit which files enter its document, so a monorepo is read one subtree at a time.
+The globs an extractor is run under, which limit which files enter its document, so a monorepo is read one subtree at a time. A glob that starts with `!` leaves out the files that it matches.
 _Avoid_: filter, include path, root
 
 **Reader page**:

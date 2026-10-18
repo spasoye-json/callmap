@@ -33,6 +33,8 @@ const GLOBS: readonly (readonly string[])[] = [
   ['src/checkout'],
   ['src/a.go.go'],
   ['src?a.go'],
+  ['src/**', '!**/*_test.go'],
+  ['!src/**'],
 ];
 
 const repo = mkdtempSync(join(tmpdir(), 'archmap-go-scope-'));

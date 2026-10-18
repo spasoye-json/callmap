@@ -42,4 +42,12 @@ describe('the scope of a review', () => {
     );
     expect(graph.scope).toEqual(['src/c*.ts', MONEY]);
   }, 60_000);
+
+  it('leaves out the files of a negated --scope glob, from the graph and from the review', () => {
+    const { review, graph } = pageOfReview('--scope', 'src/**', '--scope', '!src/c*.ts');
+    const files = new Set([...review.functions, ...graph.functions].map(({ file }) => file));
+    expect([...files].filter((file) => file.startsWith('src/c'))).toEqual([]);
+    expect(files.has(MONEY)).toBe(true);
+    expect(graph.scope).toEqual(['src/**', '!src/c*.ts']);
+  }, 60_000);
 });
