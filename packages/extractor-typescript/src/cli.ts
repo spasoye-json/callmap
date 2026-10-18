@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * The extractor as a CLI: a separate process that reads a repo and writes its reference graph
- * document to standard output (ADR-0009). Nothing but the document goes to standard output, so the
+ * The extractor as a CLI: a separate process that reads a repo and writes its graph document to
+ * standard output (ADR-0009). Nothing but the document goes to standard output, so the
  * caller can pipe it straight into the core. A refusal goes to standard error with a
  * non-zero exit, so a repo it could not read is never mistaken for a repo with nothing in it.
  */
 
-import { extractTypeScript } from './extract.ts';
+import { extractGraphDocument } from './graph.ts';
 
 const USAGE = 'usage: archmap-extract-typescript <repo> [--scope <glob>]... [--tsconfig <path>]';
 
@@ -55,7 +55,7 @@ const readArguments = (args: readonly string[]): Invocation => {
 
 const main = (args: readonly string[]): void => {
   const { repo, scope, tsconfig } = readArguments(args);
-  const document = extractTypeScript(
+  const document = extractGraphDocument(
     tsconfig === undefined ? { repo, scope } : { repo, scope, tsconfig },
   );
   process.stdout.write(`${JSON.stringify(document, null, 2)}\n`);

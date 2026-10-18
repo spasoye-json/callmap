@@ -63,7 +63,7 @@ const importsIn = (name: string): ReadonlySet<string> =>
 
 describe('the core', () => {
   it('holds every core package the reader keeps', () => {
-    expect(corePackages).toEqual(['editor-link', 'reference-graph', 'scope']);
+    expect(corePackages).toEqual(['editor-link', 'graph-document', 'reference-graph', 'scope']);
   });
 
   it('reads a specifier however it is spelled, so the guard cannot be side-stepped', () => {
