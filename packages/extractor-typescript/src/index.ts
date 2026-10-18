@@ -5,7 +5,5 @@
 
 export { ExtractionError } from './config.ts';
 export type { ExtractOptions } from './config.ts';
-export { extractTypeScript } from './extract.ts';
 export { extractGraphDocument } from './graph.ts';
-export { moduleSpecifiers } from './imports.ts';
 export { sourceFilesInScope, TYPESCRIPT } from './walk.ts';

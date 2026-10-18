@@ -8,6 +8,7 @@
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { builtinModules } from 'node:module';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -15,6 +16,10 @@ const PACKAGES_DIR = join(import.meta.dirname, '..', 'packages');
 
 /** A package that reads a repo and emits a document. It is not core; it is what core reads. */
 const isExtractor = (name: string): boolean => name.startsWith('extractor-');
+
+const HOST_PACKAGES: readonly string[] = ['cli'];
+
+const isHost = (name: string): boolean => HOST_PACKAGES.includes(name);
 
 const FORBIDDEN_IMPORTS = new Set([
   'fs',
@@ -51,19 +56,28 @@ const packageNames = readdirSync(PACKAGES_DIR)
   .filter((entry) => statSync(join(PACKAGES_DIR, entry)).isDirectory())
   .sort();
 
-const corePackages = packageNames.filter((name) => !isExtractor(name));
+const corePackages = packageNames.filter((name) => !isExtractor(name) && !isHost(name));
 const extractorPackages = packageNames.filter(isExtractor);
+const hostPackages = packageNames.filter(isHost);
+
+const importsUnder = (directory: string): ReadonlySet<string> =>
+  new Set(sourceFilesOf(directory).flatMap((path) => importsOf(readFileSync(path, 'utf8'))));
 
 const importsIn = (name: string): ReadonlySet<string> =>
-  new Set(
-    sourceFilesOf(join(PACKAGES_DIR, name, 'src')).flatMap((path) =>
-      importsOf(readFileSync(path, 'utf8')),
-    ),
-  );
+  importsUnder(join(PACKAGES_DIR, name, 'src'));
+
+const isNodeBuiltin = (specifier: string): boolean =>
+  specifier.startsWith('node:') || builtinModules.includes(specifier.split('/')[0] ?? '');
 
 describe('the core', () => {
   it('holds every core package the reader keeps', () => {
-    expect(corePackages).toEqual(['editor-link', 'graph-document', 'reference-graph', 'scope']);
+    expect(corePackages).toEqual([
+      'editor-link',
+      'graph-document',
+      'reference-graph',
+      'review',
+      'scope',
+    ]);
   });
 
   it('reads a specifier however it is spelled, so the guard cannot be side-stepped', () => {
@@ -117,4 +131,26 @@ describe('the extractors it ships', () => {
       expect(naming.length).toBeGreaterThan(0);
     },
   );
+});
+
+describe('the host that runs it', () => {
+  it('holds the CLI, and nothing else', () => {
+    expect(hostPackages).toEqual(HOST_PACKAGES);
+  });
+
+  it('runs every extractor from the CLI, as a process of its own', () => {
+    expect(importsIn('cli')).toContain('node:child_process');
+  });
+
+  it('reads no source code itself and imports no extractor', () => {
+    const offenders = [...importsIn('cli')].filter(
+      (specifier) => specifier === 'typescript' || specifier.startsWith('@archmap/extractor-'),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps the page script off every Node built-in, because it runs in the browser', () => {
+    const offenders = [...importsUnder(join(PACKAGES_DIR, 'cli', 'page'))].filter(isNodeBuiltin);
+    expect(offenders).toEqual([]);
+  });
 });
