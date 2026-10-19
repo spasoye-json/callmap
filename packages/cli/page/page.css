@@ -11,11 +11,11 @@
   --changed-line: #fbefd5;
   --selected: #dbe6fb;
   --code: #f6f7f9;
-  --diff-added-line: #e6ffec;
-  --diff-added-text: #a6f0b9;
-  --diff-removed-line: #ffebe9;
-  --diff-removed-text: #ffb8b1;
-  --syntax-keyword: #cf222e;
+  --diff-added-line: #ccf5d5;
+  --diff-added-text: #92e4a6;
+  --diff-removed-line: #ffd7d5;
+  --diff-removed-text: #ffb0a8;
+  --syntax-keyword: #a2289c;
   --syntax-string: #0a3069;
   --syntax-literal: #0550ae;
   --syntax-type: #953800;
@@ -38,8 +38,8 @@
     --code: #151920;
     --diff-added-line: #17301f;
     --diff-added-text: #22603a;
-    --diff-removed-line: #3a1d22;
-    --diff-removed-text: #7a2d33;
+    --diff-removed-line: #3d1e24;
+    --diff-removed-text: #7f2f35;
     --syntax-keyword: #ff7b72;
     --syntax-string: #a5d6ff;
     --syntax-literal: #79c0ff;

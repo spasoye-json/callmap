@@ -12,6 +12,7 @@ const MAX_SCALE = 3;
 const DRAG_THRESHOLD = 4;
 const FAR_SCALE = 0.5;
 const NEAR_SCALE = 1;
+const VIEW_MARGIN = 24;
 
 export interface DrawOptions {
   readonly anchor?: string | undefined;
@@ -23,6 +24,7 @@ export interface Drawing {
   readonly fit: () => void;
   readonly highlight: (selected: string | undefined) => void;
   readonly focus: (id: string) => void;
+  readonly keepInView: (id: string) => void;
   readonly onBoxClick: (handler: (box: LaidFunction) => void) => void;
   readonly onLineClick: (handler: (line: LaidLine) => void) => void;
   readonly onEmptyClick: (handler: () => void) => void;
@@ -209,6 +211,23 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     apply();
   };
 
+  const keepInView = (id: string): void => {
+    const box = boxOfId(id);
+    const { width, height } = sizeOf();
+    if (box === undefined || width === 0 || height === 0) return;
+    const shift = (start: number, size: number, room: number): number => {
+      const end = start + size;
+      if (size > room - 2 * VIEW_MARGIN || start < VIEW_MARGIN) return VIEW_MARGIN - start;
+      return end > room - VIEW_MARGIN ? room - VIEW_MARGIN - end : 0;
+    };
+    const dx = shift(camera.x + box.x * camera.scale, box.width * camera.scale, width);
+    const dy = shift(camera.y + box.y * camera.scale, box.height * camera.scale, height);
+    if (dx === 0 && dy === 0) return;
+    camera.x += dx;
+    camera.y += dy;
+    apply();
+  };
+
   const highlight = (selected: string | undefined): void => {
     const lit = selected === undefined ? undefined : highlightOf(laid, selected);
     const drawn = [viewport, ...(details.parentNode === null ? [details] : [])].flatMap((group) => [
@@ -349,6 +368,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     fit,
     highlight,
     focus,
+    keepInView,
     onBoxClick: (handler) => {
       handlers.push(handler);
     },

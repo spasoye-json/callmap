@@ -7,13 +7,14 @@ import {
 import { HighlightStyle, LanguageSupport, syntaxHighlighting } from '@codemirror/language';
 import type { LRLanguage } from '@codemirror/language';
 import { getChunks, getOriginalDoc, unifiedMergeView } from '@codemirror/merge';
-import { EditorState, RangeSetBuilder } from '@codemirror/state';
-import type { Extension } from '@codemirror/state';
+import { EditorState, RangeSetBuilder, StateField } from '@codemirror/state';
+import type { Extension, RangeSet } from '@codemirror/state';
 import {
   Decoration,
   EditorView,
   GutterMarker,
   ViewPlugin,
+  gutterLineClass,
   lineNumberWidgetMarker,
   lineNumbers,
 } from '@codemirror/view';
@@ -69,6 +70,7 @@ class RemovedLineNumbers extends GutterMarker {
     column.className = 'removed-line-numbers';
     for (const number of this.numbers) {
       const line = document.createElement('div');
+      line.className = 'removed-number';
       line.textContent = String(number);
       column.append(line);
     }
@@ -131,6 +133,54 @@ const addedOnlyLines = ViewPlugin.define(
   { decorations: ({ decorations }) => decorations },
 );
 
+class NumberMark extends GutterMarker {
+  override readonly elementClass: string;
+
+  constructor(elementClass: string) {
+    super();
+    this.elementClass = elementClass;
+  }
+}
+
+const addedNumber = new NumberMark('added-number');
+const removedNumber = new NumberMark('removed-number');
+
+const numberMarksOf = (
+  state: EditorState,
+  mark: NumberMark,
+  ranges: readonly (readonly [number, number])[],
+): RangeSet<GutterMarker> => {
+  const builder = new RangeSetBuilder<GutterMarker>();
+  for (const [from, to] of ranges) {
+    const last = state.doc.lineAt(Math.max(from, to - 1)).number;
+    for (let number = state.doc.lineAt(from).number; number <= last; number += 1) {
+      const line = state.doc.line(number);
+      builder.add(line.from, line.from, mark);
+    }
+  }
+  return builder.finish();
+};
+
+const markedNumbers = (marksOf: (state: EditorState) => RangeSet<GutterMarker>): Extension =>
+  StateField.define({
+    create: marksOf,
+    update: (marks) => marks,
+    provide: (field) => gutterLineClass.from(field),
+  });
+
+const everyNumber = (mark: NumberMark): Extension =>
+  markedNumbers((state) => numberMarksOf(state, mark, [[0, state.doc.length]]));
+
+const addedNumbers = markedNumbers((state) =>
+  numberMarksOf(
+    state,
+    addedNumber,
+    (getChunks(state)?.chunks ?? [])
+      .filter(({ fromB, toB }) => fromB < toB)
+      .map(({ fromB, toB }) => [fromB, toB] as const),
+  ),
+);
+
 const readOnly: Extension = [EditorState.readOnly.of(true), EditorView.editable.of(false)];
 
 const extensionsOf = (code: FunctionCode): Extension => {
@@ -138,15 +188,16 @@ const extensionsOf = (code: FunctionCode): Extension => {
     case 'kept':
       return fileLineNumbers(code.code.firstLine);
     case 'added':
-      return [fileLineNumbers(code.code.firstLine), everyLineAdded];
+      return [fileLineNumbers(code.code.firstLine), everyLineAdded, everyNumber(addedNumber)];
     case 'removed':
-      return [fileLineNumbers(code.code.firstLine), everyLineRemoved];
+      return [fileLineNumbers(code.code.firstLine), everyLineRemoved, everyNumber(removedNumber)];
     case 'diff':
       return [
         fileLineNumbers(code.branch.firstLine),
         unifiedMergeView({ original: code.base.text, mergeControls: false, gutter: false }),
         removedLineNumbers(code.base.firstLine),
         addedOnlyLines,
+        addedNumbers,
       ];
   }
 };

@@ -130,6 +130,7 @@ const codePanel: PagePart = (page) => {
     editor = codeEditorOf(shown.file, functionCodeOf(page.data, shown));
     body.replaceChildren(header, placeOf(page, shown), editor.dom);
     section.hidden = false;
+    page.keepInView(shown.id);
   };
 
   page.onBoxClick(({ id }) => {

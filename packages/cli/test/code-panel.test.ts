@@ -1,7 +1,7 @@
 import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { commitFile, featureBranchRepo, fixtureText } from './fixture-repo.ts';
-import { clickBox, loadReaderPage, reviewHtmlOf, storedItemsOf } from './reader-page.ts';
+import { boxesOf, clickBox, loadReaderPage, reviewHtmlOf, storedItemsOf } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
 
 const CART = 'src/cart.ts';
@@ -41,6 +41,15 @@ const lineNumbersOf = (page: LoadedPage): readonly string[] =>
     .flatMap((element) => {
       const removed = element.querySelector('.removed-line-numbers');
       return removed === null ? [element.textContent] : textsOf([...removed.children]);
+    });
+
+const numberMarksOf = (page: LoadedPage): readonly string[] =>
+  [...editorOf(page).querySelectorAll('.cm-lineNumbers .cm-gutterElement')]
+    .filter((element) => !(element as HTMLElement).style.visibility.includes('hidden'))
+    .flatMap((element) => {
+      const removed = element.querySelector('.removed-line-numbers');
+      if (removed !== null) return [...removed.children].map((number) => number.className);
+      return [element.classList.contains('added-number') ? 'added-number' : 'kept'];
     });
 
 describe('the diff in the code panel', () => {
@@ -95,6 +104,18 @@ describe('the diff in the code panel', () => {
     expect(textsOf(added)).toEqual(['  console.log(total);']);
     expect(added[0]?.closest('.cm-line')?.classList.contains('added-only')).toBe(true);
   }, 60_000);
+
+  it('tints the line number of each removed and each added line, as GitHub does', async () => {
+    expect(numberMarksOf(await readFunction(`${CART}#receipt`))).toEqual([
+      'kept',
+      'removed-number',
+      'removed-number',
+      'added-number',
+      'added-number',
+      'kept',
+    ]);
+    expect(numberMarksOf(await readFunction(`${CART}#taxed`))).toEqual(['added-number']);
+  });
 
   it('shows every line of an added function as added, with no removed line', async () => {
     const page = await readFunction(`${CART}#taxed`);
@@ -185,4 +206,90 @@ describe('the size of the code panel', () => {
         .getAttribute('aria-valuenow'),
     ).toBe(chosen);
   });
+
+  it('pans the graph to the selected box when the open panel would hide it, with no new layout', async () => {
+    const page = await loadReaderPage(html);
+    const { document } = page.window;
+    const graph = document.getElementById('graph');
+    if (graph === null) throw new Error('the page holds no graph');
+    const panelOpen = (): boolean =>
+      document.querySelector<HTMLElement>('.code-panel')?.hidden === false;
+    const visibleWidth = (): number => (panelOpen() ? 300 : 1200);
+    graph.getBoundingClientRect = (): DOMRect => {
+      const width = visibleWidth();
+      const height = 2000;
+      const box = { x: 0, y: 0, top: 0, left: 0, right: width, bottom: height, width, height };
+      return { ...box, toJSON: () => box };
+    };
+    const changed = boxesOf(page).filter(({ classes }) => classes.includes('changed'));
+    const far = changed.sort((left, right) => right.x - left.x)[0];
+    if (far === undefined) throw new Error('the drawing holds no changed box');
+    expect(far.x + far.width).toBeGreaterThan(300);
+
+    await clickBox(page, far.id);
+
+    const transform = document.querySelector('.viewport')?.getAttribute('transform') ?? '';
+    const [x = Number.NaN, scale = Number.NaN] = (
+      /translate\((-?[\d.]+),-?[\d.]+\) scale\(([\d.]+)\)/.exec(transform) ?? []
+    )
+      .slice(1)
+      .map(Number);
+    expect(scale).toBe(1);
+    expect(x + far.x * scale).toBeGreaterThanOrEqual(0);
+    expect(x + (far.x + far.width) * scale).toBeLessThanOrEqual(300);
+    const after = boxesOf(page).find(({ id }) => id === far.id);
+    expect([after?.x, after?.y]).toEqual([far.x, far.y]);
+  });
+});
+
+describe('the colours of the diff', () => {
+  const oklabOf = (hex: string): readonly number[] => {
+    const [r = 0, g = 0, b = 0] = [1, 3, 5].map((start) => {
+      const channel = Number.parseInt(hex.slice(start, start + 2), 16) / 255;
+      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [
+      0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+      1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+      0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+    ];
+  };
+
+  const tokensOf = (block: string): ReadonlyMap<string, string> =>
+    new Map(
+      [...block.matchAll(/(--[a-z-]+)\s*:\s*(#[0-9a-f]{6})/g)].map(([, token = '', value = '']) => [
+        token,
+        value,
+      ]),
+    );
+
+  const strength = (tokens: ReadonlyMap<string, string>, token: string): number => {
+    const [base, colour] = [tokens.get('--code'), tokens.get(token)];
+    if (base === undefined || colour === undefined) throw new Error(`no ${token}`);
+    const [from, to] = [oklabOf(base), oklabOf(colour)];
+    return Math.hypot(...from.map((value, index) => value - (to[index] ?? 0)));
+  };
+
+  it.each([
+    ['light', /<style>\s*:root\s*\{([^}]*)\}/],
+    ['dark', /@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{([^}]*)\}/],
+  ])(
+    'gives a removed line and an added line a clear colour of the same strength in %s mode, and a stronger one to the changed characters',
+    (_mode, block) => {
+      const tokens = tokensOf(block.exec(html)?.[1] ?? '');
+      const removedLine = strength(tokens, '--diff-removed-line');
+      const addedLine = strength(tokens, '--diff-added-line');
+      const removedText = strength(tokens, '--diff-removed-text');
+      const addedText = strength(tokens, '--diff-added-text');
+      expect(Math.min(removedLine, addedLine)).toBeGreaterThan(0.06);
+      expect(Math.abs(removedLine - addedLine)).toBeLessThan(0.01);
+      expect(Math.abs(removedText - addedText)).toBeLessThan(0.01);
+      expect(Math.min(removedText, addedText)).toBeGreaterThan(
+        Math.max(removedLine, addedLine) + 0.06,
+      );
+    },
+  );
 });

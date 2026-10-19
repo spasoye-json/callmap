@@ -172,6 +172,7 @@ export const interactionOf = (
     currentView: () => current.view,
     show,
     open,
+    keepInView: drawing.keepInView,
     showView,
     choose,
   };

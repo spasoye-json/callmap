@@ -155,8 +155,24 @@
   font-weight: inherit;
 }
 
-.code-panel .removed-line-numbers > div {
-  color: var(--removed);
+.code-panel .cm-editor .cm-gutterElement:has(> .removed-line-numbers) {
+  padding: 0;
+}
+
+.code-panel .cm-editor .cm-gutterElement.added-number,
+.code-panel .cm-editor .removed-number,
+.code-panel .cm-editor .cm-gutterElement.removed-number {
+  background: color-mix(in srgb, var(--diff-added-line) 55%, var(--diff-added-text));
+  color: var(--ink);
+}
+
+.code-panel .cm-editor .removed-number,
+.code-panel .cm-editor .cm-gutterElement.removed-number {
+  background: color-mix(in srgb, var(--diff-removed-line) 55%, var(--diff-removed-text));
+}
+
+.code-panel .cm-editor .removed-number {
+  padding: 0 10px 0 6px;
 }
 
 .syntax-keyword {
