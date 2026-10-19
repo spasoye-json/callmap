@@ -116,7 +116,8 @@ describe('the next hop', () => {
     const page = await loadReaderPage(html);
     expect(boxElementOf(page, `${MONEY}#round`)).toBeUndefined();
     await clickBox(page, `${MONEY}#format`);
-    expect(boxElementOf(page, `${MONEY}#round`)?.classList.contains('neighbour')).toBe(true);
+    expect(boxElementOf(page, `${MONEY}#round`)).toBeDefined();
+    expect(boxElementOf(page, `${MONEY}#round`)?.classList.contains('neighbour')).toBe(false);
     expect(frameAround(page, `${MONEY}#round`)).toBe(MONEY);
     expect(callNamesOf(page)).toContain(`${MONEY}#format -> ${MONEY}#round`);
   });
@@ -166,6 +167,9 @@ describe('the search', () => {
     expect(frameAround(page, `${REPORT}#report`)).toBe(REPORT);
     expect(callNamesOf(page)).toContain(`${REPORT}#report -> ${REPORT}#heading`);
     expect(codePanelOf(page).getByRole('heading', { name: 'report' })).toBeDefined();
+    expect(page.window.document.querySelector('.code-place')?.textContent).toBe(
+      `${REPORT}:3 Open in VS Code`,
+    );
   });
 
   it('lists nothing for an empty search', async () => {

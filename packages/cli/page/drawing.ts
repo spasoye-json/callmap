@@ -84,16 +84,17 @@ const boxOf = (box: LaidBox): SVGGElement => {
       text,
     );
   }
-  const { mark, file } = box.marked;
+  const { mark, file } = box.pageFunction;
+  const marks = mark === undefined ? [] : [mark];
   return svgOf(
     'g',
     {
-      class: `box function ${mark}`,
+      class: ['box', 'function', ...marks, ...(box.outside ? ['outside'] : [])].join(' '),
       'data-box': box.id,
       'data-kind': box.kind,
       role: 'button',
       tabindex: 0,
-      'aria-label': `${box.label}, ${file}, ${mark}`,
+      'aria-label': [box.label, file, ...marks].join(', '),
     },
     rectOf(box, 5),
     text,
@@ -222,7 +223,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     zoomLevels = levels;
     const linesOf = (bundled: boolean): SVGGElement[] =>
       next.lines.flatMap((line, index) =>
-        (line.kind === 'bundle') === bundled ? [lineOf(line, index)] : [],
+        (line.kind === 'bundled') === bundled ? [lineOf(line, index)] : [],
       );
     details = svgOf(
       'g',
@@ -310,10 +311,10 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     { passive: false },
   );
 
-  const choose = (box: LaidFunction): void => {
+  const fireBoxClick = (box: LaidFunction): void => {
     for (const handler of handlers) handler(box);
   };
-  const chooseLine = (line: LaidLine): void => {
+  const fireLineClick = (line: LaidLine): void => {
     for (const handler of lineHandlers) handler(line);
   };
   svg.addEventListener('click', (event) => {
@@ -322,9 +323,9 @@ export const drawingOf = (container: HTMLElement): Drawing => {
       return;
     }
     const box = clickedBox(event.target);
-    if (box !== undefined) choose(box);
+    if (box !== undefined) fireBoxClick(box);
     const line = clickedLine(event.target);
-    if (line !== undefined) chooseLine(line);
+    if (line !== undefined) fireLineClick(line);
   });
   svg.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -332,8 +333,8 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     const line = clickedLine(event.target);
     if (box === undefined && line?.calls === undefined) return;
     event.preventDefault();
-    if (box !== undefined) choose(box);
-    if (line !== undefined) chooseLine(line);
+    if (box !== undefined) fireBoxClick(box);
+    if (line !== undefined) fireLineClick(line);
   });
 
   apply();

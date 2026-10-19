@@ -1,7 +1,7 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import type { ElkExtendedEdge, ElkLabel, ElkNode } from 'elkjs/lib/elk-api.js';
-import { byText } from '@archmap/review';
-import { lineLabelOf } from './scene.ts';
+import { appendTo, byText } from '@archmap/review';
+import { arrowKeyOf, lineLabelOf } from './scene.ts';
 import type { Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 
 export interface Rect {
@@ -80,12 +80,15 @@ const frameNodeOf = (frame: SceneFrame, children: ElkNode[]): ElkNode => ({
   children,
 });
 
-const lineIdOf = (index: number): string => `line:${String(index)}`;
+const lineIdOf = ({ kind, from, to }: SceneLine): string => `${kind}:${arrowKeyOf(from, to)}`;
 
-const edgeOf = (line: SceneLine, index: number): ElkExtendedEdge => {
+const byId = <Item extends { readonly id: string }>(left: Item, right: Item): number =>
+  byText(left.id, right.id);
+
+const edgeOf = (line: SceneLine): ElkExtendedEdge => {
   const text = lineLabelOf(line);
   return {
-    id: lineIdOf(index),
+    id: lineIdOf(line),
     sources: [line.from],
     targets: [line.to],
     ...(text === undefined
@@ -96,14 +99,11 @@ const edgeOf = (line: SceneLine, index: number): ElkExtendedEdge => {
 
 const graphOf = ({ frames, boxes, lines }: Scene): ElkNode => {
   const childrenOf = new Map<string, ElkNode[]>();
-  const add = (parent: string, node: ElkNode): void => {
-    const children = childrenOf.get(parent) ?? [];
-    children.push(node);
-    childrenOf.set(parent, children);
-  };
   const frameIds = new Set(frames.map(({ id }) => id));
-  for (const box of boxes) add(frameIds.has(box.frame) ? box.frame : '', boxNodeOf(box));
-  const sorted = [...frames].sort((left, right) => byText(left.id, right.id));
+  for (const box of [...boxes].sort(byId)) {
+    appendTo(childrenOf, frameIds.has(box.frame) ? box.frame : '', boxNodeOf(box));
+  }
+  const sorted = [...frames].sort(byId);
   const nodeOf = (frame: SceneFrame): ElkNode =>
     frameNodeOf(frame, [
       ...sorted.filter(({ parent }) => parent === frame.id).map(nodeOf),
@@ -116,17 +116,17 @@ const graphOf = ({ frames, boxes, lines }: Scene): ElkNode => {
       ...sorted.filter(({ parent }) => parent === undefined || !frameIds.has(parent)).map(nodeOf),
       ...(childrenOf.get('') ?? []),
     ],
-    edges: lines.map(edgeOf),
+    edges: lines.map(edgeOf).sort(byId),
   };
 };
 
-const exact = (value: number | undefined): number => Math.round((value ?? 0) * 100) / 100;
+const rounded = (value: number | undefined): number => Math.round((value ?? 0) * 100) / 100;
 
 const rectOf = ({ x, y, width, height }: ElkNode | ElkLabel): Rect => ({
-  x: exact(x),
-  y: exact(y),
-  width: exact(width),
-  height: exact(height),
+  x: rounded(x),
+  y: rounded(y),
+  width: rounded(width),
+  height: rounded(height),
 });
 
 const placedOf = (root: ElkNode): ReadonlyMap<string, Rect> => {
@@ -144,8 +144,8 @@ const placedOf = (root: ElkNode): ReadonlyMap<string, Rect> => {
 const pointsOf = (edge: ElkExtendedEdge | undefined): readonly Point[] =>
   (edge?.sections ?? []).flatMap((section) =>
     [section.startPoint, ...(section.bendPoints ?? []), section.endPoint].map(({ x, y }): Point => [
-      exact(x),
-      exact(y),
+      rounded(x),
+      rounded(y),
     ]),
   );
 
@@ -164,12 +164,12 @@ export const layoutOf = async (scene: Scene): Promise<Laid> => {
   return {
     frames: scene.frames.map((frame) => ({ ...frame, ...rectFor(frame.id) })),
     boxes: scene.boxes.map((box) => ({ ...box, ...rectFor(box.id) })),
-    lines: scene.lines.map((line, index) => {
-      const edge = edges.get(lineIdOf(index));
+    lines: scene.lines.map((line) => {
+      const edge = edges.get(lineIdOf(line));
       const label = labelOf(edge);
       return { ...line, points: pointsOf(edge), ...(label === undefined ? {} : { label }) };
     }),
-    width: exact(laid.width),
-    height: exact(laid.height),
+    width: rounded(laid.width),
+    height: rounded(laid.height),
   };
 };

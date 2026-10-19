@@ -1,7 +1,9 @@
+import type { FunctionId } from '@archmap/graph-document';
 import { appendTo } from '@archmap/review';
-import type { MarkedCall, MarkedFunction } from '@archmap/review';
+import type { MarkedCall } from '@archmap/review';
 import type { ReaderPageData } from './data.ts';
-import { frameIdOf, sceneOf } from './scene.ts';
+import type { PageFunction } from './functions.ts';
+import { arrowKeyOf, frameIdOf, sceneOf } from './scene.ts';
 import type { Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 
 export const folderIdOf = (folder: string): string => `folder:${folder}`;
@@ -26,7 +28,7 @@ const parentOf = (path: string): { readonly parent?: string } => {
 const bundled = (boxes: readonly SceneBox[], lines: readonly SceneLine[]): SceneLine[] => {
   const fileOf = new Map(
     boxes.flatMap((box): [string, string][] =>
-      box.kind === 'function' ? [[box.id, box.marked.file]] : [],
+      box.kind === 'function' ? [[box.id, box.pageFunction.file]] : [],
     ),
   );
   const pairOf = ({ kind, mark, from, to }: SceneLine): readonly [string, string] | undefined => {
@@ -36,20 +38,19 @@ const bundled = (boxes: readonly SceneBox[], lines: readonly SceneLine[]): Scene
     if (fromFile === undefined || toFile === undefined || fromFile === toFile) return undefined;
     return [fromFile, toFile];
   };
-  const keyOf = (pair: readonly [string, string]): string => `${pair[0]} -> ${pair[1]}`;
   const byPair = new Map<string, SceneLine[]>();
   for (const line of lines) {
     const pair = pairOf(line);
-    if (pair !== undefined) appendTo(byPair, keyOf(pair), line);
+    if (pair !== undefined) appendTo(byPair, arrowKeyOf(...pair), line);
   }
   return lines.flatMap((line): SceneLine[] => {
     const pair = pairOf(line);
-    const calls = pair === undefined ? undefined : byPair.get(keyOf(pair));
+    const calls = pair === undefined ? undefined : byPair.get(arrowKeyOf(...pair));
     if (pair === undefined || calls === undefined || calls.length < 2) return [line];
     if (calls[0] !== line) return [];
     return [
       {
-        kind: 'bundle',
+        kind: 'bundled',
         from: frameIdOf(pair[0]),
         to: frameIdOf(pair[1]),
         mark: 'kept',
@@ -62,10 +63,11 @@ const bundled = (boxes: readonly SceneBox[], lines: readonly SceneLine[]): Scene
 
 export const nestedSceneOf = (
   data: ReaderPageData,
-  functions: readonly MarkedFunction[],
+  functions: readonly PageFunction[],
   calls: readonly MarkedCall[],
+  outside?: ReadonlySet<FunctionId>,
 ): Scene => {
-  const scene = sceneOf(data, functions, calls);
+  const scene = sceneOf(data, functions, calls, outside);
   const files = [...new Set(functions.map(({ file }) => file))];
   const folders = [...new Set(files.flatMap(foldersAbove))];
   return {

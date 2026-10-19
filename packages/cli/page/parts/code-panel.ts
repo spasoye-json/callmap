@@ -1,6 +1,6 @@
 import { EDITORS, editorUrl } from '@archmap/editor-link';
-import type { MarkedFunction } from '@archmap/review';
-import { markedFunctionsOf, sourceLinesOf } from '../functions.ts';
+import { pageFunctionsOf, sourceLinesOf } from '../functions.ts';
+import type { PageFunction } from '../functions.ts';
 import type { PagePart, ReaderPage } from '../reader-page.ts';
 
 type LineMark = 'changed' | 'removed-above' | 'kept';
@@ -21,7 +21,7 @@ const lineOf = (number: number, text: string, mark: LineMark): HTMLElement => {
   return line;
 };
 
-const codeOf = (page: ReaderPage, shown: MarkedFunction): HTMLElement => {
+const codeOf = (page: ReaderPage, shown: PageFunction): HTMLElement => {
   const lines = page.data.review.changedLines[shown.id];
   const changed = new Set(lines?.changed);
   const removedAbove = new Set(lines?.removedAbove);
@@ -39,7 +39,7 @@ const codeOf = (page: ReaderPage, shown: MarkedFunction): HTMLElement => {
   return pre;
 };
 
-const editorLinkOf = ({ data }: ReaderPage, { file, firstLine }: MarkedFunction): HTMLElement => {
+const editorLinkOf = ({ data }: ReaderPage, { file, firstLine }: PageFunction): HTMLElement => {
   const link = document.createElement('a');
   link.className = 'editor-link';
   link.href = editorUrl(data.editor.repoRoot, { file, line: firstLine }, data.editor.name);
@@ -47,18 +47,19 @@ const editorLinkOf = ({ data }: ReaderPage, { file, firstLine }: MarkedFunction)
   return link;
 };
 
-const show = (section: HTMLElement, page: ReaderPage, shown: MarkedFunction): void => {
+const show = (section: HTMLElement, page: ReaderPage, shown: PageFunction): void => {
   const heading = document.createElement('h2');
   heading.textContent = shown.name;
   const place = document.createElement('p');
   place.className = 'code-place';
-  place.textContent = `${shown.file}:${String(shown.firstLine)}, ${shown.mark}`;
+  const where = `${shown.file}:${String(shown.firstLine)}`;
+  place.textContent = shown.mark === undefined ? where : `${where}, ${shown.mark}`;
   if (shown.mark !== 'removed') place.append(' ', editorLinkOf(page, shown));
   section.replaceChildren(heading, place, codeOf(page, shown));
 };
 
 const codePanel: PagePart = (page) => {
-  const functions = markedFunctionsOf(page.data);
+  const functions = pageFunctionsOf(page.data);
   const section = document.createElement('section');
   section.setAttribute('aria-label', 'Code');
   section.className = 'code-panel';

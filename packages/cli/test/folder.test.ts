@@ -106,17 +106,46 @@ describe('the Folder view', () => {
     ]);
   });
 
-  it('shows the callers and callees one hop out of the folder as neighbours, and no function two hops out', async () => {
+  it('shows the callers and callees one hop out of the folder as outside functions, and no function two hops out', async () => {
     const page = await folderPage();
     await pickFolder(page, 'src/tax/');
     expect(functionIdsOf(page)).toEqual(
       [`${INVOICE}#invoice`, `${PERCENT}#percent`, `${RATE}#vatRate`, `${VAT}#vat`].sort(),
     );
     for (const id of [`${INVOICE}#invoice`, `${PERCENT}#percent`]) {
-      expect(boxElementOf(page, id)?.classList.contains('neighbour'), id).toBe(true);
+      expect(boxElementOf(page, id)?.classList.contains('outside'), id).toBe(true);
+    }
+    for (const id of [`${RATE}#vatRate`, `${VAT}#vat`]) {
+      expect(boxElementOf(page, id)?.classList.contains('outside'), id).toBe(false);
     }
     expect(boxElementOf(page, `${INVOICE}#bill`)).toBeUndefined();
     expect(boxElementOf(page, `${PERCENT}#hundredth`)).toBeUndefined();
+  });
+
+  it('gives an outside function the neighbour mark only when it is one hop from a changed function', async () => {
+    const page = await folderPage();
+    await pickFolder(page, 'src/tax/');
+    for (const id of [`${INVOICE}#invoice`, `${PERCENT}#percent`]) {
+      expect(boxElementOf(page, id)?.classList.contains('neighbour'), id).toBe(false);
+    }
+  });
+
+  it('draws no call between two outside functions', async () => {
+    const page = await folderPage();
+    await pickFolder(page, 'src/tax/');
+    fireEvent.input(bodyOf(page).getByRole('searchbox', { name: 'Find a function' }), {
+      target: { value: 'bill' },
+    });
+    fireEvent.click(
+      within(bodyOf(page).getByRole('region', { name: 'Search' })).getByRole('button', {
+        name: `bill ${INVOICE}`,
+      }),
+    );
+    await settled(page);
+    expect(boxElementOf(page, `${INVOICE}#bill`)).toBeDefined();
+    expect(callsOf(page).map(({ from, to }) => `${from} -> ${to}`)).not.toContain(
+      `${INVOICE}#bill -> ${INVOICE}#invoice`,
+    );
   });
 
   it('draws only the new folder after a click on another folder', async () => {
@@ -132,7 +161,7 @@ describe('the Folder view', () => {
     const between = linesOf(page).filter(
       ({ from, to }) => from === `frame:${CART}` && to === `frame:${MONEY}`,
     );
-    expect(between.map(({ label, classes }) => [label, classes.includes('bundle')])).toEqual([
+    expect(between.map(({ label, classes }) => [label, classes.includes('bundled')])).toEqual([
       ['2', true],
     ]);
   });
@@ -155,11 +184,14 @@ describe('the Folder view', () => {
     );
   });
 
-  it('opens the next hop of a neighbour after a click on it', async () => {
+  it('opens no next hop after a click on an outside function, and selects it and shows its code', async () => {
     const page = await folderPage();
     await pickFolder(page, 'src/tax/');
     await clickBox(page, `${PERCENT}#percent`);
-    expect(boxElementOf(page, `${PERCENT}#hundredth`)).toBeDefined();
+    expect(boxElementOf(page, `${PERCENT}#hundredth`)).toBeUndefined();
+    expect(boxElementOf(page, `${PERCENT}#percent`)?.classList.contains('selected')).toBe(true);
+    const code = within(bodyOf(page).getByRole('region', { name: 'Code' }));
+    expect(code.getByRole('heading', { name: 'percent' })).toBeDefined();
   });
 
   it('finds a function with the search, draws its box and stays in the view', async () => {

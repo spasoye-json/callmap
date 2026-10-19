@@ -95,6 +95,19 @@
   fill: var(--muted);
 }
 
+.box.function:not(.added, .removed, .changed, .neighbour) > rect {
+  stroke: var(--rule);
+  stroke-width: 1.5;
+}
+
+.box.function:not(.added, .removed, .changed, .neighbour) > text {
+  fill: var(--muted);
+}
+
+.box.outside {
+  opacity: 0.55;
+}
+
 .box.selected > rect {
   fill: var(--selected);
   stroke-width: 4;
@@ -132,29 +145,29 @@
   stroke-dasharray: 2 3;
 }
 
-.line.bundle {
+.line.bundled {
   cursor: pointer;
 }
 
-.line.bundle > path {
+.line.bundled > path {
   stroke-width: 3;
 }
 
-.line.bundle > path.hit {
+.line.bundled > path.hit {
   stroke: transparent;
   stroke-width: 12;
 }
 
-.line.bundle:focus {
+.line.bundled:focus {
   outline: none;
 }
 
-.line.bundle:hover > path:not(.hit),
-.line.bundle:focus-visible > path:not(.hit) {
+.line.bundled:hover > path:not(.hit),
+.line.bundled:focus-visible > path:not(.hit) {
   stroke: var(--ink);
 }
 
-.line.bundle > text {
+.line.bundled > text {
   fill: var(--ink);
 }
 

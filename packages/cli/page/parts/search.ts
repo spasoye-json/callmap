@@ -1,20 +1,17 @@
 import { byText } from '@archmap/review';
-import type { MarkedFunction } from '@archmap/review';
-import { markedFunctionsOf } from '../functions.ts';
+import { pageFunctionsOf } from '../functions.ts';
+import type { PageFunction } from '../functions.ts';
 import type { PagePart } from '../reader-page.ts';
 
 const MAX_RESULTS = 30;
 
-const matchesOf = (
-  candidates: readonly MarkedFunction[],
-  text: string,
-): readonly MarkedFunction[] => {
+const matchesOf = (candidates: readonly PageFunction[], text: string): readonly PageFunction[] => {
   const wanted = text.trim().toLowerCase();
   if (wanted === '') return [];
   return candidates.filter(({ name }) => name.toLowerCase().includes(wanted)).slice(0, MAX_RESULTS);
 };
 
-const resultOf = (found: MarkedFunction, open: (found: MarkedFunction) => void): HTMLElement => {
+const resultOf = (found: PageFunction, open: (found: PageFunction) => void): HTMLElement => {
   const item = document.createElement('li');
   const button = document.createElement('button');
   button.type = 'button';
@@ -33,10 +30,10 @@ const resultOf = (found: MarkedFunction, open: (found: MarkedFunction) => void):
 };
 
 const search: PagePart = (page) => {
-  const candidates = [...markedFunctionsOf(page.data).values()].sort(
+  const candidates = [...pageFunctionsOf(page.data).values()].sort(
     (left, right) => byText(left.name, right.name) || byText(left.file, right.file),
   );
-  const open = ({ id }: MarkedFunction): void => {
+  const open = ({ id }: PageFunction): void => {
     void page.open(id);
   };
 
@@ -57,7 +54,7 @@ const search: PagePart = (page) => {
   section.append(form, results);
   page.panels.append(section);
 
-  const matches = (): readonly MarkedFunction[] => matchesOf(candidates, input.value);
+  const matches = (): readonly PageFunction[] => matchesOf(candidates, input.value);
   input.addEventListener('input', () => {
     results.replaceChildren(...matches().map((found) => resultOf(found, open)));
   });

@@ -18,7 +18,7 @@ export const tabBarOf = (
   container: HTMLElement,
   names: readonly string[],
   controls: string,
-  pick: (name: string) => void,
+  showView: (name: string) => void,
 ): TabBar => {
   const tabs = names.map((name) => tabOf(name, controls));
   container.setAttribute('role', 'tablist');
@@ -34,7 +34,7 @@ export const tabBarOf = (
 
   tabs.forEach((tab, index) => {
     tab.addEventListener('click', () => {
-      pick(names[index] ?? '');
+      showView(names[index] ?? '');
     });
     tab.addEventListener('keydown', (event) => {
       const step = STEPS[event.key];
@@ -42,7 +42,7 @@ export const tabBarOf = (
       event.preventDefault();
       const next = (index + step + tabs.length) % tabs.length;
       tabs[next]?.focus();
-      pick(names[next] ?? '');
+      showView(names[next] ?? '');
     });
   });
   container.append(...tabs);

@@ -1,10 +1,10 @@
 import { byText } from '@archmap/review';
-import { markedFunctionsOf } from '../functions.ts';
+import { pageFunctionsOf } from '../functions.ts';
 import type { PagePart } from '../reader-page.ts';
 import type { SceneLine } from '../scene.ts';
 
 const bundledCalls: PagePart = (page) => {
-  const functions = markedFunctionsOf(page.data);
+  const functions = pageFunctionsOf(page.data);
   const nameOf = (id: string): string => functions.get(id)?.name ?? id;
   const textOf = ({ from, to, oneOf }: SceneLine): string =>
     `${nameOf(from)} calls ${nameOf(to)}${oneOf === undefined ? '' : `, ${oneOf}`}`;

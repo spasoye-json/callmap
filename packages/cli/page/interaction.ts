@@ -6,7 +6,7 @@ import type { Laid } from './layout.ts';
 import type { ReaderPage } from './reader-page.ts';
 import type { FunctionBox, Scene } from './scene.ts';
 import { tabBarOf } from './tabs.ts';
-import type { View } from './view.ts';
+import type { Choice, View } from './view.ts';
 
 export interface Interaction {
   readonly page: ReaderPage;
@@ -19,10 +19,10 @@ export interface PageElements {
   readonly tabs: HTMLElement;
 }
 
-interface Shown {
+interface ViewState {
   readonly view: View;
   readonly opened: Set<FunctionId>;
-  choice: string | undefined;
+  choice: Choice | undefined;
   scene: Scene | undefined;
   laid: Promise<Laid> | undefined;
 }
@@ -33,17 +33,18 @@ export const interactionOf = (
   views: readonly [View, ...View[]],
 ): Interaction => {
   const drawing = drawingOf(graph);
-  const handlers: ((box: FunctionBox) => void)[] = [];
+  const boxHandlers: ((box: FunctionBox) => void)[] = [];
   const viewHandlers: ((view: View) => void)[] = [];
-  const shown = views.map((view): Shown => ({
+  const choiceHandlers: ((view: View, choice: Choice) => void)[] = [];
+  const states = views.map((view): ViewState => ({
     view,
     opened: new Set(),
     choice: undefined,
     scene: undefined,
     laid: undefined,
-  })) as [Shown, ...Shown[]];
-  let current = shown[0];
-  let drawn: Shown | undefined;
+  })) as [ViewState, ...ViewState[]];
+  let current = states[0];
+  let drawn: ViewState | undefined;
   let queue = Promise.resolve();
   let pending = 0;
 
@@ -58,14 +59,14 @@ export const interactionOf = (
     return done;
   };
 
-  const paint = (target: Shown, laid: Laid, anchor?: FunctionId): void => {
+  const paint = (target: ViewState, laid: Laid, anchor?: FunctionId): void => {
     if (target !== current) return;
     drawing.draw(laid, { anchor, zoomLevels: target.view.zoomLevels === true });
     if (drawn !== target) drawing.fit();
     drawn = target;
   };
 
-  const sceneOf = (target: Shown): Scene => {
+  const sceneOf = (target: ViewState): Scene => {
     target.scene ??= target.view.sceneOf(data, target.opened, target.choice);
     return target.scene;
   };
@@ -75,20 +76,20 @@ export const interactionOf = (
       (box): box is FunctionBox => box.kind === 'function' && box.id === id,
     );
 
-  const render = (target: Shown, anchor?: FunctionId): Promise<void> => {
-    target.scene = target.view.sceneOf(data, target.opened, target.choice);
-    const laying = layoutOf(target.scene);
+  const render = (target: ViewState, anchor?: FunctionId): Promise<void> => {
+    target.scene = undefined;
+    const laying = layoutOf(sceneOf(target));
     target.laid = laying;
     return queued(async () => {
       paint(target, await laying, anchor);
     });
   };
 
-  const choose = (box: FunctionBox): void => {
+  const select = (box: FunctionBox): void => {
     drawing.select(box.id);
-    for (const handler of handlers) handler(box);
+    for (const handler of boxHandlers) handler(box);
   };
-  drawing.onBoxClick(choose);
+  drawing.onBoxClick(select);
 
   const show = (ids: readonly FunctionId[], anchor?: FunctionId): Promise<void> => {
     const fresh = ids.filter((id) => !current.opened.has(id) && functionBoxOf(id) === undefined);
@@ -97,16 +98,30 @@ export const interactionOf = (
     return render(current, anchor);
   };
 
+  const choose = (choice: Choice): Promise<void> => {
+    current.choice = choice;
+    current.opened.clear();
+    drawn = undefined;
+    for (const handler of choiceHandlers) handler(current.view, choice);
+    return render(current);
+  };
+
+  const reveal = (id: FunctionId): Promise<void> => {
+    if (functionBoxOf(id) !== undefined) return queue;
+    const choice = current.view.choiceShowing?.(data, id);
+    return choice === undefined ? show([id]) : choose(choice);
+  };
+
   const open = async (id: FunctionId): Promise<void> => {
-    await show([id]);
+    await reveal(id);
     const box = functionBoxOf(id);
     if (box === undefined) return;
     drawing.focus(id);
-    choose(box);
+    select(box);
   };
 
   const showView = (name: string): Promise<void> => {
-    const target = shown.find(({ view }) => view.name === name);
+    const target = states.find(({ view }) => view.name === name);
     if (target === undefined || target === current) return queue;
     current = target;
     tabBar.select(name);
@@ -116,13 +131,6 @@ export const interactionOf = (
     return queued(async () => {
       paint(target, await laid);
     });
-  };
-
-  const pick = (choice: string): Promise<void> => {
-    current.choice = choice;
-    current.opened.clear();
-    drawn = undefined;
-    return render(current);
   };
 
   const tabBar = tabBarOf(
@@ -139,16 +147,20 @@ export const interactionOf = (
     graph,
     panels,
     onBoxClick: (handler) => {
-      handlers.push(handler);
+      boxHandlers.push(handler);
     },
     onLineClick: drawing.onLineClick,
     onViewChange: (handler) => {
       viewHandlers.push(handler);
     },
+    onChoiceChange: (handler) => {
+      choiceHandlers.push(handler);
+    },
+    currentView: () => current.view,
     show,
     open,
     showView,
-    pick,
+    choose,
   };
   return { page, render: () => render(current) };
 };

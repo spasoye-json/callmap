@@ -1,7 +1,8 @@
 import type { Call, FunctionId, OpenEnd } from '@archmap/graph-document';
 import { appendTo, byText } from '@archmap/review';
-import type { CallMark, MarkedCall, MarkedFunction } from '@archmap/review';
+import type { CallMark, MarkedCall } from '@archmap/review';
 import type { ReaderPageData } from './data.ts';
+import type { PageFunction } from './functions.ts';
 
 export interface SceneFrame {
   readonly kind: 'file' | 'folder';
@@ -15,7 +16,8 @@ export interface FunctionBox {
   readonly id: FunctionId;
   readonly label: string;
   readonly frame: string;
-  readonly marked: MarkedFunction;
+  readonly pageFunction: PageFunction;
+  readonly outside: boolean;
 }
 
 export interface OpenEndBox {
@@ -29,7 +31,7 @@ export interface OpenEndBox {
 export type SceneBox = FunctionBox | OpenEndBox;
 
 export interface SceneLine {
-  readonly kind: 'call' | 'open-end' | 'bundle';
+  readonly kind: 'call' | 'open-end' | 'bundled';
   readonly from: string;
   readonly to: string;
   readonly mark: CallMark;
@@ -49,14 +51,15 @@ export interface Scene {
 
 export const frameIdOf = (file: string): string => `frame:${file}`;
 
-export const callKeyOf = ({ caller, callee }: Pick<Call, 'caller' | 'callee'>): string =>
-  `${caller} -> ${callee}`;
+export const arrowKeyOf = (from: string, to: string): string => `${from} -> ${to}`;
 
-const openEndsByCallerOf = ({
-  review,
-  branchGraph,
-}: ReaderPageData): ReadonlyMap<FunctionId, readonly OpenEnd[]> => {
-  const reviewed = new Set(review.functions.map(({ id }) => id));
+export const callKeyOf = ({ caller, callee }: Pick<Call, 'caller' | 'callee'>): string =>
+  arrowKeyOf(caller, callee);
+
+const openEndsByCallerOf = (
+  { review, branchGraph }: ReaderPageData,
+  reviewed: ReadonlySet<FunctionId>,
+): ReadonlyMap<FunctionId, readonly OpenEnd[]> => {
   const byCaller = new Map<FunctionId, OpenEnd[]>();
   for (const openEnd of [
     ...review.openEnds,
@@ -69,8 +72,10 @@ const openEndsByCallerOf = ({
 
 type GroupCall = Pick<Call, 'caller' | 'callee'> & { readonly group: string };
 
-const oneOfLabelsOf = ({ review, branchGraph }: ReaderPageData): ReadonlyMap<string, string> => {
-  const reviewed = new Set(review.functions.map(({ id }) => id));
+const oneOfLabelsOf = (
+  { review, branchGraph }: ReaderPageData,
+  reviewed: ReadonlySet<FunctionId>,
+): ReadonlyMap<string, string> => {
   const groups = new Map<string, GroupCall[]>();
   const add = (call: GroupCall): void => {
     appendTo(groups, `${call.caller} ${call.group}`, call);
@@ -88,27 +93,36 @@ const oneOfLabelsOf = ({ review, branchGraph }: ReaderPageData): ReadonlyMap<str
   );
 };
 
-const inFileOrder = (left: MarkedFunction, right: MarkedFunction): number =>
+const inFileOrder = (left: PageFunction, right: PageFunction): number =>
   byText(left.file, right.file) || left.firstLine - right.firstLine || byText(left.id, right.id);
 
 export const sceneOf = (
   data: ReaderPageData,
-  functions: readonly MarkedFunction[],
+  functions: readonly PageFunction[],
   calls: readonly MarkedCall[],
+  outside: ReadonlySet<FunctionId> = new Set(),
 ): Scene => {
-  const openEnds = openEndsByCallerOf(data);
-  const oneOfLabels = oneOfLabelsOf(data);
+  const reviewed = new Set(data.review.functions.map(({ id }) => id));
+  const openEnds = openEndsByCallerOf(data, reviewed);
+  const oneOfLabels = oneOfLabelsOf(data, reviewed);
   const ordered = [...functions].sort(inFileOrder);
   const files = [...new Set(ordered.map(({ file }) => file))];
 
-  const boxes = ordered.flatMap((marked): SceneBox[] => [
-    { kind: 'function', id: marked.id, label: marked.name, frame: frameIdOf(marked.file), marked },
-    ...(openEnds.get(marked.id) ?? []).map(({ expression, line }, index): OpenEndBox => ({
+  const boxes = ordered.flatMap((shown): SceneBox[] => [
+    {
+      kind: 'function',
+      id: shown.id,
+      label: shown.name,
+      frame: frameIdOf(shown.file),
+      pageFunction: shown,
+      outside: outside.has(shown.id),
+    },
+    ...(openEnds.get(shown.id) ?? []).map(({ expression, line }, index): OpenEndBox => ({
       kind: 'open-end',
-      id: `open-end:${marked.id}:${String(index)}`,
+      id: `open-end:${shown.id}:${String(index)}`,
       label: `${expression} :${String(line)}`,
-      frame: frameIdOf(marked.file),
-      caller: marked.id,
+      frame: frameIdOf(shown.file),
+      caller: shown.id,
     })),
   ]);
 

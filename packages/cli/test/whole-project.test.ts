@@ -118,7 +118,7 @@ describe('the Whole project view', () => {
     expect(between.map(({ from, to, label }) => ({ from, to, label }))).toEqual([
       { from: `frame:${CART}`, to: `frame:${MONEY}`, label: '2' },
     ]);
-    expect(between[0]?.classes).toContain('bundle');
+    expect(between[0]?.classes).toContain('bundled');
   });
 
   it('lists the calls of a bundled line after a click on it, and shows the code of a caller after a click on its call', async () => {
@@ -160,15 +160,21 @@ describe('the Whole project view', () => {
     );
   });
 
-  it('marks the boxes as the review marks them', async () => {
+  it('marks the boxes as the review marks them, and gives no mark to a function more than one hop from a change', async () => {
     const page = await projectPage();
     const markOf = (id: string): string | undefined =>
       ['added', 'removed', 'changed', 'neighbour'].find((mark) =>
         boxElementOf(page, id)?.classList.contains(mark),
       );
     expect(
-      [`${ALERTS}#relay`, `${ALERTS}#alert`, `${CART}#subtotal`, `${REPORT}#report`].map(markOf),
-    ).toEqual(['added', 'changed', 'neighbour', 'neighbour']);
+      [
+        `${ALERTS}#relay`,
+        `${ALERTS}#alert`,
+        `${CART}#subtotal`,
+        `${REPORT}#report`,
+        `${MONEY}#round`,
+      ].map(markOf),
+    ).toEqual(['added', 'changed', 'neighbour', undefined, undefined]);
   });
 
   it('shows the code and the editor link of a box after a click on it', async () => {
@@ -267,7 +273,7 @@ describe('the zoom levels of the Whole project view', () => {
     const page = await projectPage();
     const bundlesOf = () =>
       linesOf(page)
-        .filter(({ classes }) => classes.includes('bundle'))
+        .filter(({ classes }) => classes.includes('bundled'))
         .map(({ from, to, label, points }) => ({ from, to, label, points }));
     const near = bundlesOf();
     expect(near).toContainEqual(

@@ -1,6 +1,6 @@
-import { within } from '@testing-library/dom';
+import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { COUNTDOWN, countdownRepo, featureBranchRepo } from './fixture-repo.ts';
+import { COUNTDOWN, commitFile, countdownRepo, featureBranchRepo } from './fixture-repo.ts';
 import {
   boxElementOf,
   boxesOf,
@@ -12,6 +12,7 @@ import {
   loadReaderPage,
   openTab,
   reviewHtmlOf,
+  settled,
 } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
 
@@ -182,5 +183,68 @@ describe('the call tree of an entry point with a cycle', () => {
       `${COUNTDOWN}#tick -> ${COUNTDOWN}#tock`,
       `${COUNTDOWN}#tock -> ${COUNTDOWN}#tick`,
     ]);
+  });
+});
+
+const findFunction = async (page: LoadedPage, name: string, file: string): Promise<void> => {
+  const body = bodyOf(page);
+  fireEvent.input(body.getByRole('searchbox', { name: 'Find a function' }), {
+    target: { value: name },
+  });
+  fireEvent.click(
+    within(body.getByRole('region', { name: 'Search' })).getByRole('button', {
+      name: `${name} ${file}`,
+    }),
+  );
+  await settled(page);
+};
+
+describe('the search in the Route view', () => {
+  it('opens the first entry point in the list whose tree reaches the function, and selects its box', async () => {
+    const page = await routePage();
+    expect(boxElementOf(page, `${CART}#taxed`)).toBeUndefined();
+    await findFunction(page, 'taxed', CART);
+    expect(bodyOf(page).getByRole('tab', { selected: true }).textContent).toBe('Route');
+    expect(entryListOf(page).getByRole('button', { current: true }).textContent).toMatch(
+      /^checkout /,
+    );
+    expect(functionIdsOf(page)).toContain(`${CHECKOUT}#checkout`);
+    expect(boxElementOf(page, `${CART}#taxed`)?.classList.contains('selected')).toBe(true);
+    const code = within(bodyOf(page).getByRole('region', { name: 'Code' }));
+    expect(code.getByRole('heading', { name: 'taxed' })).toBeDefined();
+  });
+
+  it('keeps the open entry point when its tree already holds the function', async () => {
+    const page = await routePage();
+    await findFunction(page, 'round', MONEY);
+    expect(entryListOf(page).getByRole('button', { current: true }).textContent).toMatch(/^alert /);
+    expect(boxElementOf(page, `${MONEY}#round`)?.classList.contains('selected')).toBe(true);
+  });
+});
+
+const ECHO = 'src/echo.ts';
+
+describe('the search in the Route view for a function that no entry point reaches', () => {
+  let echoHtml = '';
+
+  beforeAll(() => {
+    const repo = featureBranchRepo();
+    commitFile(
+      repo,
+      ECHO,
+      `const ping = (left: number): number => (left > 0 ? pong(left - 1) : 0);
+
+const pong = (left: number): number => ping(left);
+`,
+    );
+    echoHtml = reviewHtmlOf(repo);
+  }, 120_000);
+
+  it('draws the call tree of the function itself, and marks no entry point', async () => {
+    const page = await routePage(echoHtml);
+    await findFunction(page, 'pong', ECHO);
+    expect(functionIdsOf(page)).toEqual([`${ECHO}#ping`, `${ECHO}#pong`]);
+    expect(boxElementOf(page, `${ECHO}#pong`)?.classList.contains('selected')).toBe(true);
+    expect(entryListOf(page).queryByRole('button', { current: true })).toBeNull();
   });
 });
