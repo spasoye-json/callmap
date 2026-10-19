@@ -12,7 +12,6 @@ export const wholeProjectView: View = {
   },
   choiceShowing: (data, id) => {
     const file = pageFunctionsOf(data).get(id)?.file;
-    const levels = levelsOf(data);
-    return { kind: 'level', path: file === undefined ? levels.top : levels.levelHolding(file) };
+    return { kind: 'level', path: file ?? levelsOf(data).top };
   },
 };
