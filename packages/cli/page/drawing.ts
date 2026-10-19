@@ -1,6 +1,6 @@
 import { highlightOf } from './highlight.ts';
 import type { Laid, LaidBox, LaidFrame, LaidLine, Point, Rect } from './layout.ts';
-import { isLevelBox } from './scene.ts';
+import { countsTextOf, isLevelBox } from './scene.ts';
 import type { FunctionBox, LevelBox } from './scene.ts';
 
 type LaidFunction = FunctionBox & Rect;
@@ -76,20 +76,12 @@ const frameOf = (frame: LaidFrame): SVGGElement =>
 const levelBoxOf = (box: LaidLevelBox): SVGGElement => {
   const x = box.x + box.width / 2;
   const texts =
-    box.counts === ''
+    box.counts.length === 0
       ? [svgOf('text', { x, y: box.y + box.height / 2 }, box.label)]
       : [
           svgOf('text', { x, y: box.y + 16 }, box.label),
-          svgOf('text', { x, y: box.y + 32, class: 'counts' }, box.counts),
+          svgOf('text', { x, y: box.y + 32, class: 'counts' }, countsTextOf(box)),
         ];
-  const opener =
-    box.opens === undefined
-      ? {}
-      : {
-          role: 'button',
-          tabindex: 0,
-          'aria-label': [box.label, ...(box.counts === '' ? [] : [box.counts])].join(', '),
-        };
   return svgOf(
     'g',
     {
@@ -99,11 +91,13 @@ const levelBoxOf = (box: LaidLevelBox): SVGGElement => {
         box.kind,
         ...(box.changed ? ['changed'] : []),
         ...(box.outside ? ['outside'] : []),
-        ...(box.opens === undefined ? [] : ['opens']),
+        'opens',
       ].join(' '),
       'data-box': box.id,
       'data-kind': box.kind,
-      ...opener,
+      role: 'button',
+      tabindex: 0,
+      'aria-label': [box.label, ...box.counts].join(', '),
     },
     rectOf(box, 5),
     ...texts,
@@ -307,7 +301,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
 
   const clickedOpener = (target: EventTarget | null): LaidLevelBox | undefined => {
     const box = boxAt(target);
-    return box !== undefined && isLevelBox(box) && box.opens !== undefined ? box : undefined;
+    return box !== undefined && isLevelBox(box) ? box : undefined;
   };
 
   let drag: { readonly x: number; readonly y: number; moved: boolean } | undefined;
@@ -367,31 +361,26 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   const fireLevelBoxClick = (box: LaidLevelBox): void => {
     for (const handler of levelHandlers) handler(box);
   };
+  const activate = (target: EventTarget | null): boolean => {
+    const box = clickedBox(target);
+    const opener = clickedOpener(target);
+    const line = clickedLine(target);
+    if (box !== undefined) fireBoxClick(box);
+    if (opener !== undefined) fireLevelBoxClick(opener);
+    if (line !== undefined) fireLineClick(line);
+    return box !== undefined || opener !== undefined || line !== undefined;
+  };
   svg.addEventListener('click', (event) => {
     if (dragged) {
       dragged = false;
       return;
     }
-    const box = clickedBox(event.target);
-    if (box !== undefined) fireBoxClick(box);
-    const opener = clickedOpener(event.target);
-    if (opener !== undefined) fireLevelBoxClick(opener);
-    const line = clickedLine(event.target);
-    if (line !== undefined) fireLineClick(line);
-    if (box === undefined && opener === undefined && line === undefined) {
-      for (const handler of emptyHandlers) handler();
-    }
+    if (activate(event.target)) return;
+    for (const handler of emptyHandlers) handler();
   });
   svg.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
-    const box = clickedBox(event.target);
-    const opener = clickedOpener(event.target);
-    const line = clickedLine(event.target);
-    if (box === undefined && opener === undefined && line?.calls === undefined) return;
-    event.preventDefault();
-    if (box !== undefined) fireBoxClick(box);
-    if (opener !== undefined) fireLevelBoxClick(opener);
-    if (line !== undefined) fireLineClick(line);
+    if (activate(event.target)) event.preventDefault();
   });
 
   apply();

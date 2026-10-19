@@ -110,7 +110,7 @@ _Avoid_: touched function, dirty function
 
 **Hop**:
 One call away from a function, in either direction. A caller and a callee are each one hop away.
-_Avoid_: level, step, depth
+_Avoid_: step, depth
 
 **Neighbour**:
 A function one hop from a changed function that the branch did not change. Every view shows it greyed. In the Diff view, a click opens its own next hop. A function further from the change gets no mark. The hop counts in the base graph and in the branch graph, so the far end of a call that the branch removed is a neighbour too, and the page shows that call.

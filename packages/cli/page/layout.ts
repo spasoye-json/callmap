@@ -1,7 +1,7 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import type { ElkExtendedEdge, ElkLabel, ElkNode } from 'elkjs/lib/elk-api.js';
 import { appendTo, byText } from '@callmap/review';
-import { arrowKeyOf, lineLabelOf } from './scene.ts';
+import { arrowKeyOf, countsTextOf, lineLabelOf } from './scene.ts';
 import type { Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 
 export interface Rect {
@@ -76,8 +76,8 @@ const boxNodeOf = (box: SceneBox): ElkNode => {
     case 'file':
       return {
         id: box.id,
-        width: Math.max(96, widthOf(box.label, 7, 24), widthOf(box.counts, 6, 24)),
-        height: box.counts === '' ? BOX_HEIGHT : COUNTED_BOX_HEIGHT,
+        width: Math.max(96, widthOf(box.label, 7, 24), widthOf(countsTextOf(box), 6, 24)),
+        height: box.counts.length === 0 ? BOX_HEIGHT : COUNTED_BOX_HEIGHT,
       };
   }
 };

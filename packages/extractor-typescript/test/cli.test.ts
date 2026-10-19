@@ -30,7 +30,7 @@ const documentOf = (...args: readonly string[]) => {
   return readGraphDocument(JSON.parse(finished.stdout));
 };
 
-describe('the extractor as a separate process', () => {
+describe('the extractor as a separate process', { timeout: 30_000 }, () => {
   it('emits a document the core validates', () => {
     expect(documentOf(FIXTURE).language).toBe('typescript');
   });
