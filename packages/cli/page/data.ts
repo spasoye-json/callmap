@@ -25,7 +25,7 @@ export interface LineSpan {
 export interface ReaderPageData {
   readonly review: Review;
   readonly branchGraph: GraphDocument;
-  readonly sources: Sources;
+  readonly packedSources: string;
   readonly basePlaces: Readonly<Record<FunctionId, LineSpan>>;
   readonly editor: EditorChoice;
   readonly placements: Readonly<Partial<Record<string, Placement>>>;

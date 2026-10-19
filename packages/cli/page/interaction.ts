@@ -9,7 +9,7 @@ import { tabBarOf } from './tabs.ts';
 import type { Choice, View } from './view.ts';
 
 export interface Interaction {
-  readonly page: ReaderPage;
+  readonly page: Omit<ReaderPage, 'sources'>;
   readonly render: () => Promise<void>;
 }
 
@@ -161,7 +161,7 @@ export const interactionOf = (
     },
   );
 
-  const page: ReaderPage = {
+  const page: Omit<ReaderPage, 'sources'> = {
     data,
     graph,
     panels,
