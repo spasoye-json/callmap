@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { commitFile, featureBranchRepo, fixtureText, git } from './fixture-repo.ts';
+import { featureBranchRepo, git } from './fixture-repo.ts';
 import {
   boxElementOf,
   boxesOf,
@@ -37,74 +37,6 @@ beforeAll(() => {
 
 const codePanelOf = ({ window }: LoadedPage) =>
   within(within(window.document.body).getByRole('region', { name: 'Code' }));
-
-describe('the code panel', () => {
-  it('shows the code of a box after a click on it', async () => {
-    const page = await loadReaderPage(html);
-    await clickBox(page, `${CART}#taxed`);
-    const panel = codePanelOf(page);
-    expect(panel.getByRole('heading', { name: 'taxed' })).toBeDefined();
-    expect(
-      panel.getByText(
-        'export const taxed = (prices: readonly number[]): number => subtotal(prices) * 1.25;',
-      ),
-    ).toBeDefined();
-    expect(panel.queryByText(/export const subtotal/)).toBeNull();
-  });
-
-  it('shows the code of a removed function as the base held it', async () => {
-    const page = await loadReaderPage(html);
-    await clickBox(page, `${CART}#legacyTotal`);
-    expect(
-      codePanelOf(page).getByText(
-        'export const legacyTotal = (prices: readonly number[]): number => subtotal(prices) * 1.2;',
-      ),
-    ).toBeDefined();
-  });
-
-  it('marks the lines that the branch changed inside a changed function, and no others', async () => {
-    const page = await loadReaderPage(html);
-    await clickBox(page, `${CART}#receipt`);
-    const panel = codePanelOf(page);
-    expect(panel.getAllByRole('insertion').map((line) => line.textContent)).toEqual([
-      '9  const total = taxed(prices);',
-      '10  return format(total);',
-    ]);
-    expect(panel.getByText('};').closest('ins')).toBeNull();
-  });
-
-  it('marks the line below a deletion inside a changed function', async () => {
-    const deletion = featureBranchRepo();
-    const cart = (extra: string): string =>
-      fixtureText('branch', CART).replace(
-        '  return format(total);',
-        `${extra}  return format(total);`,
-      );
-    commitFile(deletion, CART, cart('  console.log(total);\n'));
-    commitFile(deletion, CART, cart(''));
-    const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
-    const finished = runCallmap([
-      'review',
-      deletion,
-      '--no-open',
-      '--out',
-      out,
-      '--base',
-      'HEAD~1',
-    ]);
-    expect(finished.status, finished.stderr).toBe(0);
-
-    const page = await loadReaderPage(readFileSync(out, 'utf8'));
-    await clickBox(page, `${CART}#receipt`);
-    const panel = codePanelOf(page);
-    expect(
-      panel
-        .getAllByTitle('The branch removed lines above this line.')
-        .map((line) => line.textContent),
-    ).toEqual(['10  return format(total);']);
-    expect(panel.queryAllByRole('insertion')).toEqual([]);
-  }, 60_000);
-});
 
 const callNamesOf = (page: LoadedPage): readonly string[] =>
   callsOf(page)

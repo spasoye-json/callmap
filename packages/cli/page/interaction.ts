@@ -44,6 +44,7 @@ export const interactionOf = (
     laid: undefined,
   })) as [ViewState, ...ViewState[]];
   let current = states[0];
+  let selected: FunctionId | undefined;
   let drawn: ViewState | undefined;
   let queue = Promise.resolve();
   let pending = 0;
@@ -62,6 +63,7 @@ export const interactionOf = (
   const paint = (target: ViewState, laid: Laid, anchor?: FunctionId): void => {
     if (target !== current) return;
     drawing.draw(laid, { anchor, zoomLevels: target.view.zoomLevels === true });
+    drawing.highlight(selected);
     if (drawn !== target) drawing.fit();
     drawn = target;
   };
@@ -85,11 +87,22 @@ export const interactionOf = (
     });
   };
 
+  const highlight = (id: FunctionId | undefined): void => {
+    selected = id;
+    drawing.highlight(selected);
+  };
+
   const select = (box: FunctionBox): void => {
-    drawing.select(box.id);
+    highlight(box.id);
     for (const handler of boxHandlers) handler(box);
   };
   drawing.onBoxClick(select);
+  drawing.onEmptyClick(() => {
+    highlight(undefined);
+  });
+  graph.ownerDocument.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') highlight(undefined);
+  });
 
   const show = (ids: readonly FunctionId[], anchor?: FunctionId): Promise<void> => {
     const fresh = ids.filter((id) => !current.opened.has(id) && functionBoxOf(id) === undefined);

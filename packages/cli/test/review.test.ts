@@ -85,7 +85,7 @@ describe('callmap review on a feature branch', () => {
     expect(branchGraph.functions.map(({ id }) => id)).toContain(`${MONEY}#round`);
   });
 
-  it('holds the source text of every file that holds a function in the review or the search', () => {
+  it('holds the branch text of every file that the review or the search shows, and the base text of every file with a removed or changed function', () => {
     const { sources } = pageDataOf(html);
     expect(sources.branch).toEqual({
       [ALERTS]: fixtureText('branch', ALERTS),
@@ -96,7 +96,17 @@ describe('callmap review on a feature branch', () => {
       [REPORT]: fixtureText('branch', REPORT),
       [RATE]: fixtureText('branch', RATE),
     });
-    expect(sources.base).toEqual({ [CART]: fixtureText('base', CART) });
+    expect(sources.base).toEqual({
+      [ALERTS]: fixtureText('base', ALERTS),
+      [CART]: fixtureText('base', CART),
+    });
+  });
+
+  it('holds the lines that each changed function had in the base, so the page can show its diff', () => {
+    expect(pageDataOf(html).basePlaces).toEqual({
+      [`${ALERTS}#alert`]: { firstLine: 3, lastLine: 3 },
+      [`${CART}#receipt`]: { firstLine: 10, lastLine: 13 },
+    });
   });
 
   it('writes the page to the path that --out names, and prints that path', () => {

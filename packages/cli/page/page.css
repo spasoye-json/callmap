@@ -11,6 +11,16 @@
   --changed-line: #fbefd5;
   --selected: #dbe6fb;
   --code: #f6f7f9;
+  --diff-added-line: #e6ffec;
+  --diff-added-text: #a6f0b9;
+  --diff-removed-line: #ffebe9;
+  --diff-removed-text: #ffb8b1;
+  --syntax-keyword: #cf222e;
+  --syntax-string: #0a3069;
+  --syntax-literal: #0550ae;
+  --syntax-type: #953800;
+  --syntax-function: #8250df;
+  --syntax-definition: #1d2330;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -26,6 +36,16 @@
     --changed-line: #4a3a1c;
     --selected: #2b3a57;
     --code: #151920;
+    --diff-added-line: #17301f;
+    --diff-added-text: #22603a;
+    --diff-removed-line: #3a1d22;
+    --diff-removed-text: #7a2d33;
+    --syntax-keyword: #ff7b72;
+    --syntax-string: #a5d6ff;
+    --syntax-literal: #79c0ff;
+    --syntax-type: #ffa657;
+    --syntax-function: #d2a8ff;
+    --syntax-definition: #e6e9ef;
   }
 }
 

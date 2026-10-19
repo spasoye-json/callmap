@@ -5,7 +5,6 @@ import type { GraphDocument } from '@callmap/graph-document';
 import { reviewOf } from '@callmap/review';
 import type { ReviewInvocation } from './arguments.ts';
 import { openInBrowser } from './browser.ts';
-import { changedLinesByFileOf } from './changed-lines.ts';
 import { extractGraphDocumentOf } from './extractors.ts';
 import type { ExtractorSettings } from './extractors.ts';
 import {
@@ -17,7 +16,7 @@ import {
   shortCommitOf,
 } from './git.ts';
 import { readerPageOf } from './reader-page.ts';
-import { sourcesOf } from './sources.ts';
+import { basePlacesOf, sourcesOf } from './sources.ts';
 
 export class UnreadableGraphError extends Error {
   override readonly name = 'UnreadableGraphError';
@@ -72,15 +71,12 @@ export const runReview = async (invocation: ReviewInvocation): Promise<string> =
   ]);
   const branchGraph = settled(branchRead);
   const baseGraph = settled(baseRead);
-  const review = reviewOf({
-    base: baseGraph,
-    branch: branchGraph,
-    changedLinesByFile: changedLinesByFileOf(root, base),
-  });
+  const review = reviewOf({ base: baseGraph, branch: branchGraph });
   const html = await readerPageOf({
     review,
     branchGraph,
     sources: sourcesOf(root, base, review, branchGraph),
+    basePlaces: basePlacesOf(review, baseGraph),
     editor: { name: invocation.editor, repoRoot: root },
   });
 

@@ -1,3 +1,4 @@
+import { highlightOf } from './highlight.ts';
 import type { Laid, LaidBox, LaidFrame, LaidLine, Point, Rect } from './layout.ts';
 import type { FunctionBox } from './scene.ts';
 
@@ -20,10 +21,11 @@ export interface DrawOptions {
 export interface Drawing {
   readonly draw: (laid: Laid, options?: DrawOptions) => void;
   readonly fit: () => void;
-  readonly select: (id: string) => void;
+  readonly highlight: (selected: string | undefined) => void;
   readonly focus: (id: string) => void;
   readonly onBoxClick: (handler: (box: LaidFunction) => void) => void;
   readonly onLineClick: (handler: (line: LaidLine) => void) => void;
+  readonly onEmptyClick: (handler: () => void) => void;
 }
 
 const svgOf = <Name extends keyof SVGElementTagNameMap>(
@@ -154,11 +156,11 @@ export const drawingOf = (container: HTMLElement): Drawing => {
 
   const camera: Camera = { scale: 1, x: 0, y: 0 };
   let laid: Laid = { frames: [], boxes: [], lines: [], width: 0, height: 0 };
-  let selected: string | undefined;
   let zoomLevels = false;
   let details = svgOf('g', { class: 'details' });
   const handlers: ((box: LaidFunction) => void)[] = [];
   const lineHandlers: ((line: LaidLine) => void)[] = [];
+  const emptyHandlers: (() => void)[] = [];
 
   const showDetails = (): void => {
     const far = zoomLevels && camera.scale < FAR_SCALE;
@@ -207,14 +209,20 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     apply();
   };
 
-  const markSelected = (): void => {
-    for (const element of details.querySelectorAll('.box.selected')) {
-      element.classList.remove('selected');
+  const highlight = (selected: string | undefined): void => {
+    const lit = selected === undefined ? undefined : highlightOf(laid, selected);
+    const drawn = [viewport, ...(details.parentNode === null ? [details] : [])].flatMap((group) => [
+      ...group.querySelectorAll('[data-box], [data-line]'),
+    ]);
+    for (const element of drawn) {
+      const box = element.getAttribute('data-box');
+      const line = Number(element.getAttribute('data-line'));
+      const isSelected = box !== null && box === lit?.selected;
+      const connected = box === null ? lit?.lines.has(line) : lit?.boxes.has(box);
+      element.classList.toggle('selected', isSelected);
+      element.classList.toggle('connected', connected === true);
+      element.classList.toggle('faded', lit !== undefined && !isSelected && connected !== true);
     }
-    const element = [...details.querySelectorAll('[data-box]')].find(
-      (candidate) => candidate.getAttribute('data-box') === selected,
-    );
-    element?.classList.add('selected');
   };
 
   const draw = (next: Laid, { anchor, zoomLevels: levels = false }: DrawOptions = {}): void => {
@@ -236,7 +244,6 @@ export const drawingOf = (container: HTMLElement): Drawing => {
       svgOf('g', { class: 'lines' }, ...linesOf(true)),
     );
     showDetails();
-    markSelected();
     const after = anchor === undefined ? undefined : boxOfId(anchor);
     if (before !== undefined && after !== undefined) {
       const [beforeX, beforeY] = centreOf(before);
@@ -245,11 +252,6 @@ export const drawingOf = (container: HTMLElement): Drawing => {
       camera.y += (beforeY - afterY) * camera.scale;
       apply();
     }
-  };
-
-  const select = (id: string): void => {
-    selected = id;
-    markSelected();
   };
 
   const clickedLine = (target: EventTarget | null): LaidLine | undefined => {
@@ -326,6 +328,9 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     if (box !== undefined) fireBoxClick(box);
     const line = clickedLine(event.target);
     if (line !== undefined) fireLineClick(line);
+    if (box === undefined && line === undefined) {
+      for (const handler of emptyHandlers) handler();
+    }
   });
   svg.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -342,13 +347,16 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   return {
     draw,
     fit,
-    select,
+    highlight,
     focus,
     onBoxClick: (handler) => {
       handlers.push(handler);
     },
     onLineClick: (handler) => {
       lineHandlers.push(handler);
+    },
+    onEmptyClick: (handler) => {
+      emptyHandlers.push(handler);
     },
   };
 };

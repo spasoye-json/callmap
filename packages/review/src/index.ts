@@ -1,5 +1,4 @@
 export type { CallMark, MarkedCall } from './calls.ts';
-export type { ChangedLines, ChangedLinesByFile, LineChanges } from './changed-lines.ts';
 export { callTreeOf, entryPointsOf } from './entry-points.ts';
 export type { EntryPoint } from './entry-points.ts';
 export { hopsOf, oneHopFrom } from './hops.ts';

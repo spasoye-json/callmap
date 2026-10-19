@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Call, GraphDocument, GraphFunction } from '@callmap/graph-document';
 import { reviewOf } from '../src/index.ts';
-import type { ChangedLinesByFile } from '../src/index.ts';
 
 const fn = (id: string, sourceHash = `${id}@1`, firstLine = 1): GraphFunction => {
   const [file = '', name = ''] = id.split('#');
@@ -23,9 +22,7 @@ const graph = (
 });
 
 const marksOf = (base: GraphDocument, branch: GraphDocument) =>
-  Object.fromEntries(
-    reviewOf({ base, branch, changedLinesByFile: {} }).functions.map(({ id, mark }) => [id, mark]),
-  );
+  Object.fromEntries(reviewOf({ base, branch }).functions.map(({ id, mark }) => [id, mark]));
 
 const A = 'src/a.ts#a';
 const B = 'src/a.ts#b';
@@ -53,7 +50,6 @@ describe('the changed functions of a review', () => {
     const review = reviewOf({
       base: graph([fn(A, 'old', 3), fn(B, 'b', 9)]),
       branch: graph([fn(A, 'new', 5)]),
-      changedLinesByFile: {},
     });
     expect(review.functions).toEqual([
       { ...fn(A, 'new', 5), mark: 'changed' },
@@ -105,8 +101,7 @@ describe('the neighbours of a review', () => {
   });
 });
 
-const callsOf = (base: GraphDocument, branch: GraphDocument) =>
-  reviewOf({ base, branch, changedLinesByFile: {} }).calls;
+const callsOf = (base: GraphDocument, branch: GraphDocument) => reviewOf({ base, branch }).calls;
 
 describe('the calls of a review', () => {
   it('marks a call that only the branch holds as added', () => {
@@ -146,45 +141,11 @@ describe('the calls of a review', () => {
   });
 });
 
-describe('the changed lines of a review', () => {
-  const changedLinesOf = (
-    base: GraphDocument,
-    branch: GraphDocument,
-    changedLinesByFile: ChangedLinesByFile,
-  ) => reviewOf({ base, branch, changedLinesByFile }).changedLines;
-
-  it('gives a changed function the changed lines of its file that fall inside it', () => {
-    const base = graph([fn(A, 'old', 4), fn(B, 'b', 10)]);
-    const branch = graph([fn(A, 'new', 4), fn(B, 'b', 10)]);
-    expect(
-      changedLinesOf(base, branch, {
-        'src/a.ts': { changed: [1, 5, 6, 11], removedAbove: [] },
-      }),
-    ).toEqual({ [A]: { changed: [5, 6], removedAbove: [] } });
-  });
-
-  it('gives a changed function the line below each deletion inside it', () => {
-    const base = graph([fn(A, 'old', 4)]);
-    const branch = graph([fn(A, 'new', 4)]);
-    expect(
-      changedLinesOf(base, branch, { 'src/a.ts': { changed: [4], removedAbove: [2, 6] } }),
-    ).toEqual({ [A]: { changed: [4], removedAbove: [6] } });
-  });
-
-  it('gives no changed lines to an added or a removed function, because all of it is new or gone', () => {
-    const base = graph([fn(B)]);
-    const branch = graph([fn(A)]);
-    expect(
-      changedLinesOf(base, branch, { 'src/a.ts': { changed: [1, 2, 3], removedAbove: [2] } }),
-    ).toEqual({});
-  });
-});
-
 describe('the order of a review', () => {
   it('lists functions by id and calls by caller and callee, whatever order the graphs use', () => {
     const base = graph([fn(D)]);
     const branch = graph([fn(D), fn(C), fn(B), fn(A)], [call(C, D), call(A, D), call(A, B)]);
-    const review = reviewOf({ base, branch, changedLinesByFile: {} });
+    const review = reviewOf({ base, branch });
     expect(review.functions.map(({ id }) => id)).toEqual([A, B, C, D]);
     expect(review.calls.map(({ caller, callee }) => `${caller}>${callee}`)).toEqual([
       `${A}>${B}`,
@@ -195,10 +156,9 @@ describe('the order of a review', () => {
 
   it('gives an empty review when the branch changes no function', () => {
     const same = graph([fn(A), fn(B)], [call(A, B)]);
-    expect(reviewOf({ base: same, branch: same, changedLinesByFile: {} })).toEqual({
+    expect(reviewOf({ base: same, branch: same })).toEqual({
       functions: [],
       calls: [],
-      changedLines: {},
       openEnds: [],
       oneOfGroups: [],
       resolutionRate: { resolved: 1, open: 0, rate: 1 },

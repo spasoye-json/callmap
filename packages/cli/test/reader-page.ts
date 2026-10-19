@@ -34,9 +34,9 @@ export const runCallmap = (args: readonly string[], opener?: Opener) =>
         : { ...process.env, PATH: `${opener.bin}${delimiter}${process.env['PATH'] ?? ''}` },
   });
 
-export const reviewHtmlOf = (repo: string): string => {
+export const reviewHtmlOf = (repo: string, ...flags: readonly string[]): string => {
   const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
-  const finished = runCallmap(['review', repo, '--no-open', '--out', out]);
+  const finished = runCallmap(['review', repo, '--no-open', '--out', out, ...flags]);
   if (finished.status !== 0) throw new Error(finished.stderr);
   return readFileSync(out, 'utf8');
 };
@@ -94,8 +94,33 @@ export const settled = async ({ window }: LoadedPage): Promise<void> => {
   }
 };
 
-export const loadReaderPage = async (html: string): Promise<LoadedPage> => {
-  const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true });
+export type StoredItems = Readonly<Record<string, string>>;
+
+const withStorage = (stored: StoredItems | undefined) =>
+  stored === undefined
+    ? {}
+    : {
+        url: 'http://localhost/',
+        beforeParse: (window: JSDOM['window']) => {
+          for (const [key, value] of Object.entries(stored))
+            window.localStorage.setItem(key, value);
+        },
+      };
+
+export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
+  Object.fromEntries(
+    Array.from({ length: window.localStorage.length }, (_, index) => {
+      const key = window.localStorage.key(index) ?? '';
+      return [key, window.localStorage.getItem(key) ?? ''];
+    }),
+  );
+
+export const loadReaderPage = async (html: string, stored?: StoredItems): Promise<LoadedPage> => {
+  const dom = new JSDOM(html, {
+    runScripts: 'dangerously',
+    pretendToBeVisual: true,
+    ...withStorage(stored),
+  });
   const page = { window: dom.window };
   await settled(page);
   return page;

@@ -1,11 +1,81 @@
+.code-panel {
+  position: relative;
+  display: flex;
+  flex: none;
+  min-width: 0;
+  border-left: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.code-panel[hidden] {
+  display: none;
+}
+
+.code-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  z-index: 1;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.code-edge:hover,
+.code-edge:focus-visible,
+.code-panel.resizing .code-edge {
+  background: var(--selected);
+  outline: none;
+}
+
+.code-panel.resizing {
+  user-select: none;
+}
+
+.code-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 12px 16px;
+  overflow: auto;
+}
+
+.code-header {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
 .code-panel h2 {
   margin: 0;
   font-size: 15px;
   overflow-wrap: anywhere;
 }
 
-.code-place,
-.code-hint {
+.code-collapse {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font:
+    16px/1 system-ui,
+    sans-serif;
+  cursor: pointer;
+}
+
+.code-collapse:hover,
+.code-collapse:focus-visible {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.code-place {
   margin: 4px 0 8px;
   color: var(--muted);
   overflow-wrap: anywhere;
@@ -15,47 +85,105 @@
   color: var(--ink);
 }
 
-.code-panel pre {
-  margin: 0;
-  padding: 8px 0;
-  overflow-x: auto;
-  background: var(--code);
+.code-panel .cm-editor {
   border: 1px solid var(--rule);
   border-radius: 4px;
-  font:
-    12px/1.5 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
-}
-
-.code-panel code {
-  display: inline-block;
-  min-width: 100%;
-}
-
-.code-panel .line {
-  display: block;
-  padding-right: 12px;
-  white-space: pre;
-  text-decoration: none;
+  background: var(--code);
   color: var(--ink);
+  font-size: 12px;
 }
 
-.code-panel ins.line {
-  background: var(--changed-line);
-  box-shadow: inset 3px 0 0 var(--changed);
+.code-panel .cm-editor .cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.6;
 }
 
-.code-panel .line.removed-above {
-  box-shadow: inset 0 2px 0 var(--removed);
+.code-panel .cm-editor .cm-content {
+  padding: 6px 0;
 }
 
-.line-number {
-  display: inline-block;
-  min-width: 3.5em;
-  padding-right: 12px;
-  text-align: right;
+.code-panel .cm-editor .cm-gutters {
+  border-right: 1px solid var(--rule);
+  background: var(--code);
   color: var(--muted);
-  user-select: none;
+}
+
+.code-panel .cm-editor .cm-lineNumbers .cm-gutterElement {
+  min-width: 3.5em;
+  padding: 0 10px 0 6px;
+}
+
+.code-panel .cm-editor .cm-changedLine,
+.code-panel .cm-editor .cm-deletedLine {
+  background: var(--diff-added-line);
+  box-shadow: inset 3px 0 0 var(--added);
+}
+
+.code-panel .cm-editor .cm-deletedLine {
+  background: var(--diff-removed-line);
+  box-shadow: inset 3px 0 0 var(--removed);
+}
+
+.code-panel .cm-editor .cm-deletedChunk {
+  padding-left: 0;
+  background: none;
+}
+
+.code-panel .cm-editor .cm-deletedChunk .cm-deletedLine {
+  padding: 0 2px 0 6px;
+}
+
+.code-panel .cm-editor ins,
+.code-panel .cm-editor del {
+  text-decoration: none;
+}
+
+.code-panel .cm-editor .cm-changedLine .cm-changedText,
+.code-panel .cm-editor .cm-deletedChunk .cm-deletedText {
+  border-radius: 2px;
+  background: var(--diff-added-text);
+  font-weight: 700;
+}
+
+.code-panel .cm-editor .cm-deletedChunk .cm-deletedText {
+  background: var(--diff-removed-text);
+}
+
+.code-panel .cm-editor .cm-changedLine.added-only .cm-changedText,
+.code-panel .cm-editor .cm-deletedChunk:not(:has(+ .cm-changedLine)) .cm-deletedText {
+  background: none;
+  font-weight: inherit;
+}
+
+.code-panel .removed-line-numbers > div {
+  color: var(--removed);
+}
+
+.syntax-keyword {
+  color: var(--syntax-keyword);
+}
+
+.syntax-string {
+  color: var(--syntax-string);
+}
+
+.syntax-literal {
+  color: var(--syntax-literal);
+}
+
+.syntax-comment {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.syntax-type {
+  color: var(--syntax-type);
+}
+
+.syntax-function {
+  color: var(--syntax-function);
+}
+
+.syntax-definition {
+  color: var(--syntax-definition);
 }

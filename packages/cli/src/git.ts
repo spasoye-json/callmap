@@ -84,22 +84,6 @@ export const shortCommitOf = (root: string, commit: string): string =>
 export const fileAt = (root: string, commit: string, file: string): string =>
   gitOutput(root, 'show', `${commit}:${file}`);
 
-export const diffAgainst = (root: string, base: string): string =>
-  gitOutput(
-    root,
-    '-c',
-    'core.quotePath=false',
-    'diff',
-    '--unified=0',
-    '--no-color',
-    '--no-ext-diff',
-    '--no-renames',
-    '--src-prefix=a/',
-    '--dst-prefix=b/',
-    base,
-    '--',
-  );
-
 const packageFoldersOf = (root: string): readonly string[] =>
   git(root, 'ls-files', '--others', '--directory', '-z')
     .split('\0')
