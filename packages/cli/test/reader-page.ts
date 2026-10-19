@@ -104,6 +104,7 @@ export interface DrawnLine {
 
 export interface LoadedPage {
   readonly window: JSDOM['window'];
+  readonly layouts: readonly string[];
 }
 
 const LAYOUT_TIMEOUT = 10_000;
@@ -136,9 +137,23 @@ const decompressionHeldUntil = (held: Promise<void>) =>
     }
   };
 
-const withBrowserApis = (stored: StoredItems | undefined, textsHeldUntil?: Promise<void>) => ({
+const recordLayouts = (window: JSDOM['window'], layouts: string[]): void => {
+  // jsdom has no User Timing API, so the test records the layouts that the page measures.
+  Object.assign(window.performance, {
+    measure: (name: string) => {
+      layouts.push(name);
+    },
+  });
+};
+
+const withBrowserApis = (
+  layouts: string[],
+  stored: StoredItems | undefined,
+  textsHeldUntil?: Promise<void>,
+) => ({
   ...(stored === undefined ? {} : { url: 'http://localhost/' }),
   beforeParse: (window: JSDOM['window']) => {
+    recordLayouts(window, layouts);
     Object.assign(window, {
       DecompressionStream:
         textsHeldUntil === undefined ? DecompressionStream : decompressionHeldUntil(textsHeldUntil),
@@ -161,12 +176,13 @@ export const loadReaderPage = async (
   stored?: StoredItems,
   textsHeldUntil?: Promise<void>,
 ): Promise<LoadedPage> => {
+  const layouts: string[] = [];
   const dom = new JSDOM(html, {
     runScripts: 'dangerously',
     pretendToBeVisual: true,
-    ...withBrowserApis(stored, textsHeldUntil),
+    ...withBrowserApis(layouts, stored, textsHeldUntil),
   });
-  const page = { window: dom.window };
+  const page = { window: dom.window, layouts };
   await settled(page);
   return page;
 };

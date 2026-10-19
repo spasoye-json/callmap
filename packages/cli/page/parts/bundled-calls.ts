@@ -6,8 +6,12 @@ import type { SceneLine } from '../scene.ts';
 const bundledCalls: PagePart = (page) => {
   const functions = pageFunctionsOf(page.data);
   const nameOf = (id: string): string => functions.get(id)?.name ?? id;
-  const textOf = ({ from, to, oneOf }: SceneLine): string =>
-    `${nameOf(from)} calls ${nameOf(to)}${oneOf === undefined ? '' : `, ${oneOf}`}`;
+  const textOf = ({ from, to, oneOf, mark }: SceneLine): string =>
+    [
+      `${nameOf(from)} calls ${nameOf(to)}`,
+      ...(oneOf === undefined ? [] : [oneOf]),
+      ...(mark === 'kept' ? [] : [mark]),
+    ].join(', ');
 
   const section = document.createElement('section');
   section.setAttribute('aria-label', 'Calls');

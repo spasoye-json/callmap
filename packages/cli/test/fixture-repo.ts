@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('../fixture-review', import.meta.url));
+const LEVELS = fileURLToPath(new URL('../fixture-levels', import.meta.url));
 
 const GIT_ENV = {
   ...process.env,
@@ -21,25 +22,30 @@ const GIT_ENV = {
 export const git = (repo: string, ...args: readonly string[]): string =>
   execFileSync('git', args, { cwd: repo, encoding: 'utf8', env: GIT_ENV }).trim();
 
-const commitTree = (repo: string, tree: string, message: string): void => {
+const commitTree = (repo: string, fixture: string, tree: string, message: string): void => {
   for (const path of git(repo, 'ls-files')
     .split('\n')
     .filter((line) => line !== '')) {
     rmSync(join(repo, path));
   }
-  cpSync(join(FIXTURE, tree), repo, { recursive: true });
+  cpSync(join(fixture, tree), repo, { recursive: true });
   git(repo, 'add', '--all');
   git(repo, 'commit', '--quiet', '--message', message);
 };
 
-export const featureBranchRepo = (defaultBranch = 'main'): string => {
+const branchRepoOf = (fixture: string, defaultBranch: string): string => {
   const repo = mkdtempSync(join(tmpdir(), 'callmap-review-'));
   git(repo, 'init', '--quiet', '--initial-branch', defaultBranch);
-  commitTree(repo, 'base', 'base');
+  commitTree(repo, fixture, 'base', 'base');
   git(repo, 'checkout', '--quiet', '-b', 'feature');
-  commitTree(repo, 'branch', 'branch');
+  commitTree(repo, fixture, 'branch', 'branch');
   return repo;
 };
+
+export const featureBranchRepo = (defaultBranch = 'main'): string =>
+  branchRepoOf(FIXTURE, defaultBranch);
+
+export const levelsRepo = (): string => branchRepoOf(LEVELS, 'main');
 
 export const featureBranchRepoWithUnchangedFiles = (): string => {
   const repo = featureBranchRepo();

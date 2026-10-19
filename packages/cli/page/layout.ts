@@ -60,15 +60,27 @@ const CYCLE_BREAKING: Readonly<Record<string, string>> = {
 const FRAME_PADDING = '[top=30,left=12,bottom=12,right=12]';
 const BOX_HEIGHT = 30;
 const OPEN_END_HEIGHT = 22;
+const COUNTED_BOX_HEIGHT = 46;
 const LABEL_HEIGHT = 16;
 
 const widthOf = (text: string, perCharacter: number, padding: number): number =>
   Math.ceil(text.length * perCharacter) + padding;
 
-const boxNodeOf = (box: SceneBox): ElkNode =>
-  box.kind === 'function'
-    ? { id: box.id, width: Math.max(96, widthOf(box.label, 7, 24)), height: BOX_HEIGHT }
-    : { id: box.id, width: widthOf(box.label, 6, 16), height: OPEN_END_HEIGHT };
+const boxNodeOf = (box: SceneBox): ElkNode => {
+  switch (box.kind) {
+    case 'function':
+      return { id: box.id, width: Math.max(96, widthOf(box.label, 7, 24)), height: BOX_HEIGHT };
+    case 'open-end':
+      return { id: box.id, width: widthOf(box.label, 6, 16), height: OPEN_END_HEIGHT };
+    case 'folder':
+    case 'file':
+      return {
+        id: box.id,
+        width: Math.max(96, widthOf(box.label, 7, 24), widthOf(box.counts, 6, 24)),
+        height: box.counts === '' ? BOX_HEIGHT : COUNTED_BOX_HEIGHT,
+      };
+  }
+};
 
 const frameNodeOf = (frame: SceneFrame, children: ElkNode[]): ElkNode => ({
   id: frame.id,

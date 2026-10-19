@@ -96,7 +96,7 @@ const placementsOf = async (data: ReaderPageData): Promise<Readonly<Record<strin
       READER_VIEWS.filter(({ laidOutByCommand }) => laidOutByCommand === true).map(
         async (view): Promise<[string, Placement]> => [
           view.name,
-          await placementInWorkerOf(view.sceneOf(data, new Set(), undefined)),
+          await placementInWorkerOf(view.sceneOf(data, new Set(), view.firstChoice?.(data))),
         ],
       ),
     ),
