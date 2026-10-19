@@ -269,23 +269,169 @@ describe('the page of a review with levels', () => {
 });
 
 describe('the search in the Whole project view', () => {
-  it('opens the level that holds the file of the function that it finds', async () => {
-    const page = await projectPage();
+  const find = async (page: LoadedPage, name: string, file: string): Promise<void> => {
     const body = bodyOf(page);
     fireEvent.input(body.getByRole('searchbox', { name: 'Find a function' }), {
-      target: { value: 'refund' },
+      target: { value: name },
     });
     fireEvent.click(
       within(body.getByRole('region', { name: 'Search' })).getByRole('button', {
-        name: `refund ${SERVICE}/refund.ts`,
+        name: `${name} ${file}`,
       }),
     );
     await settled(page);
-    expect(boxLabelsOf(page)[`${SERVICE}/refund.ts`]).toBe('refund.ts');
+  };
+
+  const selectedOf = (page: LoadedPage): readonly string[] =>
+    boxesOf(page)
+      .filter(({ classes }) => classes.includes('selected'))
+      .map(({ id }) => id);
+
+  const crumbsOf = (page: LoadedPage): readonly string[] =>
+    breadcrumbOf(page)
+      .getAllByRole('button')
+      .map((crumb) => crumb.textContent);
+
+  it('opens the level of the file of the function that it finds, and selects its box', async () => {
+    const page = await projectPage();
+    await find(page, 'refund', `${SERVICE}/refund.ts`);
+    expect(boxLabelsOf(page)[`${SERVICE}/refund.ts#refund`]).toBe('refund');
+    expect(selectedOf(page)).toEqual([`${SERVICE}/refund.ts#refund`]);
+    expect(crumbsOf(page)).toEqual(['src/', 'orders/', 'service/', 'refund.ts']);
+    expect(breadcrumbOf(page).getByRole('button', { current: 'location' }).textContent).toBe(
+      'refund.ts',
+    );
+  });
+
+  it('finds a function in another folder from a file level', async () => {
+    const page = await channelPage();
+    await find(page, 'express', `${CARRIERS}/courier.ts`);
+    expect(selectedOf(page)).toEqual([`${CARRIERS}/courier.ts#express`]);
+    expect(crumbsOf(page)).toEqual(['src/', 'shipping/carriers/', 'courier.ts']);
+  });
+});
+
+const CHANNEL = `${NOTIFY}/channel.ts`;
+
+const channelPage = async (): Promise<LoadedPage> => {
+  const page = await projectPage();
+  await clickBox(page, NOTIFY);
+  await clickBox(page, CHANNEL);
+  return page;
+};
+
+describe('the file level', () => {
+  it('opens after a click on a file box, with one box for each function of the file', async () => {
+    const page = await channelPage();
     expect(
-      breadcrumbOf(page)
-        .getAllByRole('button')
-        .map((crumb) => crumb.textContent),
-    ).toEqual(['src/', 'orders/', 'service/']);
+      boxesOf(page)
+        .filter(({ kind }) => kind === 'function')
+        .map(({ id, label }) => [id, label]),
+    ).toEqual([
+      [`${CHANNEL}#Letter.deliver`, 'Letter.deliver'],
+      [`${CHANNEL}#Push.deliver`, 'Push.deliver'],
+      [`${CHANNEL}#broadcast`, 'broadcast'],
+      [`${CHANNEL}#announce`, 'announce'],
+      [`${CHANNEL}#urgent`, 'urgent'],
+    ]);
+    expect(framesAround(page, `${CHANNEL}#broadcast`).map(({ label }) => label)).toEqual([CHANNEL]);
+  });
+
+  it('draws each call between 2 functions of the file as its own line, and a call out of the file to an outside box', async () => {
+    const page = await channelPage();
+    expect(
+      linesOf(page)
+        .filter(({ classes }) => classes.includes('call'))
+        .map(({ from, to }) => `${from} -> ${to}`)
+        .sort(),
+    ).toEqual([
+      `${CHANNEL}#announce -> ${CHANNEL}#broadcast`,
+      `${CHANNEL}#announce -> ${NOTIFY}/mail.ts`,
+      `${CHANNEL}#broadcast -> ${CHANNEL}#Letter.deliver`,
+      `${CHANNEL}#broadcast -> ${CHANNEL}#Push.deliver`,
+      `${CHANNEL}#urgent -> ${CHANNEL}#broadcast`,
+    ]);
+    expect(
+      boxesOf(page)
+        .filter(({ classes }) => classes.includes('outside'))
+        .map(({ id, label }) => [id, label]),
+    ).toEqual([[`${NOTIFY}/mail.ts`, `${NOTIFY}/mail.ts`]]);
+  });
+
+  it('ends the calls from and to the code outside the file at the outside boxes', async () => {
+    const page = await ordersPage();
+    await clickBox(page, SERVICE);
+    await clickBox(page, `${SERVICE}/book.ts`);
+    expect(lineLabelsOf(page)).toEqual({
+      [`${API} -> ${SERVICE}/book.ts#book`]: '',
+      [`${NOTIFY} -> ${SERVICE}/book.ts#book`]: '',
+      [`${SERVICE}/book.ts#book -> ${MONEY}`]: '',
+      [`${SERVICE}/book.ts#book -> ${NOTIFY}`]: '',
+      [`${SERVICE}/book.ts#book -> ${SHIPPING}`]: '',
+    });
+    expect(
+      boxesOf(page)
+        .filter(({ classes }) => classes.includes('outside'))
+        .map(({ id }) => id),
+    ).toEqual([MONEY, NOTIFY, API, SHIPPING]);
+  });
+
+  it('shows the file at the end of the breadcrumb', async () => {
+    const page = await channelPage();
+    const crumbs = breadcrumbOf(page).getAllByRole('button');
+    expect(crumbs.map((crumb) => crumb.textContent)).toEqual(['src/', 'notify/', 'channel.ts']);
+    expect(crumbs.at(-1)?.getAttribute('aria-current')).toBe('location');
+  });
+
+  it('shows the one-of groups of the file', async () => {
+    const page = await channelPage();
+    const oneOf = linesOf(page).filter(({ classes }) => classes.includes('one-of'));
+    expect(oneOf.map(({ to, label }) => [to, label])).toEqual([
+      [`${CHANNEL}#Letter.deliver`, 'one of 2'],
+      [`${CHANNEL}#Push.deliver`, 'one of 2'],
+    ]);
+  });
+
+  it('shows the open ends of the file', async () => {
+    const page = await projectPage();
+    await clickBox(page, NOTIFY);
+    await clickBox(page, `${NOTIFY}/sms.ts`);
+    const openEnds = boxesOf(page).filter(({ kind }) => kind === 'open-end');
+    expect(openEnds.map(({ label }) => label)).toEqual(['JSON.parse(raw).notify :6']);
+    expect(
+      linesOf(page)
+        .filter(({ classes }) => classes.includes('open-end'))
+        .map(({ from, to }) => [from, to]),
+    ).toEqual([[`${NOTIFY}/sms.ts#relay`, openEnds[0]?.id]]);
+  });
+
+  it('shows the code of a function box after a click on it, and highlights its calls', async () => {
+    const page = await channelPage();
+    const broadcast = `${CHANNEL}#broadcast`;
+    await clickBox(page, broadcast);
+    const code = within(bodyOf(page).getByRole('region', { name: 'Code' }));
+    expect(code.getByRole('heading', { name: 'broadcast' })).toBeDefined();
+    expect(code.getByRole('textbox').textContent).toBe(
+      'export const broadcast = (channel: Channel, text: string): string => channel.deliver(text);',
+    );
+    expect(code.getByRole('link', { name: 'Open in VS Code' }).getAttribute('href')).toMatch(
+      new RegExp(`/${CHANNEL}:19$`),
+    );
+    expect(
+      boxesOf(page)
+        .filter(({ classes }) => classes.includes('selected'))
+        .map(({ id }) => id),
+    ).toEqual([broadcast]);
+    expect(
+      linesOf(page)
+        .filter(({ classes }) => classes.includes('connected'))
+        .map(({ from, to }) => `${from} -> ${to}`)
+        .sort(),
+    ).toEqual([
+      `${CHANNEL}#announce -> ${broadcast}`,
+      `${broadcast} -> ${CHANNEL}#Letter.deliver`,
+      `${broadcast} -> ${CHANNEL}#Push.deliver`,
+      `${CHANNEL}#urgent -> ${broadcast}`,
+    ]);
   });
 });

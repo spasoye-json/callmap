@@ -131,6 +131,12 @@ const levelsToCheck = async (): Promise<readonly [string, LoadedPage][]> => [
   await levelOf('src/shipping/carriers'),
   await levelOf('src/money'),
   await levelOf('src/notify'),
+  await levelOf('src/notify', 'src/notify/channel.ts'),
+  await levelOf('src/notify', 'src/notify/sms.ts'),
+  await levelOf('src/orders', 'src/orders/service', 'src/orders/service/book.ts'),
+  await levelOf('src/orders', 'src/orders/api', 'src/orders/api/place.ts'),
+  await levelOf('src/shipping/carriers', 'src/shipping/carriers/courier.ts'),
+  await levelOf('src/money', 'src/money/round.ts'),
 ];
 
 const pagesWithLevelsToCheck = async (): Promise<readonly [string, LoadedPage][]> => [

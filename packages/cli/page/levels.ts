@@ -4,7 +4,7 @@ import type { ReaderPageData } from './data.ts';
 import { markedCallsOf, pageFunctionsOf } from './functions.ts';
 import type { PageFunction } from './functions.ts';
 import { folderIdOf, foldersAbove } from './nested-scene.ts';
-import { arrowKeyOf } from './scene.ts';
+import { arrowKeyOf, sceneOf as functionSceneOf } from './scene.ts';
 import type { LevelBox, Scene, SceneFrame, SceneLine } from './scene.ts';
 
 export interface Crumb {
@@ -16,7 +16,6 @@ export interface Levels {
   readonly top: string;
   readonly sceneOf: (level: string) => Scene;
   readonly crumbsOf: (level: string) => readonly Crumb[];
-  readonly levelHolding: (file: string) => string;
 }
 
 const ROOT = '';
@@ -35,6 +34,15 @@ const counted = (count: number, one: string, many = one): readonly string[] =>
 const markOf = (calls: readonly SceneLine[]): CallMark =>
   (['added', 'removed'] as const).find((mark) => calls.some((call) => call.mark === mark)) ??
   'kept';
+
+const bundledLineOf = (from: string, to: string, calls: readonly SceneLine[]): SceneLine => ({
+  kind: 'bundled',
+  from,
+  to,
+  mark: markOf(calls),
+  calls,
+  title: `${counted(calls.length, 'call', 'calls').join('')} from ${from} to ${to}`,
+});
 
 const openEndCallersOf = ({ review, branchGraph }: ReaderPageData): readonly string[] => {
   const reviewed = new Set(review.functions.map(({ id }) => id));
@@ -109,10 +117,51 @@ const levelsFor = (data: ReaderPageData): Levels => {
     frame,
     outside,
     ...countsOf(path),
-    ...(isFolder(path) ? { opens: { kind: 'level', path } } : {}),
+    opens: { kind: 'level', path },
   });
 
+  const fileSceneOf = (file: string): Scene => {
+    const own = [...functions.values()].filter((shown) => shown.file === file);
+    const ownIds = new Set(own.map(({ id }) => id));
+    const calls = markedCallsOf(data).filter(
+      ({ caller, callee }) =>
+        functions.has(caller) &&
+        functions.has(callee) &&
+        (ownIds.has(caller) || ownIds.has(callee)),
+    );
+    const scene = functionSceneOf(data, own, calls);
+    const endOf = (id: string): string =>
+      ownIds.has(id) ? id : outsidePathOf(file, functions.get(id)?.file ?? id);
+    const byPair = new Map<string, SceneLine[]>();
+    const ends = new Map<string, readonly [string, string]>();
+    for (const line of scene.lines) {
+      if (line.kind !== 'call') continue;
+      const pair = [endOf(line.from), endOf(line.to)] as const;
+      const key = arrowKeyOf(...pair);
+      ends.set(key, pair);
+      appendTo(byPair, key, line);
+    }
+    const callLines = [...byPair.entries()]
+      .sort(([left], [right]) => byText(left, right))
+      .map(([key, group]): SceneLine => {
+        const [from, to] = ends.get(key) ?? ['', ''];
+        const [only, ...others] = group;
+        return only !== undefined && others.length === 0
+          ? { ...only, from, to }
+          : bundledLineOf(from, to, group);
+      });
+    const outside = [...new Set(callLines.flatMap(({ from, to }) => [from, to]))]
+      .filter((path) => !ownIds.has(path))
+      .sort(byText);
+    return {
+      frames: scene.frames,
+      boxes: [...scene.boxes, ...outside.map((path) => boxOf(file, path, true, ''))],
+      lines: [...callLines, ...scene.lines.filter(({ kind }) => kind !== 'call')],
+    };
+  };
+
   const sceneOf = (level: string): Scene => {
+    if (!isFolder(level)) return fileSceneOf(level);
     const inside = boxPathsOf(level);
     const frames: SceneFrame[] =
       level === top ? [] : [{ kind: 'folder', id: folderIdOf(level), label: `${level}/` }];
@@ -137,14 +186,7 @@ const levelsFor = (data: ReaderPageData): Levels => {
       .sort(([left], [right]) => byText(left, right))
       .map(([key, calls]): SceneLine => {
         const [from, to] = ends.get(key) ?? ['', ''];
-        return {
-          kind: 'bundled',
-          from,
-          to,
-          mark: markOf(calls),
-          calls,
-          title: `${counted(calls.length, 'call', 'calls').join('')} from ${from} to ${to}`,
-        };
+        return bundledLineOf(from, to, calls);
       });
     const outside = [...new Set(lines.flatMap(({ from, to }) => [from, to]))]
       .filter((path) => !inside.includes(path))
@@ -164,23 +206,14 @@ const levelsFor = (data: ReaderPageData): Levels => {
     let open = top;
     while (open !== level) {
       const next = boxPathsOf(open).find((box) => within(box, level));
-      if (next === undefined || !isFolder(next)) break;
-      crumbs.push({ path: next, label: `${relativeTo(open, next)}/` });
+      if (next === undefined) break;
+      crumbs.push({ path: next, label: `${relativeTo(open, next)}${isFolder(next) ? '/' : ''}` });
       open = next;
     }
     return crumbs;
   };
 
-  const levelHolding = (file: string): string => {
-    let open = top;
-    for (;;) {
-      const next = boxPathsOf(open).find((box) => within(box, file));
-      if (next === undefined || next === file) return open;
-      open = next;
-    }
-  };
-
-  return { top, sceneOf, crumbsOf, levelHolding };
+  return { top, sceneOf, crumbsOf };
 };
 
 const known = new WeakMap<ReaderPageData, Levels>();
