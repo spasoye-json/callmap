@@ -4,6 +4,7 @@ import type { View } from '../view.ts';
 
 export const wholeProjectView: View = {
   name: 'Whole project',
+  zoomLevels: true,
   sceneOf: (data) => {
     const functions = markedFunctionsOf(data);
     const calls = markedCallsOf(data).filter(
