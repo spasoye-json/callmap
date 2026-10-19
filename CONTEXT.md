@@ -86,6 +86,10 @@ _Avoid_: deep link, jump link
 One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data to boxes, frames and lines. The Diff view opens first. The marks, the open ends, the one-of groups and the code panel work in every view.
 _Avoid_: mode, screen, perspective
 
+**Outside function**:
+A function that the Folder view draws but that the chosen folder does not hold: a caller or a callee one hop out of the folder, or a function that the search opened. The view draws it greyed. This is not a review mark, so an outside function is also a neighbour only when it is one hop from a changed function.
+_Avoid_: neighbour, external function
+
 ### Review
 
 **Review**:
@@ -101,5 +105,5 @@ One call away from a function, in either direction. A caller and a callee are ea
 _Avoid_: level, step, depth
 
 **Neighbour**:
-A function one hop from a changed function that the branch did not change. The review shows it greyed, and a click opens its own next hop. The hop counts in the base graph and in the branch graph, so the far end of a call that the branch removed is a neighbour too, and the page shows that call.
+A function one hop from a changed function that the branch did not change. Every view shows it greyed. In the Diff view, a click opens its own next hop. A function further from the change gets no mark. The hop counts in the base graph and in the branch graph, so the far end of a call that the branch removed is a neighbour too, and the page shows that call.
 _Avoid_: context function, related function

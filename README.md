@@ -52,12 +52,12 @@ A click on a function shows its code, with the changed lines marked and a mark b
 
 ### The views
 
-The tabs above the graph choose the view. Each view keeps the marks for added, removed, changed and neighbour.
+The tabs above the graph choose the view. Each view keeps the marks for added, removed, changed and neighbour. Only a function one hop from a changed function gets the neighbour mark. Other functions get no mark.
 
-- **Diff:** the changed functions and one hop around each, inside file frames. This view opens first. A click on a greyed neighbour opens its own callers and callees.
+- **Diff:** the changed functions and one hop around each, inside file frames. This view opens first. A click on a function that the branch did not change opens its own callers and callees. In the other views, a click on a function only shows its code.
 - **Whole project:** every function in scope, inside its file frame, inside the frame of each folder above it. The kept calls between two files become one bundled line with their count. A click on a bundled line lists its calls, and a click on a call shows the code of the caller. When you zoom out, the view shows only the folders, the files and the bundled lines.
-- **Folder:** a folder tree beside the graph. A click on a folder draws its functions, the calls between them, and the functions one hop outside the folder.
-- **Route:** a list of entry points beside the graph. An entry point is a function in scope that no other function in scope calls. The entry points that reach a changed function come first. A click on an entry point draws its whole call tree. Each function shows once, so a cycle ends.
+- **Folder:** a folder tree beside the graph. A click on a folder draws its functions, the calls between them, and the functions one hop outside the folder. The view draws these outside functions greyed, and it draws only the calls that touch a function of the folder.
+- **Route:** a list of entry points beside the graph. An entry point is a function in scope that no other function in scope calls. The entry points that reach a changed function come first. A click on an entry point draws its whole call tree. Each function shows once, so a cycle ends. A search opens the first entry point in the list that reaches the function. If no entry point reaches it, the view draws the call tree of the function itself.
 
 The page shows the resolution rate of the whole branch graph in scope: the calls into the repo's own code that the type checker proved, out of all of them. Below the rate it lists the open ends of the functions in this review only. It marks each open end at its call site, as a dashed arrow that leads nowhere, also on a function that a next hop or a search adds. It draws the one-of calls of one call site, such as a call through an interface, as dotted arrows, one to each implementation. A call into a library is not in the graph and does not change the rate.
 
