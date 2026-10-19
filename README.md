@@ -1,6 +1,6 @@
 # Archmap
 
-Archmap is a call graph reader for an engineer who still reads code. It reads a branch of a TypeScript repo with the TypeScript type checker, with no AI, and writes one HTML page for the code review. The page shows each function that the branch added, removed or changed, inside the frame of its file. Around each one it shows its callers and its callees, and it marks each call that the branch added or removed. The same commits always give the same page.
+Archmap is a call graph reader for an engineer who still reads code. It reads a branch of a TypeScript repo with the TypeScript type checker, with no AI, and writes one HTML page for the code review. The page shows each function that the branch added, removed or changed, inside the frame of its file. Around each one it shows its callers and its callees, and it marks each call that the branch added or removed. Tabs show the same graph as the whole project, as one folder, or as one route. The same commits always give the same page and the same layout.
 
 ## Install
 
@@ -46,7 +46,18 @@ Tests stay in the review unless a glob leaves them out. A test that mocks its ca
 
 ## The reader page
 
-The page is one HTML file with no network access, so it opens from a file anywhere. A click on a function shows its code, with the changed lines marked and a mark below each deletion. A click on a greyed neighbour opens its own callers and callees. The search finds any function in scope by name. Each function carries an editor link that opens its file at its first line.
+The page is one HTML file with no network access, so it opens from a file anywhere. ELK lays out the graph in the browser, and the page draws it as SVG. Each call is a line that turns only at 90 degrees and never goes through a box. The callers stand on the left and the callees on the right. Drag the graph to pan it, and use the mouse wheel to zoom.
+
+A click on a function shows its code, with the changed lines marked and a mark below each deletion. The search finds any function in scope by name. Each function carries an editor link that opens its file at its first line.
+
+### The views
+
+The tabs above the graph choose the view. Each view keeps the marks for added, removed, changed and neighbour.
+
+- **Diff:** the changed functions and one hop around each, inside file frames. This view opens first. A click on a greyed neighbour opens its own callers and callees.
+- **Whole project:** every function in scope, inside its file frame, inside the frame of each folder above it. The kept calls between two files become one bundled line with their count. A click on a bundled line lists its calls, and a click on a call shows the code of the caller. When you zoom out, the view shows only the folders, the files and the bundled lines.
+- **Folder:** a folder tree beside the graph. A click on a folder draws its functions, the calls between them, and the functions one hop outside the folder.
+- **Route:** a list of entry points beside the graph. An entry point is a function in scope that no other function in scope calls. The entry points that reach a changed function come first. A click on an entry point draws its whole call tree. Each function shows once, so a cycle ends.
 
 The page shows the resolution rate of the whole branch graph in scope: the calls into the repo's own code that the type checker proved, out of all of them. Below the rate it lists the open ends of the functions in this review only. It marks each open end at its call site, as a dashed arrow that leads nowhere, also on a function that a next hop or a search adds. It draws the one-of calls of one call site, such as a call through an interface, as dotted arrows, one to each implementation. A call into a library is not in the graph and does not change the rate.
 

@@ -48,6 +48,14 @@ _Avoid_: package, directory box
 One line between two file frames that stands for 2 or more kept calls between the two files, with their count. A click on it lists its calls. A call that the branch added or removed keeps its own line, so its mark shows.
 _Avoid_: aggregate edge, merged call
 
+**Entry point**:
+A function in scope that no other function in scope calls, such as a route handler or a scheduled job. The core finds the entry points from the call graph, so the rule is the same for every language. The list shows first the entry points that reach a changed function.
+_Avoid_: root, main, handler
+
+**Route**:
+The call tree of one entry point: the entry point and every function that it reaches through calls in scope. Each function shows once, so a cycle ends.
+_Avoid_: path, trace, flow
+
 ### Reading
 
 **Extractor**:
@@ -75,14 +83,14 @@ The link on a function that opens its file and line in the reader's editor. A re
 _Avoid_: deep link, jump link
 
 **View**:
-One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data to boxes, frames and lines. The Diff view opens first.
+One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data to boxes, frames and lines. The Diff view opens first. The marks, the open ends, the one-of groups and the code panel work in every view.
 _Avoid_: mode, screen, perspective
 
 ### Review
 
 **Review**:
 The reader page for one branch: every changed function, one hop around each, and the calls the branch added or removed, against the merge base with the default branch.
-_Avoid_: diff view, PR view, change summary
+_Avoid_: PR view, change summary
 
 **Changed function**:
 A function that the branch added, removed, or changed in its body.
