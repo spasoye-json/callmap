@@ -22,6 +22,7 @@ export interface PageElements {
 interface Shown {
   readonly view: View;
   readonly opened: Set<FunctionId>;
+  choice: string | undefined;
   scene: Scene | undefined;
   laid: Promise<Laid> | undefined;
 }
@@ -37,6 +38,7 @@ export const interactionOf = (
   const shown = views.map((view): Shown => ({
     view,
     opened: new Set(),
+    choice: undefined,
     scene: undefined,
     laid: undefined,
   })) as [Shown, ...Shown[]];
@@ -64,7 +66,7 @@ export const interactionOf = (
   };
 
   const sceneOf = (target: Shown): Scene => {
-    target.scene ??= target.view.sceneOf(data, target.opened);
+    target.scene ??= target.view.sceneOf(data, target.opened, target.choice);
     return target.scene;
   };
 
@@ -74,7 +76,7 @@ export const interactionOf = (
     );
 
   const render = (target: Shown, anchor?: FunctionId): Promise<void> => {
-    target.scene = target.view.sceneOf(data, target.opened);
+    target.scene = target.view.sceneOf(data, target.opened, target.choice);
     const laying = layoutOf(target.scene);
     target.laid = laying;
     return queued(async () => {
@@ -116,6 +118,13 @@ export const interactionOf = (
     });
   };
 
+  const pick = (choice: string): Promise<void> => {
+    current.choice = choice;
+    current.opened.clear();
+    drawn = undefined;
+    return render(current);
+  };
+
   const tabBar = tabBarOf(
     tabs,
     views.map(({ name }) => name),
@@ -139,6 +148,7 @@ export const interactionOf = (
     show,
     open,
     showView,
+    pick,
   };
   return { page, render: () => render(current) };
 };

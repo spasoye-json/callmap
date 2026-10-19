@@ -4,5 +4,9 @@ import type { Scene } from './scene.ts';
 
 export interface View {
   readonly name: string;
-  readonly sceneOf: (data: ReaderPageData, opened: ReadonlySet<FunctionId>) => Scene;
+  readonly sceneOf: (
+    data: ReaderPageData,
+    opened: ReadonlySet<FunctionId>,
+    choice?: string,
+  ) => Scene;
 }

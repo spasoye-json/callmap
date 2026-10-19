@@ -13,6 +13,7 @@ export interface ReaderPage {
   readonly show: (ids: readonly FunctionId[], anchor?: FunctionId) => Promise<void>;
   readonly open: (id: FunctionId) => Promise<void>;
   readonly showView: (name: string) => Promise<void>;
+  readonly pick: (choice: string) => Promise<void>;
 }
 
 export type PagePart = (page: ReaderPage) => void;

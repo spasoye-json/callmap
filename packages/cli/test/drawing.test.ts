@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { featureBranchRepo } from './fixture-repo.ts';
+import { featureBranchRepo, featureBranchRepoWithUnchangedFiles } from './fixture-repo.ts';
 import {
   boxElementOf,
   boxesOf,
@@ -12,6 +12,7 @@ import {
   framesOf,
   loadReaderPage,
   openTab,
+  pickFolder,
   runArchmap,
 } from './reader-page.ts';
 import type { DrawnBox, DrawnLine, LoadedPage, Point } from './reader-page.ts';
@@ -20,13 +21,26 @@ const MONEY = 'src/money.ts';
 const CART = 'src/cart.ts';
 
 let html = '';
+let folderHtml = '';
+
+const reviewPageOf = (repo: string): string => {
+  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
+  const finished = runArchmap(['review', repo, '--no-open', '--out', out]);
+  expect(finished.status, finished.stderr).toBe(0);
+  return readFileSync(out, 'utf8');
+};
 
 beforeAll(() => {
-  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-  const finished = runArchmap(['review', featureBranchRepo(), '--no-open', '--out', out]);
-  expect(finished.status, finished.stderr).toBe(0);
-  html = readFileSync(out, 'utf8');
+  html = reviewPageOf(featureBranchRepo());
+  folderHtml = reviewPageOf(featureBranchRepoWithUnchangedFiles());
 }, 120_000);
+
+const folderViewOf = async (folder: string): Promise<LoadedPage> => {
+  const page = await loadReaderPage(folderHtml);
+  await openTab(page, 'Folder');
+  await pickFolder(page, folder);
+  return page;
+};
 
 type Segment = readonly [Point, Point];
 
@@ -65,6 +79,8 @@ const pagesToCheck = async (): Promise<readonly [string, LoadedPage][]> => {
     ['the review', await loadReaderPage(html)],
     ['the review after two next hops', opened],
     ['the Whole project view', project],
+    ['the Folder view of src/tax', await folderViewOf('src/tax/')],
+    ['the Folder view of src', await folderViewOf('src/')],
   ];
 };
 

@@ -181,3 +181,9 @@ export const openTab = async (page: LoadedPage, name: string): Promise<void> => 
   fireEvent.click(within(page.window.document.body).getByRole('tab', { name }));
   await settled(page);
 };
+
+export const pickFolder = async (page: LoadedPage, folder: string): Promise<void> => {
+  const tree = within(page.window.document.body).getByRole('navigation', { name: 'Folders' });
+  fireEvent.click(within(tree).getByRole('button', { name: folder }));
+  await settled(page);
+};

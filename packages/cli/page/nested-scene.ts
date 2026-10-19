@@ -6,14 +6,14 @@ import type { Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 
 export const folderIdOf = (folder: string): string => `folder:${folder}`;
 
-const folderOf = (path: string): string | undefined => {
+export const folderOf = (path: string): string | undefined => {
   const end = path.lastIndexOf('/');
   return end < 0 ? undefined : path.slice(0, end);
 };
 
-const nameOf = (path: string): string => path.slice(path.lastIndexOf('/') + 1);
+export const nameOf = (path: string): string => path.slice(path.lastIndexOf('/') + 1);
 
-const foldersAbove = (file: string): readonly string[] => {
+export const foldersAbove = (file: string): readonly string[] => {
   const folder = folderOf(file);
   return folder === undefined ? [] : [folder, ...foldersAbove(folder)];
 };

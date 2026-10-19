@@ -41,6 +41,17 @@ export const featureBranchRepo = (defaultBranch = 'main'): string => {
   return repo;
 };
 
+export const featureBranchRepoWithUnchangedFiles = (): string => {
+  const repo = featureBranchRepo();
+  git(repo, 'checkout', '--quiet', 'main');
+  cpSync(join(FIXTURE, 'unchanged'), repo, { recursive: true });
+  git(repo, 'add', '--all');
+  git(repo, 'commit', '--quiet', '--message', 'unchanged');
+  git(repo, 'checkout', '--quiet', 'feature');
+  git(repo, 'merge', '--quiet', '--no-edit', 'main');
+  return repo;
+};
+
 export const fixtureText = (tree: 'base' | 'branch', file: string): string =>
   readFileSync(join(FIXTURE, tree, file), 'utf8');
 
