@@ -9,6 +9,7 @@ import {
   boxesOf,
   clickBox,
   framesAround,
+  framesOf,
   linesOf,
   loadReaderPage,
   openTab,
@@ -206,5 +207,115 @@ describe('the Whole project view', () => {
   it('shows the functions that the branch removed', async () => {
     const page = await projectPage();
     expect(boxElementOf(page, `${CART}#legacyTotal`)?.classList.contains('removed')).toBe(true);
+  });
+});
+
+const zoom = (page: LoadedPage, deltaY: number): void => {
+  const svg = page.window.document.querySelector('#graph svg');
+  if (svg === null) throw new Error('the page draws no SVG');
+  fireEvent.wheel(svg, { deltaY, clientX: 100, clientY: 100 });
+};
+
+const zoomOut = (page: LoadedPage): void => {
+  zoom(page, 1000);
+};
+
+const zoomIn = (page: LoadedPage): void => {
+  zoom(page, -1000);
+};
+
+const smallScreenPage = async (): Promise<LoadedPage> => {
+  const page = await loadReaderPage(html);
+  const graph = page.window.document.getElementById('graph');
+  if (graph === null) throw new Error('the page has no graph');
+  const screen = { x: 0, y: 0, width: 320, height: 240 };
+  graph.getBoundingClientRect = () => ({
+    ...screen,
+    top: 0,
+    left: 0,
+    right: screen.width,
+    bottom: screen.height,
+    toJSON: () => screen,
+  });
+  return page;
+};
+
+const functionBoxesOf = (page: LoadedPage) =>
+  boxesOf(page).filter(({ kind }) => kind === 'function');
+
+describe('the zoom levels of the Whole project view', () => {
+  it('shows the folder and file frames and no function box at a far zoom', async () => {
+    const page = await projectPage();
+    zoomOut(page);
+    expect(functionBoxesOf(page)).toEqual([]);
+    expect(framesOf(page).map(({ id }) => id)).toEqual(
+      expect.arrayContaining([`frame:${CART}`, `frame:${RATE}`, 'folder:src', 'folder:src/tax']),
+    );
+  });
+
+  it('shows the function boxes again at a near zoom', async () => {
+    const page = await projectPage();
+    const near = functionBoxesOf(page).map(({ id }) => id);
+    expect(near).toContain(`${RATE}#vatRate`);
+    zoomOut(page);
+    zoomIn(page);
+    expect(functionBoxesOf(page).map(({ id }) => id)).toEqual(near);
+  });
+
+  it('draws the bundled lines between files at every zoom', async () => {
+    const page = await projectPage();
+    const bundlesOf = () =>
+      linesOf(page)
+        .filter(({ classes }) => classes.includes('bundle'))
+        .map(({ from, to, label, points }) => ({ from, to, label, points }));
+    const near = bundlesOf();
+    expect(near).toContainEqual(
+      expect.objectContaining({ from: `frame:${CART}`, to: `frame:${MONEY}`, label: '2' }),
+    );
+    zoomOut(page);
+    expect(bundlesOf()).toEqual(near);
+    zoomIn(page);
+    expect(bundlesOf()).toEqual(near);
+  });
+
+  it('keeps every frame at its place and lays out nothing again when the zoom changes', async () => {
+    const page = await projectPage();
+    const graph = page.window.document.getElementById('graph');
+    const near = framesOf(page);
+    zoomOut(page);
+    expect(graph?.getAttribute('aria-busy')).toBe('false');
+    expect(framesOf(page)).toEqual(near);
+    zoomIn(page);
+    expect(graph?.getAttribute('aria-busy')).toBe('false');
+    expect(framesOf(page)).toEqual(near);
+  });
+
+  it('opens at the zoom that fits the whole project, so a small screen shows folders and files only', async () => {
+    const page = await smallScreenPage();
+    await openTab(page, 'Whole project');
+    expect(functionBoxesOf(page)).toEqual([]);
+    expect(framesOf(page).map(({ id }) => id)).toContain(`frame:${CART}`);
+  });
+
+  it('zooms in to the box of a function that the search finds at a far zoom', async () => {
+    const page = await smallScreenPage();
+    await openTab(page, 'Whole project');
+    const body = bodyOf(page);
+    fireEvent.input(body.getByRole('searchbox', { name: 'Find a function' }), {
+      target: { value: 'vat' },
+    });
+    fireEvent.click(
+      within(body.getByRole('region', { name: 'Search' })).getByRole('button', {
+        name: `vatRate ${RATE}`,
+      }),
+    );
+    await settled(page);
+    expect(boxElementOf(page, `${RATE}#vatRate`)?.classList.contains('selected')).toBe(true);
+  });
+
+  it('keeps the function boxes of the Diff view at a far zoom', async () => {
+    const page = await loadReaderPage(html);
+    zoomOut(page);
+    expect(boxElementOf(page, `${CART}#subtotal`)).toBeDefined();
   });
 });

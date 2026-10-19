@@ -60,7 +60,7 @@ export const interactionOf = (
 
   const paint = (target: Shown, laid: Laid, anchor?: FunctionId): void => {
     if (target !== current) return;
-    drawing.draw(laid, anchor);
+    drawing.draw(laid, { anchor, zoomLevels: target.view.zoomLevels === true });
     if (drawn !== target) drawing.fit();
     drawn = target;
   };

@@ -4,6 +4,7 @@ import type { Scene } from './scene.ts';
 
 export interface View {
   readonly name: string;
+  readonly zoomLevels?: boolean;
   readonly sceneOf: (
     data: ReaderPageData,
     opened: ReadonlySet<FunctionId>,
