@@ -65,7 +65,7 @@ ${pageStyle()}
 </style>
 </head>
 <body>
-<header class="page-header"><h1>Archmap review</h1></header>
+<header class="page-header"><h1>Archmap review</h1><div id="views"></div></header>
 <div class="reader">
 <main id="graph" aria-label="Call graph"></main>
 <aside id="panels" aria-label="Panels"></aside>

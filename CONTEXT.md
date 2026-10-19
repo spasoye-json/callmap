@@ -40,6 +40,14 @@ _Avoid_: accuracy, confidence, coverage
 The box around the functions of one file.
 _Avoid_: group, cluster, module
 
+**Folder frame**:
+The box around the file frames and the folder frames of one folder.
+_Avoid_: package, directory box
+
+**Bundled line**:
+One line between two file frames that stands for 2 or more kept calls between the two files, with their count. A click on it lists its calls. A call that the branch added or removed keeps its own line, so its mark shows.
+_Avoid_: aggregate edge, merged call
+
 ### Reading
 
 **Extractor**:
@@ -65,6 +73,10 @@ _Avoid_: report, dashboard, artifact
 **Editor link**:
 The link on a function that opens its file and line in the reader's editor. A removed function has no editor link, because its file and line are gone from the working tree.
 _Avoid_: deep link, jump link
+
+**View**:
+One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data to boxes, frames and lines. The Diff view opens first.
+_Avoid_: mode, screen, perspective
 
 ### Review
 

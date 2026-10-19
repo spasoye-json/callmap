@@ -1,6 +1,7 @@
 import type { FunctionId } from '@archmap/graph-document';
-import type { MarkedFunction } from '@archmap/review';
+import type { MarkedCall, MarkedFunction } from '@archmap/review';
 import type { ReaderPageData } from './data.ts';
+import { callKeyOf } from './scene.ts';
 
 export const markedFunctionsOf = (data: ReaderPageData): ReadonlyMap<FunctionId, MarkedFunction> =>
   new Map<FunctionId, MarkedFunction>([
@@ -10,6 +11,17 @@ export const markedFunctionsOf = (data: ReaderPageData): ReadonlyMap<FunctionId,
     ]),
     ...data.review.functions.map((marked): [FunctionId, MarkedFunction] => [marked.id, marked]),
   ]);
+
+export const markedCallsOf = (data: ReaderPageData): readonly MarkedCall[] => {
+  const calls = new Map<string, MarkedCall>(
+    data.branchGraph.calls.map(({ caller, callee }): [string, MarkedCall] => [
+      callKeyOf({ caller, callee }),
+      { caller, callee, mark: 'kept' },
+    ]),
+  );
+  for (const call of data.review.calls) calls.set(callKeyOf(call), call);
+  return [...calls.values()];
+};
 
 export const sourceLinesOf = (
   data: ReaderPageData,

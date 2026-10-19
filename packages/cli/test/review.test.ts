@@ -20,6 +20,7 @@ const CHECKOUT = 'src/checkout.ts';
 const REPORT = 'src/report.ts';
 const ALERTS = 'src/alerts.ts';
 const NOTIFY = 'src/notify.ts';
+const RATE = 'src/tax/rate.ts';
 
 let repo = '';
 let html = '';
@@ -93,6 +94,7 @@ describe('archmap review on a feature branch', () => {
       [MONEY]: fixtureText('branch', MONEY),
       [NOTIFY]: fixtureText('branch', NOTIFY),
       [REPORT]: fixtureText('branch', REPORT),
+      [RATE]: fixtureText('branch', RATE),
     });
     expect(sources.base).toEqual({ [CART]: fixtureText('base', CART) });
   });

@@ -1,6 +1,7 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import type { ElkExtendedEdge, ElkLabel, ElkNode } from 'elkjs/lib/elk-api.js';
 import { byText } from '@archmap/review';
+import { lineLabelOf } from './scene.ts';
 import type { Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 
 export interface Rect {
@@ -75,16 +76,17 @@ const frameNodeOf = (frame: SceneFrame, children: ElkNode[]): ElkNode => ({
 
 const lineIdOf = (index: number): string => `line:${String(index)}`;
 
-const edgeOf = (line: SceneLine, index: number): ElkExtendedEdge => ({
-  id: lineIdOf(index),
-  sources: [line.from],
-  targets: [line.to],
-  ...(line.oneOf === undefined
-    ? {}
-    : {
-        labels: [{ text: line.oneOf, width: widthOf(line.oneOf, 6, 10), height: LABEL_HEIGHT }],
-      }),
-});
+const edgeOf = (line: SceneLine, index: number): ElkExtendedEdge => {
+  const text = lineLabelOf(line);
+  return {
+    id: lineIdOf(index),
+    sources: [line.from],
+    targets: [line.to],
+    ...(text === undefined
+      ? {}
+      : { labels: [{ text, width: widthOf(text, 6, 10), height: LABEL_HEIGHT }] }),
+  };
+};
 
 const graphOf = ({ frames, boxes, lines }: Scene): ElkNode => {
   const childrenOf = new Map<string, ElkNode[]>();

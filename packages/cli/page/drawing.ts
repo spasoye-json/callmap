@@ -12,9 +12,11 @@ const DRAG_THRESHOLD = 4;
 
 export interface Drawing {
   readonly draw: (laid: Laid, anchor?: string) => void;
+  readonly fit: () => void;
   readonly select: (id: string) => void;
   readonly focus: (id: string) => void;
   readonly onBoxClick: (handler: (box: LaidFunction) => void) => void;
+  readonly onLineClick: (handler: (line: LaidLine) => void) => void;
 }
 
 const svgOf = <Name extends keyof SVGElementTagNameMap>(
@@ -59,7 +61,7 @@ const arrowsOf = (): SVGDefsElement =>
 const frameOf = (frame: LaidFrame): SVGGElement =>
   svgOf(
     'g',
-    { class: 'frame', 'data-frame': frame.id },
+    { class: `frame ${frame.kind}`, 'data-frame': frame.id },
     rectOf(frame, 6),
     svgOf('text', { x: frame.x + 10, y: frame.y + 19 }, frame.label),
   );
@@ -94,9 +96,9 @@ const boxOf = (box: LaidBox): SVGGElement => {
 const pathOf = (points: readonly Point[]): string =>
   points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${String(x)},${String(y)}`).join(' ');
 
-const lineOf = (line: LaidLine): SVGGElement => {
+const lineOf = (line: LaidLine, index: number): SVGGElement => {
   const arrow = line.kind === 'open-end' ? 'open-end' : line.mark;
-  const classes = ['line', line.kind, ...(line.kind === 'call' ? [line.mark] : [])];
+  const classes = ['line', line.kind, ...(line.kind === 'open-end' ? [] : [line.mark])];
   if (line.oneOf !== undefined) classes.push('one-of');
   const label =
     line.label === undefined
@@ -109,11 +111,25 @@ const lineOf = (line: LaidLine): SVGGElement => {
             line.label.text,
           ),
         ];
+  const path = pathOf(line.points);
+  const clickable =
+    line.calls === undefined
+      ? []
+      : [svgOf('path', { class: 'hit', d: path }), svgOf('title', {}, line.title ?? '')];
   return svgOf(
     'g',
-    { class: classes.join(' '), 'data-from': line.from, 'data-to': line.to },
-    svgOf('path', { d: pathOf(line.points), 'marker-end': `url(#arrow-${arrow})` }),
+    {
+      class: classes.join(' '),
+      'data-from': line.from,
+      'data-to': line.to,
+      'data-line': index,
+      ...(line.calls === undefined
+        ? {}
+        : { role: 'button', tabindex: 0, 'aria-label': line.title ?? '' }),
+    },
+    svgOf('path', { d: path, 'marker-end': `url(#arrow-${arrow})` }),
     ...label,
+    ...clickable,
   );
 };
 
@@ -132,6 +148,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   let laid: Laid = { frames: [], boxes: [], lines: [], width: 0, height: 0 };
   let selected: string | undefined;
   const handlers: ((box: LaidFunction) => void)[] = [];
+  const lineHandlers: ((line: LaidLine) => void)[] = [];
 
   const apply = (): void => {
     viewport.setAttribute(
@@ -184,7 +201,6 @@ export const drawingOf = (container: HTMLElement): Drawing => {
 
   const draw = (next: Laid, anchor?: string): void => {
     const before = anchor === undefined ? undefined : boxOfId(anchor);
-    const first = laid.boxes.length === 0;
     laid = next;
     viewport.replaceChildren(
       svgOf('g', { class: 'frames' }, ...next.frames.map(frameOf)),
@@ -199,14 +215,17 @@ export const drawingOf = (container: HTMLElement): Drawing => {
       camera.x += (beforeX - afterX) * camera.scale;
       camera.y += (beforeY - afterY) * camera.scale;
       apply();
-    } else if (first) {
-      fit();
     }
   };
 
   const select = (id: string): void => {
     selected = id;
     markSelected();
+  };
+
+  const clickedLine = (target: EventTarget | null): LaidLine | undefined => {
+    const element = target instanceof Element ? target.closest('[data-line]') : null;
+    return element === null ? undefined : laid.lines[Number(element.getAttribute('data-line'))];
   };
 
   const clickedBox = (target: EventTarget | null): LaidFunction | undefined => {
@@ -266,6 +285,9 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   const choose = (box: LaidFunction): void => {
     for (const handler of handlers) handler(box);
   };
+  const chooseLine = (line: LaidLine): void => {
+    for (const handler of lineHandlers) handler(line);
+  };
   svg.addEventListener('click', (event) => {
     if (dragged) {
       dragged = false;
@@ -273,23 +295,31 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     }
     const box = clickedBox(event.target);
     if (box !== undefined) choose(box);
+    const line = clickedLine(event.target);
+    if (line !== undefined) chooseLine(line);
   });
   svg.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     const box = clickedBox(event.target);
-    if (box === undefined) return;
+    const line = clickedLine(event.target);
+    if (box === undefined && line?.calls === undefined) return;
     event.preventDefault();
-    choose(box);
+    if (box !== undefined) choose(box);
+    if (line !== undefined) chooseLine(line);
   });
 
   apply();
 
   return {
     draw,
+    fit,
     select,
     focus,
     onBoxClick: (handler) => {
       handlers.push(handler);
+    },
+    onLineClick: (handler) => {
+      lineHandlers.push(handler);
     },
   };
 };

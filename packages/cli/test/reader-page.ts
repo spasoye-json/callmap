@@ -3,6 +3,7 @@ import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fireEvent, within } from '@testing-library/dom';
 import { JSDOM } from 'jsdom';
 import type { ReaderPageData } from '../page/data.ts';
 
@@ -158,6 +159,14 @@ export const frameAround = (page: LoadedPage, id: string): string | undefined =>
     .sort((left, right) => left.width * left.height - right.width * right.height)[0]?.label;
 };
 
+export const framesAround = (page: LoadedPage, id: string): readonly DrawnFrame[] => {
+  const box = boxesOf(page).find((candidate) => candidate.id === id);
+  if (box === undefined) return [];
+  return framesOf(page)
+    .filter((frame) => holds(frame, box))
+    .sort((left, right) => left.width * left.height - right.width * right.height);
+};
+
 export const callsOf = (page: LoadedPage): readonly DrawnLine[] =>
   linesOf(page).filter(({ classes }) => classes.includes('call'));
 
@@ -165,5 +174,10 @@ export const clickBox = async (page: LoadedPage, id: string): Promise<void> => {
   const box = boxElementOf(page, id);
   if (box === undefined) throw new Error(`the drawing holds no box ${id}`);
   box.dispatchEvent(new page.window.MouseEvent('click', { bubbles: true }));
+  await settled(page);
+};
+
+export const openTab = async (page: LoadedPage, name: string): Promise<void> => {
+  fireEvent.click(within(page.window.document.body).getByRole('tab', { name }));
   await settled(page);
 };

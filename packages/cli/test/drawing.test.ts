@@ -9,7 +9,9 @@ import {
   boxesOf,
   clickBox,
   linesOf,
+  framesOf,
   loadReaderPage,
+  openTab,
   runArchmap,
 } from './reader-page.ts';
 import type { DrawnBox, DrawnLine, LoadedPage, Point } from './reader-page.ts';
@@ -57,9 +59,12 @@ const pagesToCheck = async (): Promise<readonly [string, LoadedPage][]> => {
   const opened = await loadReaderPage(html);
   await clickBox(opened, `${MONEY}#format`);
   await clickBox(opened, `${CART}#subtotal`);
+  const project = await loadReaderPage(html);
+  await openTab(project, 'Whole project');
   return [
     ['the review', await loadReaderPage(html)],
     ['the review after two next hops', opened],
+    ['the Whole project view', project],
   ];
 };
 
@@ -84,7 +89,7 @@ describe('the lines of the drawing', () => {
 
   it('draws each caller left of its callee', async () => {
     for (const [name, page] of await pagesToCheck()) {
-      const boxes = new Map(boxesOf(page).map((box) => [box.id, box]));
+      const boxes = new Map([...framesOf(page), ...boxesOf(page)].map((box) => [box.id, box]));
       for (const { from, to } of linesOf(page)) {
         const caller = boxes.get(from);
         const callee = boxes.get(to);

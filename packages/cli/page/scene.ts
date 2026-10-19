@@ -4,6 +4,7 @@ import type { CallMark, MarkedCall, MarkedFunction } from '@archmap/review';
 import type { ReaderPageData } from './data.ts';
 
 export interface SceneFrame {
+  readonly kind: 'file' | 'folder';
   readonly id: string;
   readonly label: string;
   readonly parent?: string;
@@ -28,12 +29,17 @@ export interface OpenEndBox {
 export type SceneBox = FunctionBox | OpenEndBox;
 
 export interface SceneLine {
-  readonly kind: 'call' | 'open-end';
+  readonly kind: 'call' | 'open-end' | 'bundle';
   readonly from: string;
   readonly to: string;
   readonly mark: CallMark;
   readonly oneOf?: string;
+  readonly calls?: readonly SceneLine[];
+  readonly title?: string;
 }
+
+export const lineLabelOf = ({ oneOf, calls }: SceneLine): string | undefined =>
+  calls === undefined ? oneOf : String(calls.length);
 
 export interface Scene {
   readonly frames: readonly SceneFrame[];
@@ -123,7 +129,7 @@ export const sceneOf = (
   );
 
   return {
-    frames: files.map((file) => ({ id: frameIdOf(file), label: file })),
+    frames: files.map((file): SceneFrame => ({ kind: 'file', id: frameIdOf(file), label: file })),
     boxes,
     lines: [...callLines, ...openEndLines],
   };
