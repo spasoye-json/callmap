@@ -25,13 +25,20 @@ export const fakeOpener = (): Opener => {
   return { bin, marker };
 };
 
-export const runCallmap = (args: readonly string[], opener?: Opener) =>
+export const runCallmap = (
+  args: readonly string[],
+  opener?: Opener,
+  cacheHome: string = mkdtempSync(join(tmpdir(), 'callmap-cache-')),
+) =>
   spawnSync(process.execPath, [CLI, ...args], {
     encoding: 'utf8',
-    env:
-      opener === undefined
-        ? process.env
-        : { ...process.env, PATH: `${opener.bin}${delimiter}${process.env['PATH'] ?? ''}` },
+    env: {
+      ...process.env,
+      XDG_CACHE_HOME: cacheHome,
+      ...(opener === undefined
+        ? {}
+        : { PATH: `${opener.bin}${delimiter}${process.env['PATH'] ?? ''}` }),
+    },
   });
 
 export const reviewHtmlOf = (repo: string, ...flags: readonly string[]): string => {
