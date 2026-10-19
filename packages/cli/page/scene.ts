@@ -36,9 +36,11 @@ export interface LevelBox {
   readonly frame: string;
   readonly outside: boolean;
   readonly changed: boolean;
-  readonly counts: string;
-  readonly opens?: Choice;
+  readonly counts: readonly string[];
+  readonly opens: Choice;
 }
+
+export const countsTextOf = ({ counts }: LevelBox): string => counts.join(', ');
 
 export type SceneBox = FunctionBox | OpenEndBox | LevelBox;
 

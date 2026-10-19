@@ -1,11 +1,11 @@
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
+import { sha256OfFiles } from './file-hash.ts';
 
 const TYPESCRIPT_EXTRACTOR = fileURLToPath(
   import.meta.resolve('@callmap/extractor-typescript/cli'),
@@ -56,17 +56,13 @@ export const extractorVersionOf = (): string => {
   const typescript = JSON.parse(
     readFileSync(extractor.resolve('typescript/package.json'), 'utf8'),
   ) as { readonly version: string };
-  const hash = createHash('sha256').update(`typescript ${typescript.version}\0`);
-  for (const [name, folder] of [
-    ['extractor', dirname(TYPESCRIPT_EXTRACTOR)],
-    ['scope', dirname(extractor.resolve('@callmap/scope'))],
-  ] as const) {
-    for (const file of sourceFilesOf(folder)) {
-      hash
-        .update(`${name}/${file}\0`)
-        .update(readFileSync(join(folder, file)))
-        .update('\0');
-    }
-  }
-  return hash.digest('hex');
+  const sourceFiles = (
+    [
+      ['extractor', dirname(TYPESCRIPT_EXTRACTOR)],
+      ['scope', dirname(extractor.resolve('@callmap/scope'))],
+    ] as const
+  ).flatMap(([name, folder]) =>
+    sourceFilesOf(folder).map((file) => ({ name: `${name}/${file}`, path: join(folder, file) })),
+  );
+  return sha256OfFiles(sourceFiles, `typescript ${typescript.version}\0`);
 };

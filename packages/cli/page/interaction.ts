@@ -91,7 +91,7 @@ export const interactionOf = (
     return laid;
   };
 
-  const layingOf = (target: ViewState, scene: Scene): Promise<Laid> => {
+  const layoutFor = (target: ViewState, scene: Scene): Promise<Laid> => {
     if (target.opened.size > 0) return laidOutInPage(target, scene);
     const key = keyOf(target.choice);
     const kept = target.kept.get(key);
@@ -100,20 +100,20 @@ export const interactionOf = (
       key === keyOf(target.view.firstChoice?.(data))
         ? data.placements[target.view.name]
         : undefined;
-    const laying =
+    const layout =
       placement === undefined
         ? laidOutInPage(target, scene)
         : Promise.resolve(laidOf(scene, placement));
-    target.kept.set(key, laying);
-    return laying;
+    target.kept.set(key, layout);
+    return layout;
   };
 
   const render = (target: ViewState, anchor?: FunctionId): Promise<void> => {
     target.scene = undefined;
-    const laying = layingOf(target, sceneOf(target));
-    target.laid = laying;
+    const layout = layoutFor(target, sceneOf(target));
+    target.laid = layout;
     return queued(async () => {
-      paint(target, await laying, anchor);
+      paint(target, await layout, anchor);
     });
   };
 
@@ -128,7 +128,7 @@ export const interactionOf = (
   };
   drawing.onBoxClick(select);
   drawing.onLevelBoxClick(({ opens }) => {
-    if (opens !== undefined) void choose(opens);
+    void choose(opens);
   });
   drawing.onEmptyClick(() => {
     highlight(undefined);

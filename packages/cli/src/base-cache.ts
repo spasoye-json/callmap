@@ -15,6 +15,8 @@ import { isAbsolute, join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
 import { extractorVersionOf } from './extractors.ts';
+import type { ExtractorSettings } from './extractors.ts';
+import { sha256OfFiles } from './file-hash.ts';
 
 const ENTRIES_FOR_EACH_REPO = 20;
 
@@ -27,12 +29,10 @@ const LOCK_FILES: readonly string[] = [
   'bun.lockb',
 ];
 
-export interface BaseKey {
+export interface BaseKey extends ExtractorSettings {
   readonly repo: string;
   readonly checkout: string;
   readonly commit: string;
-  readonly scope: readonly string[];
-  readonly tsconfig: string | undefined;
 }
 
 const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex');
@@ -42,17 +42,12 @@ const cacheHomeOf = (): string => {
   return home !== undefined && isAbsolute(home) ? home : join(homedir(), '.cache');
 };
 
-const lockHashOf = (checkout: string): string => {
-  const hash = createHash('sha256');
-  for (const name of LOCK_FILES) {
-    const path = join(checkout, name);
-    if (!existsSync(path)) continue;
-    hash.update(`${name}\0`);
-    hash.update(readFileSync(path));
-    hash.update('\0');
-  }
-  return hash.digest('hex');
-};
+const lockHashOf = (checkout: string): string =>
+  sha256OfFiles(
+    LOCK_FILES.map((name) => ({ name, path: join(checkout, name) })).filter(({ path }) =>
+      existsSync(path),
+    ),
+  );
 
 const entryNameOf = ({ checkout, commit, scope, tsconfig }: BaseKey): string =>
   sha256(
