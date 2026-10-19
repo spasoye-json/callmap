@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import type { GraphDocument } from '@archmap/graph-document';
-import { reviewOf } from '@archmap/review';
+import type { GraphDocument } from '@callmap/graph-document';
+import { reviewOf } from '@callmap/review';
 import type { ReviewInvocation } from './arguments.ts';
 import { openInBrowser } from './browser.ts';
 import { changedLinesByFileOf } from './changed-lines.ts';
@@ -24,7 +24,7 @@ export class UnreadableGraphError extends Error {
 }
 
 const defaultOutOf = (root: string): string =>
-  join(tmpdir(), 'archmap', `review-${basename(root)}.html`);
+  join(tmpdir(), 'callmap', `review-${basename(root)}.html`);
 
 const readGraphDocumentOf = async (
   what: string,

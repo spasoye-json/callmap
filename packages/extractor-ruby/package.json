@@ -1,5 +1,5 @@
 {
-  "name": "@archmap/extractor-ruby",
+  "name": "@callmap/extractor-ruby",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,10 +13,10 @@
     "./cli": "./src/cli.ts"
   },
   "bin": {
-    "archmap-extract-ruby": "./src/cli.ts"
+    "callmap-extract-ruby": "./src/cli.ts"
   },
   "dependencies": {
-    "@archmap/reference-graph": "*",
-    "@archmap/scope": "*"
+    "@callmap/reference-graph": "*",
+    "@callmap/scope": "*"
   }
 }

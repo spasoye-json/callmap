@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Call, GraphDocument, GraphFunction } from '@archmap/graph-document';
+import type { Call, GraphDocument, GraphFunction } from '@callmap/graph-document';
 import { reviewOf } from '../src/index.ts';
 import type { ChangedLinesByFile } from '../src/index.ts';
 

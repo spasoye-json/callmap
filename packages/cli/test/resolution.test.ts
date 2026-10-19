@@ -10,7 +10,7 @@ import {
   linesOf,
   loadReaderPage,
   pageDataOf,
-  runArchmap,
+  runCallmap,
   settled,
 } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
@@ -23,8 +23,8 @@ let html = '';
 let htmlWithBroadcast = '';
 
 const reviewPageOf = (repo: string): string => {
-  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-  const finished = runArchmap(['review', repo, '--no-open', '--out', out]);
+  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const finished = runCallmap(['review', repo, '--no-open', '--out', out]);
   expect(finished.status, finished.stderr).toBe(0);
   return readFileSync(out, 'utf8');
 };
@@ -55,7 +55,7 @@ beforeAll(() => {
   htmlWithBroadcast = reviewPageOf(repoWithBroadcastOnBase());
 }, 120_000);
 
-describe('the open ends, one-of groups and resolution rate of archmap review', () => {
+describe('the open ends, one-of groups and resolution rate of callmap review', () => {
   it('lists the open end of a call on an untyped value, with its caller, line and text', () => {
     expect(pageDataOf(html).review.openEnds).toEqual([
       { caller: `${ALERTS}#relay`, line: 8, expression: 'JSON.parse(raw).notify' },

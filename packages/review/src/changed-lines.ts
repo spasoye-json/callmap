@@ -1,4 +1,4 @@
-import type { FunctionId } from '@archmap/graph-document';
+import type { FunctionId } from '@callmap/graph-document';
 import type { MarkedFunction } from './review.ts';
 
 export interface LineChanges {

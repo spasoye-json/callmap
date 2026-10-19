@@ -1,6 +1,6 @@
 import { relative, sep } from 'node:path';
 import * as ts from 'typescript';
-import type { FunctionId } from '@archmap/graph-document';
+import type { FunctionId } from '@callmap/graph-document';
 
 export type CallSite = ts.CallExpression | ts.NewExpression;
 

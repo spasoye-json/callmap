@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Call, GraphDocument, GraphFunction, OpenEnd } from '@archmap/graph-document';
+import type { Call, GraphDocument, GraphFunction, OpenEnd } from '@callmap/graph-document';
 import { reviewOf } from '../src/index.ts';
 
 const fn = (id: string, sourceHash = `${id}@1`): GraphFunction => {

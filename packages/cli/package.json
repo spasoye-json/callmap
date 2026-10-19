@@ -1,16 +1,16 @@
 {
-  "name": "@archmap/cli",
+  "name": "@callmap/cli",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "archmap": "./src/cli.ts"
+    "callmap": "./src/cli.ts"
   },
   "dependencies": {
-    "@archmap/editor-link": "*",
-    "@archmap/extractor-typescript": "*",
-    "@archmap/graph-document": "*",
-    "@archmap/review": "*",
+    "@callmap/editor-link": "*",
+    "@callmap/extractor-typescript": "*",
+    "@callmap/graph-document": "*",
+    "@callmap/review": "*",
     "elkjs": "^0.12.0",
     "rolldown": "^1.2.14"
   },

@@ -9,7 +9,7 @@ const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
 const INNER = `${FIXTURE}/src`;
 
 const repoWith = (files: Readonly<Record<string, string>>): string => {
-  const repo = mkdtempSync(join(tmpdir(), 'archmap-ts-config-'));
+  const repo = mkdtempSync(join(tmpdir(), 'callmap-ts-config-'));
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(join(repo, path, '..'), { recursive: true });
     writeFileSync(join(repo, path), text);

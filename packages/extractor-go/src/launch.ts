@@ -9,8 +9,8 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ReferenceGraphDocument } from '@archmap/reference-graph';
-import { readReferenceGraphDocument } from '@archmap/reference-graph';
+import type { ReferenceGraphDocument } from '@callmap/reference-graph';
+import { readReferenceGraphDocument } from '@callmap/reference-graph';
 
 /** The tag this extractor stamps on every file it claims. */
 export const GO = 'go';
@@ -38,7 +38,7 @@ let built: string | undefined;
  */
 export const goExtractorBinary = (): string => {
   if (built !== undefined) return built;
-  const binary = join(mkdtempSync(join(tmpdir(), 'archmap-extract-go-')), 'archmap-extract-go');
+  const binary = join(mkdtempSync(join(tmpdir(), 'callmap-extract-go-')), 'callmap-extract-go');
   const finished = spawnSync('go', ['build', '-o', binary, '.'], {
     cwd: PROGRAM,
     encoding: 'utf8',

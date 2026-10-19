@@ -8,7 +8,7 @@
 
 import { extractRuby } from './extract.ts';
 
-const USAGE = 'usage: archmap-extract-ruby <repo> [--scope <glob>]...';
+const USAGE = 'usage: callmap-extract-ruby <repo> [--scope <glob>]...';
 
 class CliError extends Error {
   override readonly name = 'CliError';

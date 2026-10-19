@@ -1,4 +1,4 @@
-import type { FunctionId, GraphDocument } from '@archmap/graph-document';
+import type { FunctionId, GraphDocument } from '@callmap/graph-document';
 import { hopsOf } from './hops.ts';
 import type { Hops } from './hops.ts';
 import { byText } from './order.ts';

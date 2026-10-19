@@ -1,4 +1,4 @@
-import type { FunctionId } from '@archmap/graph-document';
+import type { FunctionId } from '@callmap/graph-document';
 import type { GraphOfCaller } from './graph-of-caller.ts';
 import { byText } from './order.ts';
 

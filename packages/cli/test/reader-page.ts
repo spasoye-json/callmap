@@ -15,7 +15,7 @@ export interface Opener {
 }
 
 export const fakeOpener = (): Opener => {
-  const bin = mkdtempSync(join(tmpdir(), 'archmap-opener-'));
+  const bin = mkdtempSync(join(tmpdir(), 'callmap-opener-'));
   const marker = join(bin, 'opened');
   for (const name of ['xdg-open', 'open']) {
     const path = join(bin, name);
@@ -25,7 +25,7 @@ export const fakeOpener = (): Opener => {
   return { bin, marker };
 };
 
-export const runArchmap = (args: readonly string[], opener?: Opener) =>
+export const runCallmap = (args: readonly string[], opener?: Opener) =>
   spawnSync(process.execPath, [CLI, ...args], {
     encoding: 'utf8',
     env:
@@ -35,8 +35,8 @@ export const runArchmap = (args: readonly string[], opener?: Opener) =>
   });
 
 export const reviewHtmlOf = (repo: string): string => {
-  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-  const finished = runArchmap(['review', repo, '--no-open', '--out', out]);
+  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const finished = runCallmap(['review', repo, '--no-open', '--out', out]);
   if (finished.status !== 0) throw new Error(finished.stderr);
   return readFileSync(out, 'utf8');
 };

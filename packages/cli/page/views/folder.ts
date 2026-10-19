@@ -1,5 +1,5 @@
-import type { FunctionId } from '@archmap/graph-document';
-import { byText } from '@archmap/review';
+import type { FunctionId } from '@callmap/graph-document';
+import { byText } from '@callmap/review';
 import type { ReaderPageData } from '../data.ts';
 import { markedCallsOf, pageFunctionsOf } from '../functions.ts';
 import { foldersAbove, nestedSceneOf } from '../nested-scene.ts';

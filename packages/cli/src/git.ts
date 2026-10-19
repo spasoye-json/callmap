@@ -119,7 +119,7 @@ export const inWorktreeAt = async <T>(
   commit: string,
   read: (path: string) => Promise<T>,
 ): Promise<T> => {
-  const parent = mkdtempSync(join(tmpdir(), 'archmap-base-'));
+  const parent = mkdtempSync(join(tmpdir(), 'callmap-base-'));
   const path = join(parent, 'base');
   git(root, 'worktree', 'add', '--detach', '--quiet', path, commit);
   const links: string[] = [];

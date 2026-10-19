@@ -11,7 +11,7 @@ import {
   framesOf,
   loadReaderPage,
   pageDataOf,
-  runArchmap,
+  runCallmap,
 } from './reader-page.ts';
 
 const CART = 'src/cart.ts';
@@ -33,14 +33,14 @@ beforeAll(() => {
   repo = featureBranchRepo();
   branchBefore = git(repo, 'rev-parse', '--abbrev-ref', 'HEAD');
   statusBefore = git(repo, 'status', '--porcelain');
-  out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-  const finished = runArchmap(['review', repo, '--no-open', '--out', out]);
+  out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const finished = runCallmap(['review', repo, '--no-open', '--out', out]);
   expect(finished.status, finished.stderr).toBe(0);
   stdout = finished.stdout;
   html = readFileSync(out, 'utf8');
 }, 120_000);
 
-describe('archmap review on a feature branch', () => {
+describe('callmap review on a feature branch', () => {
   it('marks each added, removed and changed function, and each neighbour', () => {
     const marks = Object.fromEntries(
       pageDataOf(html).review.functions.map(({ id, mark }) => [id, mark]),
@@ -171,8 +171,8 @@ describe('the reader page', () => {
 describe('opening the page', () => {
   it('opens the page in the browser when the run ends', async () => {
     const opener = fakeOpener();
-    const target = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'opened.html');
-    const finished = runArchmap(['review', repo, '--out', target], opener);
+    const target = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'opened.html');
+    const finished = runCallmap(['review', repo, '--out', target], opener);
     expect(finished.status, finished.stderr).toBe(0);
     await expect.poll(() => existsSync(opener.marker), { timeout: 5_000 }).toBe(true);
     expect(readFileSync(opener.marker, 'utf8')).toBe(target);
@@ -180,8 +180,8 @@ describe('opening the page', () => {
 
   it('opens no browser with --no-open, and still writes the page', async () => {
     const opener = fakeOpener();
-    const target = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'closed.html');
-    const finished = runArchmap(['review', repo, '--no-open', '--out', target], opener);
+    const target = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'closed.html');
+    const finished = runCallmap(['review', repo, '--no-open', '--out', target], opener);
     expect(finished.status, finished.stderr).toBe(0);
     expect(existsSync(target)).toBe(true);
     await new Promise((settle) => setTimeout(settle, 500));

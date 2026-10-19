@@ -1,6 +1,6 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import type { ElkExtendedEdge, ElkLabel, ElkNode } from 'elkjs/lib/elk-api.js';
-import { appendTo, byText } from '@archmap/review';
+import { appendTo, byText } from '@callmap/review';
 import { arrowKeyOf, lineLabelOf } from './scene.ts';
 import type { Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 

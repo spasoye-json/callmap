@@ -1,5 +1,5 @@
 {
-  "name": "@archmap/graph-document",
+  "name": "@callmap/graph-document",
   "version": "0.0.0",
   "private": true,
   "type": "module",

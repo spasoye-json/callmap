@@ -1,11 +1,11 @@
 import { spawn } from 'node:child_process';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readGraphDocument } from '@archmap/graph-document';
-import type { GraphDocument } from '@archmap/graph-document';
+import { readGraphDocument } from '@callmap/graph-document';
+import type { GraphDocument } from '@callmap/graph-document';
 
 const TYPESCRIPT_EXTRACTOR = fileURLToPath(
-  import.meta.resolve('@archmap/extractor-typescript/cli'),
+  import.meta.resolve('@callmap/extractor-typescript/cli'),
 );
 
 const runExtractorProcess = (args: readonly string[]): Promise<string> =>

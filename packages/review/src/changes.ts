@@ -1,4 +1,4 @@
-import type { FunctionId, GraphDocument, GraphFunction } from '@archmap/graph-document';
+import type { FunctionId, GraphDocument, GraphFunction } from '@callmap/graph-document';
 
 export type ChangeMark = 'added' | 'removed' | 'changed';
 

@@ -1,4 +1,4 @@
-import { hopsOf, oneHopFrom } from '@archmap/review';
+import { hopsOf, oneHopFrom } from '@callmap/review';
 import type { PagePart } from '../reader-page.ts';
 import { diffView } from '../views/diff.ts';
 

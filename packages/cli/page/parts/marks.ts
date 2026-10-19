@@ -1,4 +1,4 @@
-import type { FunctionMark } from '@archmap/review';
+import type { FunctionMark } from '@callmap/review';
 import type { PagePart } from '../reader-page.ts';
 
 const MARKS: readonly FunctionMark[] = ['added', 'removed', 'changed', 'neighbour'];

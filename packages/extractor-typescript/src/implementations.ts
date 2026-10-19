@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import type { FunctionId } from '@archmap/graph-document';
+import type { FunctionId } from '@callmap/graph-document';
 import { memberOf } from './resolution.ts';
 
 export type MemberContainer = ts.ClassLikeDeclaration | ts.ObjectLiteralExpression;

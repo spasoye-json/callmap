@@ -1,5 +1,5 @@
 {
-  "name": "@archmap/extractor-typescript",
+  "name": "@callmap/extractor-typescript",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,11 +14,11 @@
     "./walk": "./src/walk.ts"
   },
   "bin": {
-    "archmap-extract-typescript": "./src/cli.ts"
+    "callmap-extract-typescript": "./src/cli.ts"
   },
   "dependencies": {
-    "@archmap/graph-document": "*",
-    "@archmap/scope": "*",
+    "@callmap/graph-document": "*",
+    "@callmap/scope": "*",
     "typescript": "^6.0.3"
   }
 }

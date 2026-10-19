@@ -1,8 +1,8 @@
 {
-  "name": "archmap",
+  "name": "callmap",
   "version": "0.0.0",
   "private": true,
-  "description": "Archmap will read the call graph of a repo with its language's own tools and write one HTML page for a code review.",
+  "description": "Callmap will read the call graph of a repo with its language's own tools and write one HTML page for a code review.",
   "type": "module",
   "workspaces": [
     "packages/*"

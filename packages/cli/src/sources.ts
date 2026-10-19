@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { GraphDocument } from '@archmap/graph-document';
-import type { Review } from '@archmap/review';
+import type { GraphDocument } from '@callmap/graph-document';
+import type { Review } from '@callmap/review';
 import type { SourceTexts, Sources } from '../page/data.ts';
 import { fileAt } from './git.ts';
 

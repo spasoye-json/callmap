@@ -14,7 +14,7 @@ import {
   linesOf,
   openTab,
   pickFolder,
-  runArchmap,
+  runCallmap,
   settled,
 } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
@@ -27,8 +27,8 @@ const PERCENT = 'src/percent.ts';
 let html = '';
 
 beforeAll(() => {
-  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-  const finished = runArchmap([
+  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const finished = runCallmap([
     'review',
     featureBranchRepoWithUnchangedFiles(),
     '--no-open',

@@ -1,9 +1,9 @@
 ---
-name: archmap-review
-description: Review a branch with Archmap. Use when the user asks for an Archmap review, or asks to see the calls that a branch changed.
+name: callmap-review
+description: Review a branch with Callmap. Use when the user asks for a Callmap review, or asks to see the calls that a branch changed.
 ---
 
-Run `archmap review` in the repo that the user names, or in the current directory. Pass a flag only when the user asks for it:
+Run `callmap review` in the repo that the user names, or in the current directory. Pass a flag only when the user asks for it:
 
 - `--base <commit>` for a different base.
 - `--scope <glob>` for each subtree, and `--scope '!<glob>'` for each set of files to leave out.

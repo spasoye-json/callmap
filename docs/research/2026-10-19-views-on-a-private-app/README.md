@@ -5,6 +5,7 @@ This check closes ticket 30. It ran `archmap review` on a real branch of a priva
 ## The method
 
 - **The command:** `archmap review --tsconfig <the backend config> --scope '<the backend sources>' --scope '!**/*.spec.ts' --no-open --out <file>`, as in the check of 2026-10-18.
+- **The command today:** `callmap review` with the same flags. ADR-0014 renamed the product.
 - **The browser:** headless Chromium 155 at 1600 by 1000 pixels, on an Intel Core Ultra 9 185H.
 - **The layout time:** the time from the start to the end of `aria-busy="true"` on `#graph`. It holds the scene, the ELK layout and the SVG drawing of the view. A script measures it with a `MutationObserver` on the page.
 - **The Diff and Whole project times:** the median of 5 page loads. The first load is the slowest, because the browser compiles the page script.

@@ -1,4 +1,4 @@
-import type { ChangedLinesByFile } from '@archmap/review';
+import type { ChangedLinesByFile } from '@callmap/review';
 import { diffAgainst } from './git.ts';
 
 const HUNK = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;

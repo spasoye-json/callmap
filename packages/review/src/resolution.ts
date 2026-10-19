@@ -1,4 +1,4 @@
-import type { FunctionId, GraphDocument, OpenEnd } from '@archmap/graph-document';
+import type { FunctionId, GraphDocument, OpenEnd } from '@callmap/graph-document';
 import type { FunctionMark, ReviewInput } from './review.ts';
 import { oneOfGroupsOf } from './one-of-groups.ts';
 import type { OneOfGroup } from './one-of-groups.ts';

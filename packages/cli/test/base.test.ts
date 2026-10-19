@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { commitFile, featureBranchRepo, git } from './fixture-repo.ts';
-import { boxesOf, loadReaderPage, pageDataOf, runArchmap } from './reader-page.ts';
+import { boxesOf, loadReaderPage, pageDataOf, runCallmap } from './reader-page.ts';
 
 const MONEY = 'src/money.ts';
 const CART = 'src/cart.ts';
@@ -15,8 +15,8 @@ const BRANCH_CHANGES = {
 };
 
 const marksOfReview = (repo: string, ...flags: readonly string[]) => {
-  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-  const finished = runArchmap(['review', repo, '--no-open', '--out', out, ...flags]);
+  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const finished = runCallmap(['review', repo, '--no-open', '--out', out, ...flags]);
   expect(finished.status, finished.stderr).toBe(0);
   return Object.fromEntries(
     pageDataOf(readFileSync(out, 'utf8')).review.functions.map(({ id, mark }) => [id, mark]),
@@ -92,8 +92,8 @@ describe('the base checkout of a review', () => {
     git(repo, 'rm', '--quiet', 'src/area.ts');
     git(repo, 'commit', '--quiet', '--message', 'remove src/area.ts');
 
-    const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-    const finished = runArchmap(['review', repo, '--no-open', '--out', out, '--base', 'HEAD~1']);
+    const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+    const finished = runCallmap(['review', repo, '--no-open', '--out', out, '--base', 'HEAD~1']);
     expect(finished.status, finished.stderr).toBe(0);
     const { review } = pageDataOf(readFileSync(out, 'utf8'));
     expect(review.functions.map(({ id, mark }) => [id, mark])).toEqual([
@@ -106,8 +106,8 @@ describe('the base checkout of a review', () => {
 
 describe('a branch that changed no function', () => {
   it('gets a page that says so in place of an empty graph', async () => {
-    const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-    const finished = runArchmap([
+    const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+    const finished = runCallmap([
       'review',
       featureBranchRepo(),
       '--no-open',

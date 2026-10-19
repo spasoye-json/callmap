@@ -1,6 +1,6 @@
-import type { Call, FunctionId, OpenEnd } from '@archmap/graph-document';
-import { appendTo, byText } from '@archmap/review';
-import type { CallMark, MarkedCall } from '@archmap/review';
+import type { Call, FunctionId, OpenEnd } from '@callmap/graph-document';
+import { appendTo, byText } from '@callmap/review';
+import type { CallMark, MarkedCall } from '@callmap/review';
 import type { ReaderPageData } from './data.ts';
 import type { PageFunction } from './functions.ts';
 

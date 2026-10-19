@@ -113,7 +113,7 @@ describe('the core', () => {
 });
 
 describe('the extractors it ships', () => {
-  it('holds one package per language that Archmap reads, so far', () => {
+  it('holds one package per language that Callmap reads, so far', () => {
     expect(extractorPackages).toEqual(['extractor-go', 'extractor-ruby', 'extractor-typescript']);
   });
 
@@ -145,7 +145,7 @@ describe('the host that runs it', () => {
   it('reads source text for the code panel but parses none, because it imports no parser and no extractor', () => {
     expect(importsIn('cli')).toContain('node:fs');
     const offenders = [...importsIn('cli')].filter(
-      (specifier) => specifier === 'typescript' || specifier.startsWith('@archmap/extractor-'),
+      (specifier) => specifier === 'typescript' || specifier.startsWith('@callmap/extractor-'),
     );
     expect(offenders).toEqual([]);
   });

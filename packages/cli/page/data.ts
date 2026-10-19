@@ -1,6 +1,6 @@
-import type { Editor } from '@archmap/editor-link';
-import type { GraphDocument } from '@archmap/graph-document';
-import type { Review } from '@archmap/review';
+import type { Editor } from '@callmap/editor-link';
+import type { GraphDocument } from '@callmap/graph-document';
+import type { Review } from '@callmap/review';
 
 export const DATA_BLOCK_ID = 'reader-page-data';
 
