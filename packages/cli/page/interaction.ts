@@ -6,6 +6,7 @@ import type { Laid } from './layout.ts';
 import type { ReaderPage } from './reader-page.ts';
 import type { FunctionBox, Scene } from './scene.ts';
 import { tabBarOf } from './tabs.ts';
+import { choiceKeyOf } from './view.ts';
 import type { Choice, View } from './view.ts';
 
 export interface Interaction {
@@ -25,7 +26,11 @@ interface ViewState {
   choice: Choice | undefined;
   scene: Scene | undefined;
   laid: Promise<Laid> | undefined;
+  readonly kept: Map<string, Promise<Laid>>;
 }
+
+const keyOf = (choice: Choice | undefined): string =>
+  choice === undefined ? '' : choiceKeyOf(choice);
 
 export const interactionOf = (
   data: ReaderPageData,
@@ -39,9 +44,10 @@ export const interactionOf = (
   const states = views.map((view): ViewState => ({
     view,
     opened: new Set(),
-    choice: undefined,
+    choice: view.firstChoice?.(data),
     scene: undefined,
     laid: undefined,
+    kept: new Map(),
   })) as [ViewState, ...ViewState[]];
   let current = states[0];
   let selected: FunctionId | undefined;
@@ -62,7 +68,7 @@ export const interactionOf = (
 
   const paint = (target: ViewState, laid: Laid, anchor?: FunctionId): void => {
     if (target !== current) return;
-    drawing.draw(laid, { anchor, zoomLevels: target.view.zoomLevels === true });
+    drawing.draw(laid, anchor);
     drawing.highlight(selected);
     if (drawn !== target) drawing.fit();
     drawn = target;
@@ -78,15 +84,33 @@ export const interactionOf = (
       (box): box is FunctionBox => box.kind === 'function' && box.id === id,
     );
 
-  const placementOf = ({ view, opened, choice }: ViewState) =>
-    opened.size === 0 && choice === undefined ? data.placements[view.name] : undefined;
+  const laidOutInPage = async ({ view, choice }: ViewState, scene: Scene): Promise<Laid> => {
+    const start = performance.now();
+    const laid = await layoutOf(scene);
+    performance.measure(`callmap layout: ${view.name} ${keyOf(choice)}`.trim(), { start });
+    return laid;
+  };
+
+  const layingOf = (target: ViewState, scene: Scene): Promise<Laid> => {
+    if (target.opened.size > 0) return laidOutInPage(target, scene);
+    const key = keyOf(target.choice);
+    const kept = target.kept.get(key);
+    if (kept !== undefined) return kept;
+    const placement =
+      key === keyOf(target.view.firstChoice?.(data))
+        ? data.placements[target.view.name]
+        : undefined;
+    const laying =
+      placement === undefined
+        ? laidOutInPage(target, scene)
+        : Promise.resolve(laidOf(scene, placement));
+    target.kept.set(key, laying);
+    return laying;
+  };
 
   const render = (target: ViewState, anchor?: FunctionId): Promise<void> => {
     target.scene = undefined;
-    const scene = sceneOf(target);
-    const placement = placementOf(target);
-    const laying =
-      placement === undefined ? layoutOf(scene) : Promise.resolve(laidOf(scene, placement));
+    const laying = layingOf(target, sceneOf(target));
     target.laid = laying;
     return queued(async () => {
       paint(target, await laying, anchor);
@@ -103,6 +127,9 @@ export const interactionOf = (
     for (const handler of boxHandlers) handler(box);
   };
   drawing.onBoxClick(select);
+  drawing.onLevelBoxClick(({ opens }) => {
+    if (opens !== undefined) void choose(opens);
+  });
   drawing.onEmptyClick(() => {
     highlight(undefined);
   });

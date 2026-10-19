@@ -8,6 +8,7 @@ import {
   countdownRepo,
   featureBranchRepo,
   featureBranchRepoWithUnchangedFiles,
+  levelsRepo,
 } from './fixture-repo.ts';
 import {
   boxElementOf,
@@ -29,6 +30,7 @@ const CART = 'src/cart.ts';
 let html = '';
 let folderHtml = '';
 let cycleHtml = '';
+let levelsHtml = '';
 
 const reviewPageOf = (repo: string): string => {
   const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
@@ -41,6 +43,7 @@ beforeAll(() => {
   html = reviewPageOf(featureBranchRepo());
   folderHtml = reviewPageOf(featureBranchRepoWithUnchangedFiles());
   cycleHtml = reviewPageOf(countdownRepo());
+  levelsHtml = reviewPageOf(levelsRepo());
 }, 120_000);
 
 const folderViewOf = async (folder: string): Promise<LoadedPage> => {
@@ -113,9 +116,31 @@ const pagesWithACycleToCheck = async (): Promise<readonly [string, LoadedPage][]
   await routeWithACycle(),
 ];
 
+const levelOf = async (...path: readonly string[]): Promise<[string, LoadedPage]> => {
+  const page = await loadReaderPage(levelsHtml);
+  await openTab(page, 'Whole project');
+  for (const box of path) await clickBox(page, box);
+  return [`the level ${path.at(-1) ?? 'at the top'}`, page];
+};
+
+const levelsToCheck = async (): Promise<readonly [string, LoadedPage][]> => [
+  await levelOf(),
+  await levelOf('src/orders'),
+  await levelOf('src/orders', 'src/orders/api'),
+  await levelOf('src/orders', 'src/orders/service'),
+  await levelOf('src/shipping/carriers'),
+  await levelOf('src/money'),
+  await levelOf('src/notify'),
+];
+
+const pagesWithLevelsToCheck = async (): Promise<readonly [string, LoadedPage][]> => [
+  ...(await pagesWithACycleToCheck()),
+  ...(await levelsToCheck()),
+];
+
 describe('the lines of the drawing', () => {
   it('draws every segment of every line horizontal or vertical', async () => {
-    for (const [name, page] of await pagesWithACycleToCheck()) {
+    for (const [name, page] of await pagesWithLevelsToCheck()) {
       const lines = linesOf(page);
       expect(lines.length, name).toBeGreaterThan(0);
       for (const line of lines) {
@@ -127,7 +152,7 @@ describe('the lines of the drawing', () => {
   }, 30_000);
 
   it('draws no segment of a line through a box that is not its caller or its callee', async () => {
-    for (const [name, page] of await pagesWithACycleToCheck()) {
+    for (const [name, page] of await pagesWithLevelsToCheck()) {
       expect(crossingsOf(page), name).toEqual([]);
     }
   }, 30_000);

@@ -88,6 +88,7 @@ export interface DrawnLine {
 
 export interface LoadedPage {
   readonly window: JSDOM['window'];
+  readonly layouts: readonly string[];
 }
 
 const LAYOUT_TIMEOUT = 10_000;
@@ -104,15 +105,16 @@ export const settled = async ({ window }: LoadedPage): Promise<void> => {
 export type StoredItems = Readonly<Record<string, string>>;
 
 const withStorage = (stored: StoredItems | undefined) =>
-  stored === undefined
-    ? {}
-    : {
-        url: 'http://localhost/',
-        beforeParse: (window: JSDOM['window']) => {
-          for (const [key, value] of Object.entries(stored))
-            window.localStorage.setItem(key, value);
-        },
-      };
+  stored === undefined ? {} : { url: 'http://localhost/' };
+
+const recordLayouts = (window: JSDOM['window'], layouts: string[]): void => {
+  // jsdom has no User Timing API, so the test records the layouts that the page measures.
+  Object.assign(window.performance, {
+    measure: (name: string) => {
+      layouts.push(name);
+    },
+  });
+};
 
 export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
   Object.fromEntries(
@@ -123,12 +125,18 @@ export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
   );
 
 export const loadReaderPage = async (html: string, stored?: StoredItems): Promise<LoadedPage> => {
+  const layouts: string[] = [];
   const dom = new JSDOM(html, {
     runScripts: 'dangerously',
     pretendToBeVisual: true,
     ...withStorage(stored),
+    beforeParse: (window) => {
+      recordLayouts(window, layouts);
+      for (const [key, value] of Object.entries(stored ?? {}))
+        window.localStorage.setItem(key, value);
+    },
   });
-  const page = { window: dom.window };
+  const page = { window: dom.window, layouts };
   await settled(page);
   return page;
 };
