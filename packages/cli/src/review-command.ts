@@ -4,11 +4,13 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import type { GraphDocument } from '@callmap/graph-document';
 import { reviewOf } from '@callmap/review';
 import type { ReviewInvocation } from './arguments.ts';
+import { throughBaseCache } from './base-cache.ts';
 import { openInBrowser } from './browser.ts';
 import { extractGraphDocumentOf } from './extractors.ts';
 import type { ExtractorSettings } from './extractors.ts';
 import {
   commitOf,
+  commonDirOf,
   defaultBranchOf,
   inWorktreeAt,
   mergeBaseOf,
@@ -63,11 +65,18 @@ export const runReview = async (invocation: ReviewInvocation): Promise<string> =
     scope: invocation.scope,
     tsconfig: tsconfigOf(root, invocation.tsconfig),
   };
-  const [branchRead, baseRead] = await Promise.allSettled([
-    readGraphDocumentOf('the branch', root, settings),
+  const readBase = (): Promise<GraphDocument> =>
     inWorktreeAt(root, base, (path) =>
       readGraphDocumentOf(`the base ${shortCommitOf(root, base)}`, path, settings),
-    ),
+    );
+  const [branchRead, baseRead] = await Promise.allSettled([
+    readGraphDocumentOf('the branch', root, settings),
+    invocation.cache
+      ? throughBaseCache(
+          { repo: commonDirOf(root), checkout: root, commit: base, ...settings },
+          readBase,
+        )
+      : readBase(),
   ]);
   const branchGraph = settled(branchRead);
   const baseGraph = settled(baseRead);

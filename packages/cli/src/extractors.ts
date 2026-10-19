@@ -1,5 +1,8 @@
 import { spawn } from 'node:child_process';
-import { isAbsolute, join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
@@ -42,3 +45,28 @@ export const extractGraphDocumentOf = async (
   settings: ExtractorSettings,
 ): Promise<GraphDocument> =>
   readGraphDocument(JSON.parse(await runExtractorProcess(argumentsOf(repo, settings))));
+
+const sourceFilesOf = (folder: string): readonly string[] =>
+  readdirSync(folder, { recursive: true, encoding: 'utf8' })
+    .filter((file) => file.endsWith('.ts'))
+    .sort();
+
+export const extractorVersionOf = (): string => {
+  const extractor = createRequire(TYPESCRIPT_EXTRACTOR);
+  const typescript = JSON.parse(
+    readFileSync(extractor.resolve('typescript/package.json'), 'utf8'),
+  ) as { readonly version: string };
+  const hash = createHash('sha256').update(`typescript ${typescript.version}\0`);
+  for (const [name, folder] of [
+    ['extractor', dirname(TYPESCRIPT_EXTRACTOR)],
+    ['scope', dirname(extractor.resolve('@callmap/scope'))],
+  ] as const) {
+    for (const file of sourceFilesOf(folder)) {
+      hash
+        .update(`${name}/${file}\0`)
+        .update(readFileSync(join(folder, file)))
+        .update('\0');
+    }
+  }
+  return hash.digest('hex');
+};
