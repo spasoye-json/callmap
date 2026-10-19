@@ -1,7 +1,6 @@
 import { EDITORS, editorUrl } from '@archmap/editor-link';
 import type { MarkedFunction } from '@archmap/review';
 import { markedFunctionsOf, sourceLinesOf } from '../functions.ts';
-import { targetIdOf } from '../reader-page.ts';
 import type { PagePart, ReaderPage } from '../reader-page.ts';
 
 type LineMark = 'changed' | 'removed-above' | 'kept';
@@ -69,8 +68,8 @@ const codePanel: PagePart = (page) => {
   section.append(hint);
   page.panels.append(section);
 
-  page.graph.on('tap', 'node.function', (event) => {
-    const shown = functions.get(targetIdOf(event));
+  page.onBoxClick(({ id }) => {
+    const shown = functions.get(id);
     if (shown !== undefined) show(section, page, shown);
   });
 };

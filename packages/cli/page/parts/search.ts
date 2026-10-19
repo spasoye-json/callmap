@@ -1,8 +1,7 @@
 import { byText } from '@archmap/review';
 import type { MarkedFunction } from '@archmap/review';
 import { markedFunctionsOf } from '../functions.ts';
-import { hopOpenerOf } from '../hops.ts';
-import type { PagePart, ReaderPage } from '../reader-page.ts';
+import type { PagePart } from '../reader-page.ts';
 
 const MAX_RESULTS = 30;
 
@@ -33,23 +32,13 @@ const resultOf = (found: MarkedFunction, open: (found: MarkedFunction) => void):
   return item;
 };
 
-const openerOf = (page: ReaderPage): ((found: MarkedFunction) => void) => {
-  const { show } = hopOpenerOf(page);
-  return ({ id }) => {
-    show([id]);
-    const box = page.graph.getElementById(id);
-    page.graph.elements(':selected').unselect();
-    box.select();
-    box.emit('tap');
-    page.graph.center(box);
-  };
-};
-
 const search: PagePart = (page) => {
   const candidates = [...markedFunctionsOf(page.data).values()].sort(
     (left, right) => byText(left.name, right.name) || byText(left.file, right.file),
   );
-  const open = openerOf(page);
+  const open = ({ id }: MarkedFunction): void => {
+    void page.open(id);
+  };
 
   const section = document.createElement('section');
   section.setAttribute('aria-label', 'Search');

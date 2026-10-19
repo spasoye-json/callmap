@@ -4,7 +4,15 @@ import { join } from 'node:path';
 import { fireEvent, getAllByRole, getByRole, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { commitFile, featureBranchRepo, git } from './fixture-repo.ts';
-import { loadReaderPage, pageDataOf, runArchmap } from './reader-page.ts';
+import {
+  boxesOf,
+  clickBox,
+  linesOf,
+  loadReaderPage,
+  pageDataOf,
+  runArchmap,
+  settled,
+} from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
 
 const ALERTS = 'src/alerts.ts';
@@ -79,15 +87,15 @@ describe('the open ends, one-of groups and resolution rate of archmap review', (
 });
 
 describe('the open ends, one-of groups and resolution rate on the reader page', () => {
-  it('shows the resolution rate, and says that it counts the whole repo in scope', () => {
-    const { window } = loadReaderPage(html);
+  it('shows the resolution rate, and says that it counts the whole repo in scope', async () => {
+    const { window } = await loadReaderPage(html);
     const rate = getByRole(window.document.body, 'region', { name: 'Resolution rate' });
     expect(rate.textContent).toContain('90.0%');
     expect(rate.textContent).toContain('In the whole repo in scope: 9 calls resolved, 1 open end.');
   });
 
-  it('lists each open end of this review with its caller, its line and its full text', () => {
-    const { window } = loadReaderPage(html);
+  it('lists each open end of this review with its caller, its line and its full text', async () => {
+    const { window } = await loadReaderPage(html);
     const rate = getByRole(window.document.body, 'region', { name: 'Resolution rate' });
     const list = getByRole(rate, 'list', { name: 'In this review: 1 open end' });
     expect(getAllByRole(list, 'listitem').map((item) => item.textContent)).toEqual([
@@ -95,44 +103,43 @@ describe('the open ends, one-of groups and resolution rate on the reader page', 
     ]);
   });
 
-  it('marks each open end at its call site, as an arrow from its caller that leads nowhere', () => {
-    const { graph } = loadReaderPage(html);
-    const ends = graph.nodes('.open-end');
-    expect(ends.map((end) => end.data('label') as string)).toEqual(['JSON.parse(raw).notify :8']);
-    expect(ends.connectedEdges().map((arrow) => arrow.source().id())).toEqual([`${ALERTS}#relay`]);
+  it('marks each open end at its call site, as an arrow from its caller that leads nowhere', async () => {
+    const page = await loadReaderPage(html);
+    const ends = boxesOf(page).filter(({ kind }) => kind === 'open-end');
+    expect(ends.map(({ label }) => label)).toEqual(['JSON.parse(raw).notify :8']);
+    expect(
+      linesOf(page)
+        .filter(({ to }) => ends.some(({ id }) => id === to))
+        .map(({ from }) => from),
+    ).toEqual([`${ALERTS}#relay`]);
   });
 
-  it('draws the calls of a one-of group as alternatives of one group', () => {
-    const { graph } = loadReaderPage(html);
-    const alternatives = graph.edges('.one-of');
-    expect(alternatives.map((arrow) => arrow.target().id()).sort()).toEqual([
+  it('draws the calls of a one-of group as alternatives of one group', async () => {
+    const alternatives = linesOf(await loadReaderPage(html)).filter(({ classes }) =>
+      classes.includes('one-of'),
+    );
+    expect(alternatives.map(({ to }) => to).sort()).toEqual([
       `${NOTIFY}#Mail.send`,
       `${NOTIFY}#Sms.send`,
     ]);
-    expect(alternatives.map((arrow) => arrow.data('label') as string)).toEqual([
-      'one of 2',
-      'one of 2',
-    ]);
+    expect(alternatives.map(({ label }) => label)).toEqual(['one of 2', 'one of 2']);
   });
 
-  const openEndsFrom = ({ graph }: LoadedPage, caller: string): readonly string[] =>
-    graph
-      .edges('.open-end')
-      .map((arrow) => ({
-        from: arrow.source().id(),
-        label: arrow.target().data('label') as string,
-      }))
-      .filter(({ from }) => from === caller)
-      .map(({ label }) => label);
+  const openEndsFrom = (page: LoadedPage, caller: string): readonly string[] => {
+    const labels = new Map(boxesOf(page).map(({ id, label }) => [id, label]));
+    return linesOf(page)
+      .filter(({ from, classes }) => from === caller && classes.includes('open-end'))
+      .map(({ to }) => labels.get(to) ?? '');
+  };
 
-  it('marks the open ends and the one-of calls of a function that the next hop adds', () => {
-    const page = loadReaderPage(htmlWithBroadcast);
+  it('marks the open ends and the one-of calls of a function that the next hop adds', async () => {
+    const page = await loadReaderPage(htmlWithBroadcast);
     expect(openEndsFrom(page, `${BROADCAST}#broadcast`)).toEqual([]);
-    page.graph.getElementById(`${NOTIFY}#Mail.send`).emit('tap');
+    await clickBox(page, `${NOTIFY}#Mail.send`);
     expect(openEndsFrom(page, `${BROADCAST}#broadcast`)).toEqual(['JSON.parse(raw).notify :4']);
-    const alternatives = page.graph
-      .edges('.one-of')
-      .map((arrow) => `${arrow.source().id()} -> ${arrow.target().id()}`)
+    const alternatives = linesOf(page)
+      .filter(({ classes }) => classes.includes('one-of'))
+      .map(({ from, to }) => `${from} -> ${to}`)
       .filter((call) => call.startsWith(`${BROADCAST}#broadcast `));
     expect(alternatives.sort()).toEqual([
       `${BROADCAST}#broadcast -> ${NOTIFY}#Mail.send`,
@@ -140,13 +147,14 @@ describe('the open ends, one-of groups and resolution rate on the reader page', 
     ]);
   });
 
-  it('marks the open ends of a function that the search opens', () => {
-    const page = loadReaderPage(htmlWithBroadcast);
+  it('marks the open ends of a function that the search opens', async () => {
+    const page = await loadReaderPage(htmlWithBroadcast);
     const body = within(page.window.document.body);
     fireEvent.input(body.getByRole('searchbox', { name: 'Find a function' }), {
       target: { value: 'broadcast' },
     });
     fireEvent.click(body.getByRole('button', { name: `broadcast ${BROADCAST}` }));
+    await settled(page);
     expect(openEndsFrom(page, `${BROADCAST}#broadcast`)).toEqual(['JSON.parse(raw).notify :4']);
   });
 });

@@ -90,11 +90,11 @@ The extractors are the other side of the contract. Each one reads a repo and nam
 
 The host runs the extractors and the core, and writes the reader page.
 
-| Package        | What it owns                                                                                    |
-| -------------- | ----------------------------------------------------------------------------------------------- |
-| `@archmap/cli` | The `archmap` command: git, the extractor processes, and the reader page with Cytoscape inlined |
+| Package        | What it owns                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `@archmap/cli` | The `archmap` command: git, the extractor processes, and the reader page with ELK inlined |
 
-The page script lives in `packages/cli/page/`. The CLI bundles it with Cytoscape into the page at each run. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.
+The page script lives in `packages/cli/page/`. The CLI bundles it with `elkjs` into the page at each run. ELK lays out the graph in the browser, and the page draws it as SVG. A view is one module in `packages/cli/page/views/`: a pure function from the page data to frames, boxes and lines. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.
 
 `test/core-is-language-blind-and-pure.test.ts` reads the imports of every package. It holds the core away from the filesystem and from any language name. It holds each extractor to the opposite. It holds the host to its own list, and keeps the page script off every Node built-in.
 

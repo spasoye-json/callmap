@@ -1,11 +1,10 @@
-import { hopOpenerOf } from '../hops.ts';
-import { targetIdOf } from '../reader-page.ts';
+import { hopsOf, oneHopFrom } from '@archmap/review';
 import type { PagePart } from '../reader-page.ts';
 
 const nextHop: PagePart = (page) => {
-  const { openHop } = hopOpenerOf(page);
-  page.graph.on('tap', 'node.neighbour', (event) => {
-    openHop(targetIdOf(event));
+  const hops = hopsOf(page.data.branchGraph.calls);
+  page.onBoxClick(({ id, marked }) => {
+    if (marked.mark === 'neighbour') void page.show([id, ...oneHopFrom(hops, id)], id);
   });
 };
 

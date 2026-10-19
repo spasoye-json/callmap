@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
-import type { Core } from 'cytoscape';
 import type { ReaderPageData } from '../page/data.ts';
 
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
@@ -42,27 +41,129 @@ export const pageDataOf = (html: string): ReaderPageData => {
   return JSON.parse(block[1]) as ReaderPageData;
 };
 
-const inertContext = (): unknown =>
-  new Proxy(() => undefined, {
-    get: (_target, key) => (key === Symbol.toPrimitive ? () => 0 : inertContext()),
-    apply: () => inertContext(),
-    set: () => true,
-  });
+export type Point = readonly [number, number];
+
+export interface DrawnBox {
+  readonly id: string;
+  readonly kind: string;
+  readonly classes: readonly string[];
+  readonly label: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface DrawnFrame {
+  readonly id: string;
+  readonly label: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface DrawnLine {
+  readonly from: string;
+  readonly to: string;
+  readonly classes: readonly string[];
+  readonly label: string;
+  readonly points: readonly Point[];
+}
 
 export interface LoadedPage {
   readonly window: JSDOM['window'];
-  readonly graph: Core;
 }
 
-export const loadReaderPage = (html: string): LoadedPage => {
-  const dom = new JSDOM(html, {
-    runScripts: 'dangerously',
-    pretendToBeVisual: true,
-    beforeParse: (window) => {
-      window.HTMLCanvasElement.prototype.getContext = (() => inertContext()) as never;
-    },
-  });
-  const { readerPage } = dom.window as unknown as { readerPage?: { graph: Core } };
-  if (readerPage === undefined) throw new Error('the page script did not start');
-  return { window: dom.window, graph: readerPage.graph };
+const LAYOUT_TIMEOUT = 10_000;
+
+export const settled = async ({ window }: LoadedPage): Promise<void> => {
+  const graph = window.document.getElementById('graph');
+  const started = Date.now();
+  while (graph?.getAttribute('aria-busy') !== 'false') {
+    if (Date.now() - started > LAYOUT_TIMEOUT) throw new Error('the drawing did not settle');
+    await new Promise((settle) => setTimeout(settle, 5));
+  }
+};
+
+export const loadReaderPage = async (html: string): Promise<LoadedPage> => {
+  const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true });
+  const page = { window: dom.window };
+  await settled(page);
+  return page;
+};
+
+const numberOf = (element: Element | null, name: string): number =>
+  Number(element?.getAttribute(name) ?? Number.NaN);
+
+const textOf = (element: Element, selector: string): string =>
+  element.querySelector(selector)?.textContent ?? '';
+
+const rectOf = (element: Element) => {
+  const rect = element.querySelector(':scope > rect');
+  return {
+    x: numberOf(rect, 'x'),
+    y: numberOf(rect, 'y'),
+    width: numberOf(rect, 'width'),
+    height: numberOf(rect, 'height'),
+  };
+};
+
+const drawn = ({ window }: LoadedPage, selector: string): readonly Element[] => [
+  ...window.document.querySelectorAll(`#graph ${selector}`),
+];
+
+export const boxElementOf = (page: LoadedPage, id: string): Element | undefined =>
+  drawn(page, '[data-box]').find((element) => element.getAttribute('data-box') === id);
+
+export const boxesOf = (page: LoadedPage): readonly DrawnBox[] =>
+  drawn(page, '[data-box]').map((element) => ({
+    id: element.getAttribute('data-box') ?? '',
+    kind: element.getAttribute('data-kind') ?? '',
+    classes: [...element.classList],
+    label: textOf(element, ':scope > text'),
+    ...rectOf(element),
+  }));
+
+export const framesOf = (page: LoadedPage): readonly DrawnFrame[] =>
+  drawn(page, '[data-frame]').map((element) => ({
+    id: element.getAttribute('data-frame') ?? '',
+    label: textOf(element, ':scope > text'),
+    ...rectOf(element),
+  }));
+
+const pointsOf = (path: string): readonly Point[] =>
+  [...path.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map(([, x, y]): Point => [Number(x), Number(y)]);
+
+export const linesOf = (page: LoadedPage): readonly DrawnLine[] =>
+  drawn(page, '[data-from]').map((element) => ({
+    from: element.getAttribute('data-from') ?? '',
+    to: element.getAttribute('data-to') ?? '',
+    classes: [...element.classList],
+    label: textOf(element, 'text'),
+    points: pointsOf(element.querySelector('path')?.getAttribute('d') ?? ''),
+  }));
+
+const holds = (frame: DrawnFrame, box: DrawnBox): boolean =>
+  frame.x <= box.x &&
+  frame.y <= box.y &&
+  box.x + box.width <= frame.x + frame.width &&
+  box.y + box.height <= frame.y + frame.height;
+
+export const frameAround = (page: LoadedPage, id: string): string | undefined => {
+  const box = boxesOf(page).find((candidate) => candidate.id === id);
+  if (box === undefined) return undefined;
+  return framesOf(page)
+    .filter((frame) => holds(frame, box))
+    .sort((left, right) => left.width * left.height - right.width * right.height)[0]?.label;
+};
+
+export const callsOf = (page: LoadedPage): readonly DrawnLine[] =>
+  linesOf(page).filter(({ classes }) => classes.includes('call'));
+
+export const clickBox = async (page: LoadedPage, id: string): Promise<void> => {
+  const box = boxElementOf(page, id);
+  if (box === undefined) throw new Error(`the drawing holds no box ${id}`);
+  box.dispatchEvent(new page.window.MouseEvent('click', { bubbles: true }));
+  await settled(page);
 };

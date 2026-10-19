@@ -46,7 +46,7 @@ const pageScript = async (): Promise<string> => {
 };
 
 const pageStyle = (): string =>
-  [join(PAGE, 'page.css'), ...partsWith('.css')]
+  [join(PAGE, 'page.css'), join(PAGE, 'drawing.css'), ...partsWith('.css')]
     .map((path) => readFileSync(path, 'utf8'))
     .join('\n');
 

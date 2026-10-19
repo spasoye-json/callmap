@@ -1,80 +1,167 @@
-import { addTo, byText } from '@archmap/review';
+import ELK from 'elkjs/lib/elk.bundled.js';
+import type { ElkExtendedEdge, ElkLabel, ElkNode } from 'elkjs/lib/elk-api.js';
+import { byText } from '@archmap/review';
+import type { Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 
-export interface Position {
+export interface Rect {
   readonly x: number;
   readonly y: number;
+  readonly width: number;
+  readonly height: number;
 }
 
-export interface PlacedFunction {
-  readonly id: string;
-  readonly file: string;
-  readonly firstLine: number;
+export type Point = readonly [number, number];
+
+export interface LineLabel extends Rect {
+  readonly text: string;
 }
 
-export interface PlacedCall {
-  readonly caller: string;
-  readonly callee: string;
-}
-
-export const BOX_WIDTH = 220;
-export const BOX_HEIGHT = 36;
-
-const BOX_GAP = 14;
-const FRAME_HEADER = 34;
-const FRAME_GAP = 70;
-const COLUMN_GAP = 160;
-
-const columnsOf = (
-  files: readonly string[],
-  fileCallers: ReadonlyMap<string, ReadonlySet<string>>,
-): ReadonlyMap<string, number> => {
-  const remaining = new Set(files);
-  const columns = new Map<string, number>();
-  for (let column = 0; remaining.size > 0; column += 1) {
-    const ready = [...remaining].filter((file) =>
-      [...(fileCallers.get(file) ?? [])].every((caller) => !remaining.has(caller)),
-    );
-    const placed = ready.length > 0 ? ready : [...remaining].slice(0, 1);
-    for (const file of placed) {
-      columns.set(file, column);
-      remaining.delete(file);
-    }
-  }
-  return columns;
+export type LaidBox = SceneBox & Rect;
+export type LaidFrame = SceneFrame & Rect;
+export type LaidLine = SceneLine & {
+  readonly points: readonly Point[];
+  readonly label?: LineLabel;
 };
 
-export const layoutOf = (
-  functions: readonly PlacedFunction[],
-  calls: readonly PlacedCall[],
-): ReadonlyMap<string, Position> => {
-  const fileOf = new Map(functions.map(({ id, file }) => [id, file]));
-  const files = [...new Set(fileOf.values())].sort(byText);
+export interface Laid {
+  readonly frames: readonly LaidFrame[];
+  readonly boxes: readonly LaidBox[];
+  readonly lines: readonly LaidLine[];
+  readonly width: number;
+  readonly height: number;
+}
 
-  const fileCallers = new Map<string, Set<string>>();
-  for (const { caller, callee } of calls) {
-    const from = fileOf.get(caller);
-    const to = fileOf.get(callee);
-    if (from === undefined || to === undefined || from === to) continue;
-    addTo(fileCallers, to, from);
-  }
+const OPTIONS: Readonly<Record<string, string>> = {
+  'elk.algorithm': 'layered',
+  'elk.direction': 'RIGHT',
+  'elk.edgeRouting': 'ORTHOGONAL',
+  'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+  'elk.json.shapeCoords': 'ROOT',
+  'elk.json.edgeCoords': 'ROOT',
+  'elk.edgeLabels.placement': 'CENTER',
+  'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+  'elk.layered.spacing.nodeNodeBetweenLayers': '56',
+  'elk.layered.spacing.edgeNodeBetweenLayers': '16',
+  'elk.layered.spacing.edgeEdgeBetweenLayers': '8',
+  'elk.spacing.nodeNode': '14',
+  'elk.spacing.edgeNode': '12',
+  'elk.spacing.edgeEdge': '8',
+  'elk.spacing.componentComponent': '40',
+  'elk.padding': '[top=20,left=20,bottom=20,right=20]',
+};
 
-  const columns = columnsOf(files, fileCallers);
-  const nextTop = new Map<number, number>();
-  const positions = new Map<string, Position>();
+const FRAME_PADDING = '[top=30,left=12,bottom=12,right=12]';
+const BOX_HEIGHT = 30;
+const OPEN_END_HEIGHT = 22;
+const LABEL_HEIGHT = 16;
 
-  for (const file of files) {
-    const column = columns.get(file) ?? 0;
-    const boxes = functions
-      .filter((placed) => placed.file === file)
-      .sort((left, right) => left.firstLine - right.firstLine || byText(left.id, right.id));
-    const x = column * (BOX_WIDTH + COLUMN_GAP);
-    let y = (nextTop.get(column) ?? 0) + FRAME_HEADER;
-    for (const { id } of boxes) {
-      positions.set(id, { x, y: y + BOX_HEIGHT / 2 });
-      y += BOX_HEIGHT + BOX_GAP;
+const widthOf = (text: string, perCharacter: number, padding: number): number =>
+  Math.ceil(text.length * perCharacter) + padding;
+
+const boxNodeOf = (box: SceneBox): ElkNode =>
+  box.kind === 'function'
+    ? { id: box.id, width: Math.max(96, widthOf(box.label, 7, 24)), height: BOX_HEIGHT }
+    : { id: box.id, width: widthOf(box.label, 6, 16), height: OPEN_END_HEIGHT };
+
+const frameNodeOf = (frame: SceneFrame, children: ElkNode[]): ElkNode => ({
+  id: frame.id,
+  layoutOptions: {
+    'elk.padding': FRAME_PADDING,
+    'elk.nodeSize.constraints': '[MINIMUM_SIZE]',
+    'elk.nodeSize.minimum': `(${String(widthOf(frame.label, 6.6, 28))}, 40)`,
+  },
+  children,
+});
+
+const lineIdOf = (index: number): string => `line:${String(index)}`;
+
+const edgeOf = (line: SceneLine, index: number): ElkExtendedEdge => ({
+  id: lineIdOf(index),
+  sources: [line.from],
+  targets: [line.to],
+  ...(line.oneOf === undefined
+    ? {}
+    : {
+        labels: [{ text: line.oneOf, width: widthOf(line.oneOf, 6, 10), height: LABEL_HEIGHT }],
+      }),
+});
+
+const graphOf = ({ frames, boxes, lines }: Scene): ElkNode => {
+  const childrenOf = new Map<string, ElkNode[]>();
+  const add = (parent: string, node: ElkNode): void => {
+    const children = childrenOf.get(parent) ?? [];
+    children.push(node);
+    childrenOf.set(parent, children);
+  };
+  const frameIds = new Set(frames.map(({ id }) => id));
+  for (const box of boxes) add(frameIds.has(box.frame) ? box.frame : '', boxNodeOf(box));
+  const sorted = [...frames].sort((left, right) => byText(left.id, right.id));
+  const nodeOf = (frame: SceneFrame): ElkNode =>
+    frameNodeOf(frame, [
+      ...sorted.filter(({ parent }) => parent === frame.id).map(nodeOf),
+      ...(childrenOf.get(frame.id) ?? []),
+    ]);
+  return {
+    id: 'root',
+    layoutOptions: { ...OPTIONS },
+    children: [
+      ...sorted.filter(({ parent }) => parent === undefined || !frameIds.has(parent)).map(nodeOf),
+      ...(childrenOf.get('') ?? []),
+    ],
+    edges: lines.map(edgeOf),
+  };
+};
+
+const exact = (value: number | undefined): number => Math.round((value ?? 0) * 100) / 100;
+
+const rectOf = ({ x, y, width, height }: ElkNode | ElkLabel): Rect => ({
+  x: exact(x),
+  y: exact(y),
+  width: exact(width),
+  height: exact(height),
+});
+
+const placedOf = (root: ElkNode): ReadonlyMap<string, Rect> => {
+  const placed = new Map<string, Rect>();
+  const walk = (node: ElkNode): void => {
+    for (const child of node.children ?? []) {
+      placed.set(child.id, rectOf(child));
+      walk(child);
     }
-    nextTop.set(column, y + FRAME_GAP);
-  }
+  };
+  walk(root);
+  return placed;
+};
 
-  return positions;
+const pointsOf = (edge: ElkExtendedEdge | undefined): readonly Point[] =>
+  (edge?.sections ?? []).flatMap((section) =>
+    [section.startPoint, ...(section.bendPoints ?? []), section.endPoint].map(({ x, y }): Point => [
+      exact(x),
+      exact(y),
+    ]),
+  );
+
+const labelOf = (edge: ElkExtendedEdge | undefined): LineLabel | undefined => {
+  const label = edge?.labels?.[0];
+  return label?.text === undefined ? undefined : { ...rectOf(label), text: label.text };
+};
+
+const elk = new ELK();
+
+export const layoutOf = async (scene: Scene): Promise<Laid> => {
+  const laid = await elk.layout(graphOf(scene));
+  const placed = placedOf(laid);
+  const rectFor = (id: string): Rect => placed.get(id) ?? { x: 0, y: 0, width: 0, height: 0 };
+  const edges = new Map((laid.edges ?? []).map((edge) => [edge.id, edge]));
+  return {
+    frames: scene.frames.map((frame) => ({ ...frame, ...rectFor(frame.id) })),
+    boxes: scene.boxes.map((box) => ({ ...box, ...rectFor(box.id) })),
+    lines: scene.lines.map((line, index) => {
+      const edge = edges.get(lineIdOf(index));
+      const label = labelOf(edge);
+      return { ...line, points: pointsOf(edge), ...(label === undefined ? {} : { label }) };
+    }),
+    width: exact(laid.width),
+    height: exact(laid.height),
+  };
 };
