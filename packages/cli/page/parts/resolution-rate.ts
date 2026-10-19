@@ -1,5 +1,5 @@
-import type { FunctionId, OpenEnd } from '@archmap/graph-document';
-import type { ResolutionRate } from '@archmap/review';
+import type { FunctionId, OpenEnd } from '@callmap/graph-document';
+import type { ResolutionRate } from '@callmap/review';
 import type { PagePart } from '../reader-page.ts';
 
 const counted = (count: number, one: string, many: string): string =>

@@ -1,7 +1,7 @@
-import { EDITOR_NAMES, isEditor } from '@archmap/editor-link';
-import type { Editor } from '@archmap/editor-link';
+import { EDITOR_NAMES, isEditor } from '@callmap/editor-link';
+import type { Editor } from '@callmap/editor-link';
 
-export const USAGE = `usage: archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--editor ${EDITOR_NAMES.join('|')}]`;
+export const USAGE = `usage: callmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--editor ${EDITOR_NAMES.join('|')}]`;
 
 export class CliError extends Error {
   override readonly name = 'CliError';
@@ -48,11 +48,11 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
       else throw new CliError(`--editor needs one of ${EDITOR_NAMES.join(', ')} after it`);
       index += 1;
     } else if (argument.startsWith('--')) {
-      throw new CliError(`${argument} is not a flag archmap review knows`);
+      throw new CliError(`${argument} is not a flag callmap review knows`);
     } else if (repo === undefined) {
       repo = argument;
     } else {
-      throw new CliError(`'${argument}' follows no flag. Archmap reviews one repo at a time.`);
+      throw new CliError(`'${argument}' follows no flag. Callmap reviews one repo at a time.`);
     }
   }
 

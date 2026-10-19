@@ -1,5 +1,5 @@
 {
-  "name": "@archmap/reference-graph",
+  "name": "@callmap/reference-graph",
   "version": "0.0.0",
   "private": true,
   "type": "module",

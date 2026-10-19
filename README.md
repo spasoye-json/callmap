@@ -1,24 +1,24 @@
-# Archmap
+# Callmap
 
-Archmap is a call graph reader for an engineer who still reads code. It reads a branch of a TypeScript repo with the TypeScript type checker, with no AI, and writes one HTML page for the code review. The page shows each function that the branch added, removed or changed, inside the frame of its file. Around each one it shows its callers and its callees, and it marks each call that the branch added or removed. Tabs show the same graph as the whole project, as one folder, or as one route. The same commits always give the same page and the same layout.
+Callmap is a call graph reader for an engineer who still reads code. It reads a branch of a TypeScript repo with the TypeScript type checker, with no AI, and writes one HTML page for the code review. The page shows each function that the branch added, removed or changed, inside the frame of its file. Around each one it shows its callers and its callees, and it marks each call that the branch added or removed. Tabs show the same graph as the whole project, as one folder, or as one route. The same commits always give the same page and the same layout.
 
 ## Install
 
-Archmap needs Node 22.18 or later. Install the `archmap` command from a clone of this repo:
+Callmap needs Node 22.18 or later. Install the `callmap` command from a clone of this repo:
 
 ```sh
 npm install
-npm link -w @archmap/cli
+npm link -w @callmap/cli
 ```
 
-The link points at the clone, so a `git pull` updates the command. `npm unlink -g @archmap/cli` removes it.
+The link points at the clone, so a `git pull` updates the command. `npm unlink -g @callmap/cli` removes it.
 
 ## Review a branch
 
 Check out the branch, then run the review in its repo:
 
 ```sh
-archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--editor vscode|jetbrains]
+callmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--editor vscode|jetbrains]
 ```
 
 | Argument            | What it does                                                                                     | Default                                          |
@@ -28,7 +28,7 @@ archmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>
 | `--scope <glob>`    | Limits the review to the files that the glob matches. Give it once for each glob.                | Every file of the repo                           |
 | `--scope '!<glob>'` | Leaves out the files that the glob matches, also when another glob takes them.                   | Nothing left out                                 |
 | `--tsconfig <file>` | The TypeScript config to read, as an absolute path or a path relative to the repo root.          | `tsconfig.json` at the repo root, if it exists   |
-| `--out <file>`      | Where the page is written.                                                                       | `review-<repo folder>.html` in `$TMPDIR/archmap` |
+| `--out <file>`      | Where the page is written.                                                                       | `review-<repo folder>.html` in `$TMPDIR/callmap` |
 | `--no-open`         | Writes the page and does not open it, for example to attach it to a merge request.               | The page opens in the browser                    |
 | `--editor <name>`   | The editor that the editor link on each function opens: `vscode` or `jetbrains`.                 | `vscode`                                         |
 
@@ -39,7 +39,7 @@ A scope glob matches a whole path from the repo root. `*` matches inside one fol
 A backend in a subfolder of a monorepo, with its tests left out:
 
 ```sh
-archmap review --tsconfig server/tsconfig.json --scope 'server/src/**' --scope '!**/*.spec.ts'
+callmap review --tsconfig server/tsconfig.json --scope 'server/src/**' --scope '!**/*.spec.ts'
 ```
 
 Tests stay in the review unless a glob leaves them out. A test that mocks its calls adds open ends, so it lowers the resolution rate.
@@ -63,20 +63,20 @@ The page shows the resolution rate of the whole branch graph in scope: the calls
 
 ## Ask Claude for a review
 
-`skills/archmap-review` is a Claude Code skill that runs `archmap review` and opens the page. Install it for your user from the root of this repo:
+`skills/callmap-review` is a Claude Code skill that runs `callmap review` and opens the page. Install it for your user from the root of this repo:
 
 ```sh
 mkdir -p ~/.claude/skills
-ln -s "$PWD/skills/archmap-review" ~/.claude/skills/archmap-review
+ln -s "$PWD/skills/callmap-review" ~/.claude/skills/callmap-review
 ```
 
-Then ask Claude for an Archmap review of the branch. The skill needs the `archmap` command from the install step.
+Then ask Claude for a Callmap review of the branch. The skill needs the `callmap` command from the install step.
 
 ## Records
 
 - `docs/product.md` holds the product record.
 - `CONTEXT.md` holds the vocabulary.
-- `docs/adr/` holds the architectural decisions. ADR-0012 tells how Archmap became a call graph reader.
+- `docs/adr/` holds the architectural decisions. ADR-0012 tells how the product became a call graph reader. ADR-0014 tells why it is named callmap.
 - `docs/research/` holds the measurements and the research behind the decisions.
 
 ## Packages
@@ -85,25 +85,25 @@ The core packages read data and never read source code or a filesystem. See ADR-
 
 | Package                    | What it owns                                                                                                                                             |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@archmap/graph-document`  | The graph document an extractor emits: files, functions, calls with their one-of groups, open ends, a language and a scope                               |
-| `@archmap/review`          | The review of a branch: the changed functions, their neighbours, the added and removed calls, their open ends and one-of groups, and the resolution rate |
-| `@archmap/reference-graph` | The document the Go and Ruby extractors emit: files, references, a language tag and a scope                                                              |
-| `@archmap/scope`           | The scope globs and the skipped directories that every walk of a repo shares                                                                             |
-| `@archmap/editor-link`     | The editor link that opens a file at a line                                                                                                              |
+| `@callmap/graph-document`  | The graph document an extractor emits: files, functions, calls with their one-of groups, open ends, a language and a scope                               |
+| `@callmap/review`          | The review of a branch: the changed functions, their neighbours, the added and removed calls, their open ends and one-of groups, and the resolution rate |
+| `@callmap/reference-graph` | The document the Go and Ruby extractors emit: files, references, a language tag and a scope                                                              |
+| `@callmap/scope`           | The scope globs and the skipped directories that every walk of a repo shares                                                                             |
+| `@callmap/editor-link`     | The editor link that opens a file at a line                                                                                                              |
 
 The extractors are the other side of the contract. Each one reads a repo and names its language.
 
 | Package                         | What it owns                                                                                |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| `@archmap/extractor-typescript` | TypeScript and JavaScript, with functions and calls resolved by the TypeScript type checker |
-| `@archmap/extractor-go`         | Go, read by a Go program that uses only the Go standard library                             |
-| `@archmap/extractor-ruby`       | Ruby, with constants resolved by Zeitwerk conventions, one loader per Rails app             |
+| `@callmap/extractor-typescript` | TypeScript and JavaScript, with functions and calls resolved by the TypeScript type checker |
+| `@callmap/extractor-go`         | Go, read by a Go program that uses only the Go standard library                             |
+| `@callmap/extractor-ruby`       | Ruby, with constants resolved by Zeitwerk conventions, one loader per Rails app             |
 
 The host runs the extractors and the core, and writes the reader page.
 
 | Package        | What it owns                                                                              |
 | -------------- | ----------------------------------------------------------------------------------------- |
-| `@archmap/cli` | The `archmap` command: git, the extractor processes, and the reader page with ELK inlined |
+| `@callmap/cli` | The `callmap` command: git, the extractor processes, and the reader page with ELK inlined |
 
 The page script lives in `packages/cli/page/`. The CLI bundles it with `elkjs` into the page at each run. ELK lays out the graph in the browser, and the page draws it as SVG. A view is one module in `packages/cli/page/views/`: a pure function from the page data to frames, boxes and lines. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.
 

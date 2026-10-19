@@ -1,5 +1,5 @@
 {
-  "name": "@archmap/extractor-go",
+  "name": "@callmap/extractor-go",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,9 +12,9 @@
     }
   },
   "dependencies": {
-    "@archmap/reference-graph": "*"
+    "@callmap/reference-graph": "*"
   },
   "devDependencies": {
-    "@archmap/scope": "*"
+    "@callmap/scope": "*"
   }
 }

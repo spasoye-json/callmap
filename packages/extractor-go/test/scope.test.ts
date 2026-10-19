@@ -2,13 +2,13 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { inScope } from '@archmap/scope';
+import { inScope } from '@callmap/scope';
 import { extractGo } from '../src/index.ts';
 
 /**
  * Every extractor reads a scope glob the same way, or one scope would take different files
  * depending on the language that reads it. The Go program holds its own copy of the glob rule, so
- * it is held to the shared reader in `@archmap/scope` over the cases that reader is tested on.
+ * it is held to the shared reader in `@callmap/scope` over the cases that reader is tested on.
  */
 const PATHS = [
   'checkout.go',
@@ -37,7 +37,7 @@ const GLOBS: readonly (readonly string[])[] = [
   ['!src/**'],
 ];
 
-const repo = mkdtempSync(join(tmpdir(), 'archmap-go-scope-'));
+const repo = mkdtempSync(join(tmpdir(), 'callmap-go-scope-'));
 for (const path of PATHS) {
   mkdirSync(dirname(join(repo, path)), { recursive: true });
   writeFileSync(join(repo, path), 'package scope\n');

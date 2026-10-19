@@ -8,7 +8,7 @@
 
 import { extractGraphDocument } from './graph.ts';
 
-const USAGE = 'usage: archmap-extract-typescript <repo> [--scope <glob>]... [--tsconfig <path>]';
+const USAGE = 'usage: callmap-extract-typescript <repo> [--scope <glob>]... [--tsconfig <path>]';
 
 class CliError extends Error {
   override readonly name = 'CliError';

@@ -1,4 +1,4 @@
-import type { Call, FunctionId } from '@archmap/graph-document';
+import type { Call, FunctionId } from '@callmap/graph-document';
 import { addTo } from './indexes.ts';
 
 export interface Hops {

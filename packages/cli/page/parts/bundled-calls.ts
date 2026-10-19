@@ -1,4 +1,4 @@
-import { byText } from '@archmap/review';
+import { byText } from '@callmap/review';
 import { pageFunctionsOf } from '../functions.ts';
 import type { PagePart } from '../reader-page.ts';
 import type { SceneLine } from '../scene.ts';

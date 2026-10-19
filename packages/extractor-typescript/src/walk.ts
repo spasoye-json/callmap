@@ -1,10 +1,10 @@
 /**
- * The one place in Archmap that reads a repo's filesystem. The core never does (ADR-0009); an
+ * The one place in Callmap that reads a repo's filesystem. The core never does (ADR-0009); an
  * extractor is the process that turns a directory on disk into data.
  */
 
 import { readdirSync } from 'node:fs';
-import { inScope, isSkippedDirectory } from '@archmap/scope';
+import { inScope, isSkippedDirectory } from '@callmap/scope';
 
 /** The tag this extractor stamps on every file it claims. */
 export const TYPESCRIPT = 'typescript';

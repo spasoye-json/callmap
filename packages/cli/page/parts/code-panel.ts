@@ -1,4 +1,4 @@
-import { EDITORS, editorUrl } from '@archmap/editor-link';
+import { EDITORS, editorUrl } from '@callmap/editor-link';
 import { pageFunctionsOf, sourceLinesOf } from '../functions.ts';
 import type { PageFunction } from '../functions.ts';
 import type { PagePart, ReaderPage } from '../reader-page.ts';

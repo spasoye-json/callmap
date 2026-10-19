@@ -1,5 +1,5 @@
-import { callTreeOf, entryPointsOf } from '@archmap/review';
-import type { EntryPoint } from '@archmap/review';
+import { callTreeOf, entryPointsOf } from '@callmap/review';
+import type { EntryPoint } from '@callmap/review';
 import type { ReaderPageData } from '../data.ts';
 import { markedCallsOf, pageFunctionsOf } from '../functions.ts';
 import { sceneOf } from '../scene.ts';

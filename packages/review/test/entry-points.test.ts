@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Call, GraphDocument, GraphFunction } from '@archmap/graph-document';
+import type { Call, GraphDocument, GraphFunction } from '@callmap/graph-document';
 import { callTreeOf, entryPointsOf } from '../src/index.ts';
 
 const fn = (id: string): GraphFunction => {

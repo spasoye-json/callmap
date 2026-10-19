@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { readGraphDocument } from '@archmap/graph-document';
-import type { GraphDocument } from '@archmap/graph-document';
+import { readGraphDocument } from '@callmap/graph-document';
+import type { GraphDocument } from '@callmap/graph-document';
 import { extractGraphDocument } from '../src/index.ts';
 
 const FIXTURE = fileURLToPath(new URL('../fixture-calls', import.meta.url));
@@ -136,7 +136,7 @@ describe('the calls of a graph document', () => {
 });
 
 const repoWith = (source: string): string => {
-  const repo = mkdtempSync(join(tmpdir(), 'archmap-graph-'));
+  const repo = mkdtempSync(join(tmpdir(), 'callmap-graph-'));
   mkdirSync(join(repo, 'src'));
   writeFileSync(join(repo, 'src', 'a.ts'), source);
   return repo;

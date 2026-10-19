@@ -59,13 +59,13 @@ export const readerPageOf = async (data: ReaderPageData): Promise<string> => `<!
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Archmap review</title>
+<title>Callmap review</title>
 <style>
 ${pageStyle()}
 </style>
 </head>
 <body>
-<header class="page-header"><h1>Archmap review</h1><div id="views"></div></header>
+<header class="page-header"><h1>Callmap review</h1><div id="views"></div></header>
 <div class="reader">
 <main id="graph" aria-label="Call graph"></main>
 <aside id="panels" aria-label="Panels"></aside>

@@ -14,7 +14,7 @@ import {
   loadReaderPage,
   openTab,
   pageDataOf,
-  runArchmap,
+  runCallmap,
   settled,
 } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
@@ -31,8 +31,8 @@ const fileOf = (end: string): string => end.replace(/^frame:/, '').replace(/#.*$
 let html = '';
 
 beforeAll(() => {
-  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-  const finished = runArchmap(['review', featureBranchRepo(), '--no-open', '--out', out]);
+  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const finished = runCallmap(['review', featureBranchRepo(), '--no-open', '--out', out]);
   expect(finished.status, finished.stderr).toBe(0);
   html = readFileSync(out, 'utf8');
 }, 120_000);

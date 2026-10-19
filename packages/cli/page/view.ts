@@ -1,4 +1,4 @@
-import type { FunctionId } from '@archmap/graph-document';
+import type { FunctionId } from '@callmap/graph-document';
 import type { ReaderPageData } from './data.ts';
 import type { Scene } from './scene.ts';
 

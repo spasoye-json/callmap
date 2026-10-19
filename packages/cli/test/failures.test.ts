@@ -3,13 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { commitFile, featureBranchRepo, git } from './fixture-repo.ts';
-import { runArchmap } from './reader-page.ts';
+import { runCallmap } from './reader-page.ts';
 
 const BROKEN_CONFIG = '{ "compilerOptions": ';
 
 const failedReview = (repo: string, ...flags: readonly string[]) => {
-  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-  const finished = runArchmap(['review', repo, '--no-open', '--out', out, ...flags]);
+  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const finished = runCallmap(['review', repo, '--no-open', '--out', out, ...flags]);
   expect(finished.status).not.toBe(0);
   expect(existsSync(out)).toBe(false);
   return finished.stderr.trim();
@@ -17,12 +17,12 @@ const failedReview = (repo: string, ...flags: readonly string[]) => {
 
 describe('a review that cannot run', () => {
   it('says so when the folder is not inside a git repo', () => {
-    const folder = mkdtempSync(join(tmpdir(), 'archmap-plain-'));
+    const folder = mkdtempSync(join(tmpdir(), 'callmap-plain-'));
     expect(failedReview(folder)).toBe(`${folder} is not inside a git repo`);
   });
 
   it('says so when the folder does not exist', () => {
-    const folder = join(tmpdir(), 'archmap-no-such-folder');
+    const folder = join(tmpdir(), 'callmap-no-such-folder');
     expect(failedReview(folder)).toBe(`${folder} is not inside a git repo`);
   });
 

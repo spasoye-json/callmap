@@ -7,7 +7,7 @@ import type {
   GraphDocument,
   GraphFunction,
   OpenEnd,
-} from '@archmap/graph-document';
+} from '@callmap/graph-document';
 import { compilerOptions } from './config.ts';
 import type { ExtractOptions } from './config.ts';
 import { implementationsOf } from './implementations.ts';

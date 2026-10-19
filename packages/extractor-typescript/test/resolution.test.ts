@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { readGraphDocument } from '@archmap/graph-document';
-import type { Call, GraphDocument } from '@archmap/graph-document';
+import { readGraphDocument } from '@callmap/graph-document';
+import type { Call, GraphDocument } from '@callmap/graph-document';
 import { extractGraphDocument } from '../src/index.ts';
 
 const FIXTURE = fileURLToPath(new URL('../fixture-resolution', import.meta.url));

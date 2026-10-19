@@ -1,4 +1,4 @@
-import type { FunctionId, GraphDocument, GraphFunction } from '@archmap/graph-document';
+import type { FunctionId, GraphDocument, GraphFunction } from '@callmap/graph-document';
 import { markedCallsOf } from './calls.ts';
 import type { MarkedCall } from './calls.ts';
 import { changedLinesOf } from './changed-lines.ts';

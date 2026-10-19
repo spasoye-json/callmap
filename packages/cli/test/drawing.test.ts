@@ -19,7 +19,7 @@ import {
   loadReaderPage,
   openTab,
   pickFolder,
-  runArchmap,
+  runCallmap,
 } from './reader-page.ts';
 import type { DrawnBox, DrawnLine, LoadedPage, Point } from './reader-page.ts';
 
@@ -31,8 +31,8 @@ let folderHtml = '';
 let cycleHtml = '';
 
 const reviewPageOf = (repo: string): string => {
-  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-  const finished = runArchmap(['review', repo, '--no-open', '--out', out]);
+  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const finished = runCallmap(['review', repo, '--no-open', '--out', out]);
   expect(finished.status, finished.stderr).toBe(0);
   return readFileSync(out, 'utf8');
 };

@@ -1,5 +1,5 @@
 {
-  "name": "@archmap/review",
+  "name": "@callmap/review",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,6 +12,6 @@
     }
   },
   "dependencies": {
-    "@archmap/graph-document": "*"
+    "@callmap/graph-document": "*"
   }
 }

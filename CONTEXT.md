@@ -1,6 +1,6 @@
-# Archmap
+# Callmap
 
-Archmap is a code reader for an engineer who still reads code. It builds the call graph of a repo with each language's own tools, with no AI, and writes it as one HTML page, so a reviewer can see where each change sits and how the changed files talk to each other. `docs/adr/` holds the architectural decisions and `docs/product.md` holds the product record.
+Callmap is a code reader for an engineer who still reads code. It builds the call graph of a repo with each language's own tools, with no AI, and writes it as one HTML page, so a reviewer can see where each change sits and how the changed files talk to each other. `docs/adr/` holds the architectural decisions and `docs/product.md` holds the product record.
 
 ## Language
 

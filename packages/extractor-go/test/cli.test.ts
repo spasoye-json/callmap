@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import type { SpawnSyncReturns } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@archmap/reference-graph';
+import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@callmap/reference-graph';
 import { goExtractorBinary } from '../src/index.ts';
 
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));

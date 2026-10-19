@@ -4,7 +4,7 @@
  */
 
 import { readdirSync } from 'node:fs';
-import { isSkippedDirectory } from '@archmap/scope';
+import { isSkippedDirectory } from '@callmap/scope';
 
 /**
  * Every Ruby file of the repo by repo-relative path, in path order, whatever the scope. Zeitwerk

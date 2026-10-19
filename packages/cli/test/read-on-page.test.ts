@@ -11,7 +11,7 @@ import {
   clickBox,
   frameAround,
   loadReaderPage,
-  runArchmap,
+  runCallmap,
   settled,
 } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
@@ -24,8 +24,8 @@ let repo = '';
 let html = '';
 
 const reviewPage = (...flags: readonly string[]): string => {
-  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-  const finished = runArchmap(['review', repo, '--no-open', '--out', out, ...flags]);
+  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const finished = runCallmap(['review', repo, '--no-open', '--out', out, ...flags]);
   expect(finished.status, finished.stderr).toBe(0);
   return readFileSync(out, 'utf8');
 };
@@ -82,8 +82,8 @@ describe('the code panel', () => {
       );
     commitFile(deletion, CART, cart('  console.log(total);\n'));
     commitFile(deletion, CART, cart(''));
-    const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
-    const finished = runArchmap([
+    const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+    const finished = runCallmap([
       'review',
       deletion,
       '--no-open',
@@ -205,7 +205,7 @@ describe('the editor link', () => {
   });
 
   it('refuses an editor it does not know, and names the ones it does', () => {
-    const finished = runArchmap(['review', repo, '--no-open', '--editor', 'emacs']);
+    const finished = runCallmap(['review', repo, '--no-open', '--editor', 'emacs']);
     expect(finished.status).not.toBe(0);
     expect(finished.stderr).toContain('vscode, jetbrains');
   });

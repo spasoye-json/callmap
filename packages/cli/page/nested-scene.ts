@@ -1,6 +1,6 @@
-import type { FunctionId } from '@archmap/graph-document';
-import { appendTo } from '@archmap/review';
-import type { MarkedCall } from '@archmap/review';
+import type { FunctionId } from '@callmap/graph-document';
+import { appendTo } from '@callmap/review';
+import type { MarkedCall } from '@callmap/review';
 import type { ReaderPageData } from './data.ts';
 import type { PageFunction } from './functions.ts';
 import { arrowKeyOf, frameIdOf, sceneOf } from './scene.ts';

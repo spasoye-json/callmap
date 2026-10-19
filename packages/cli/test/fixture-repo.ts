@@ -33,7 +33,7 @@ const commitTree = (repo: string, tree: string, message: string): void => {
 };
 
 export const featureBranchRepo = (defaultBranch = 'main'): string => {
-  const repo = mkdtempSync(join(tmpdir(), 'archmap-review-'));
+  const repo = mkdtempSync(join(tmpdir(), 'callmap-review-'));
   git(repo, 'init', '--quiet', '--initial-branch', defaultBranch);
   commitTree(repo, 'base', 'base');
   git(repo, 'checkout', '--quiet', '-b', 'feature');

@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import type { SpawnSyncReturns } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { readGraphDocument } from '@archmap/graph-document';
+import { readGraphDocument } from '@callmap/graph-document';
 
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));

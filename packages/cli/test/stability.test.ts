@@ -3,11 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { featureBranchRepo, git } from './fixture-repo.ts';
-import { runArchmap } from './reader-page.ts';
+import { runCallmap } from './reader-page.ts';
 
 const review = (repo: string, name: string): string => {
-  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), name);
-  const finished = runArchmap(['review', repo, '--no-open', '--out', out]);
+  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), name);
+  const finished = runCallmap(['review', repo, '--no-open', '--out', out]);
   expect(finished.status, finished.stderr).toBe(0);
   return readFileSync(out, 'utf8');
 };

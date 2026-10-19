@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-const usage = "usage: archmap-extract-go <repo> [--scope <glob>]..."
+const usage = "usage: callmap-extract-go <repo> [--scope <glob>]..."
 
 type invocation struct {
 	repo  string

@@ -1,4 +1,4 @@
-import type { GraphDocument } from '@archmap/graph-document';
+import type { GraphDocument } from '@callmap/graph-document';
 
 export interface ResolutionRate {
   readonly resolved: number;

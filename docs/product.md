@@ -1,10 +1,10 @@
-# Archmap, the product record
+# Callmap, the product record
 
 Settled through two grilling sessions and two prototype rounds in 2026-08, and changed by the grilling of 2026-10-12 to 2026-10-18. This file holds the product decisions. `CONTEXT.md` holds the vocabulary and `docs/adr/` holds the architectural decisions. ADR-0012 tells how the product became a call graph reader. The records of 2026-08 and the prototype verdicts live in the `archmap-prototype` repo. The measurement behind the reader is in `docs/research/2026-10-18-call-resolution/`.
 
 ## Positioning
 
-AI writes code faster than an engineer can review it. Archmap does not replace reading the code. It makes reading faster: it shows where each change sits in the call graph and how the changed files talk to each other.
+AI writes code faster than an engineer can review it. Callmap does not replace reading the code. It makes reading faster: it shows where each change sits in the call graph and how the changed files talk to each other.
 
 - User: the owner first, an engineer who reviews AI-written code every day on TypeScript, Go and Ruby repos.
 - Daily trigger: the review of a branch, a pull request or a merge request.
@@ -15,11 +15,11 @@ AI writes code faster than an engineer can review it. Archmap does not replace r
 
 A CLI that writes one self-contained HTML page. See ADR-0012.
 
-- **`archmap review`:** reads the git diff of the branch against the merge base with the default branch. It shows each changed function, marked added, removed or changed, and one hop of callers and callees around it, greyed. It marks the calls that the branch added or removed. A click on a greyed function opens its next hop.
+- **`callmap review`:** reads the git diff of the branch against the merge base with the default branch. It shows each changed function, marked added, removed or changed, and one hop of callers and callees around it, greyed. It marks the calls that the branch added or removed. A click on a greyed function opens its next hop.
 - **The page:** each function is a box inside the frame of its file, and each call is an arrow. A click on a box shows its code in a read-only panel. An editor link opens the file and line in the editor.
 - **What the page holds:** the whole call graph in scope as data, so the reader can search any function and walk its calls with no server.
 - **Honesty:** the page shows the resolution rate. A call that the tools cannot resolve is an open end. A call through an interface shows as one-of calls.
-- **A thin Claude skill:** after the CLI works, a skill of about 10 lines tells Claude to run `archmap review` and open the page. It adds no logic.
+- **A thin Claude skill:** after the CLI works, a skill of about 10 lines tells Claude to run `callmap review` and open the page. It adds no logic.
 
 ## Languages
 
@@ -34,8 +34,8 @@ Every AI pass, flows of business logic, the branches inside a function, componen
 
 ## Known risks
 
-- VS Code and GoLand already show the call hierarchy of one function. Archmap earns its place only with the view of a whole branch across files and languages.
-- Understanding tools die as nice-to-haves. CodeSee, Sourcetrail, and Structurizr cloud are the record. Archmap must live inside the daily review.
+- VS Code and GoLand already show the call hierarchy of one function. Callmap earns its place only with the view of a whole branch across files and languages.
+- Understanding tools die as nice-to-haves. CodeSee, Sourcetrail, and Structurizr cloud are the record. Callmap must live inside the daily review.
 - The Ruby resolution rate may be too low to help on the owner's work repos.
 - Nothing from the owner's employer repos appears in demos, essays, screenshots, or committed fixtures. Public material uses a private app of the owner and open-source repos.
 

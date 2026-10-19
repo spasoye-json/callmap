@@ -1,5 +1,5 @@
-import type { FunctionId, GraphFunction } from '@archmap/graph-document';
-import type { FunctionMark, MarkedCall } from '@archmap/review';
+import type { FunctionId, GraphFunction } from '@callmap/graph-document';
+import type { FunctionMark, MarkedCall } from '@callmap/review';
 import type { ReaderPageData } from './data.ts';
 import { callKeyOf } from './scene.ts';
 
