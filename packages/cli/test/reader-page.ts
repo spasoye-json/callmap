@@ -49,6 +49,13 @@ export const pageDataOf = (html: string): ReaderPageData => {
   return JSON.parse(block[1]) as ReaderPageData;
 };
 
+export const withPageData = (html: string, data: ReaderPageData): string =>
+  html.replace(
+    /(<script type="application\/json" id="reader-page-data">)[^<]*(<\/script>)/,
+    (_, open: string, close: string) =>
+      `${open}${JSON.stringify(data).replaceAll('<', '\\u003c')}${close}`,
+  );
+
 export type Point = readonly [number, number];
 
 export interface DrawnBox {

@@ -5,6 +5,7 @@ import type { View } from '../view.ts';
 export const wholeProjectView: View = {
   name: 'Whole project',
   zoomLevels: true,
+  laidOutByCommand: true,
   sceneOf: (data) => {
     const functions = pageFunctionsOf(data);
     const calls = markedCallsOf(data).filter(

@@ -1,6 +1,7 @@
 import type { Editor } from '@callmap/editor-link';
 import type { FunctionId, GraphDocument } from '@callmap/graph-document';
 import type { Review } from '@callmap/review';
+import type { Placement } from './layout.ts';
 
 export const DATA_BLOCK_ID = 'reader-page-data';
 
@@ -27,4 +28,5 @@ export interface ReaderPageData {
   readonly sources: Sources;
   readonly basePlaces: Readonly<Record<FunctionId, LineSpan>>;
   readonly editor: EditorChoice;
+  readonly placements: Readonly<Partial<Record<string, Placement>>>;
 }
