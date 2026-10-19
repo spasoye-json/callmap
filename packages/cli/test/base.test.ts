@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { commitFile, featureBranchRepo, git } from './fixture-repo.ts';
-import { loadReaderPage, pageDataOf, runArchmap } from './reader-page.ts';
+import { boxesOf, loadReaderPage, pageDataOf, runArchmap } from './reader-page.ts';
 
 const MONEY = 'src/money.ts';
 const CART = 'src/cart.ts';
@@ -105,7 +105,7 @@ describe('the base checkout of a review', () => {
 });
 
 describe('a branch that changed no function', () => {
-  it('gets a page that says so in place of an empty graph', () => {
+  it('gets a page that says so in place of an empty graph', async () => {
     const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
     const finished = runArchmap([
       'review',
@@ -118,10 +118,11 @@ describe('a branch that changed no function', () => {
     ]);
     expect(finished.status, finished.stderr).toBe(0);
 
-    const { window, graph } = loadReaderPage(readFileSync(out, 'utf8'));
+    const page = await loadReaderPage(readFileSync(out, 'utf8'));
+    const { window } = page;
     const message = window.document.querySelector('[role="status"]');
     expect(message?.textContent).toBe('The branch changed no function against its base.');
     expect(window.document.getElementById('graph')?.hidden).toBe(true);
-    expect(graph.nodes()).toHaveLength(0);
+    expect(boxesOf(page)).toHaveLength(0);
   }, 60_000);
 });

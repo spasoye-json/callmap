@@ -1,6 +1,6 @@
 # Archmap
 
-Archmap is a call graph reader for an engineer who still reads code. It reads a branch of a TypeScript repo with the TypeScript type checker, with no AI, and writes one HTML page for the code review. The page shows each function that the branch added, removed or changed, inside the frame of its file. Around each one it shows its callers and its callees, and it marks each call that the branch added or removed. The same commits always give the same page.
+Archmap is a call graph reader for an engineer who still reads code. It reads a branch of a TypeScript repo with the TypeScript type checker, with no AI, and writes one HTML page for the code review. The page shows each function that the branch added, removed or changed, inside the frame of its file. Around each one it shows its callers and its callees, and it marks each call that the branch added or removed. Tabs show the same graph as the whole project, as one folder, or as one route. The same commits always give the same page and the same layout.
 
 ## Install
 
@@ -46,7 +46,18 @@ Tests stay in the review unless a glob leaves them out. A test that mocks its ca
 
 ## The reader page
 
-The page is one HTML file with no network access, so it opens from a file anywhere. A click on a function shows its code, with the changed lines marked and a mark below each deletion. A click on a greyed neighbour opens its own callers and callees. The search finds any function in scope by name. Each function carries an editor link that opens its file at its first line.
+The page is one HTML file with no network access, so it opens from a file anywhere. ELK lays out the graph in the browser, and the page draws it as SVG. Each call is a line that turns only at 90 degrees and never goes through a box. The callers stand on the left and the callees on the right. Drag the graph to pan it, and use the mouse wheel to zoom.
+
+A click on a function shows its code, with the changed lines marked and a mark below each deletion. The search finds any function in scope by name. Each function carries an editor link that opens its file at its first line.
+
+### The views
+
+The tabs above the graph choose the view. Each view keeps the marks for added, removed, changed and neighbour. Only a function one hop from a changed function gets the neighbour mark. Other functions get no mark.
+
+- **Diff:** the changed functions and one hop around each, inside file frames. This view opens first. A click on a function that the branch did not change opens its own callers and callees. In the other views, a click on a function only shows its code.
+- **Whole project:** every function in scope, inside its file frame, inside the frame of each folder above it. The kept calls between two files become one bundled line with their count. A click on a bundled line lists its calls, and a click on a call shows the code of the caller. When you zoom out, the view shows only the folders, the files and the bundled lines.
+- **Folder:** a folder tree beside the graph. A click on a folder draws its functions, the calls between them, and the functions one hop outside the folder. The view draws these outside functions greyed, and it draws only the calls that touch a function of the folder.
+- **Route:** a list of entry points beside the graph. An entry point is a function in scope that no other function in scope calls. The entry points that reach a changed function come first. A click on an entry point draws its whole call tree. Each function shows once, so a cycle ends. A search opens the first entry point in the list that reaches the function. If no entry point reaches it, the view draws the call tree of the function itself.
 
 The page shows the resolution rate of the whole branch graph in scope: the calls into the repo's own code that the type checker proved, out of all of them. Below the rate it lists the open ends of the functions in this review only. It marks each open end at its call site, as a dashed arrow that leads nowhere, also on a function that a next hop or a search adds. It draws the one-of calls of one call site, such as a call through an interface, as dotted arrows, one to each implementation. A call into a library is not in the graph and does not change the rate.
 
@@ -90,11 +101,11 @@ The extractors are the other side of the contract. Each one reads a repo and nam
 
 The host runs the extractors and the core, and writes the reader page.
 
-| Package        | What it owns                                                                                    |
-| -------------- | ----------------------------------------------------------------------------------------------- |
-| `@archmap/cli` | The `archmap` command: git, the extractor processes, and the reader page with Cytoscape inlined |
+| Package        | What it owns                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `@archmap/cli` | The `archmap` command: git, the extractor processes, and the reader page with ELK inlined |
 
-The page script lives in `packages/cli/page/`. The CLI bundles it with Cytoscape into the page at each run. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.
+The page script lives in `packages/cli/page/`. The CLI bundles it with `elkjs` into the page at each run. ELK lays out the graph in the browser, and the page draws it as SVG. A view is one module in `packages/cli/page/views/`: a pure function from the page data to frames, boxes and lines. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.
 
 `test/core-is-language-blind-and-pure.test.ts` reads the imports of every package. It holds the core away from the filesystem and from any language name. It holds each extractor to the opposite. It holds the host to its own list, and keeps the page script off every Node built-in.
 

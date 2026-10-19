@@ -1,0 +1,50 @@
+.entry-points h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.entry-points ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry-points button {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  align-items: baseline;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.entry-points button:hover,
+.entry-points button:focus-visible,
+.entry-points button[aria-current='true'] {
+  background: var(--selected);
+}
+
+.entry-points button[aria-current='true'] .entry-name {
+  font-weight: 600;
+}
+
+.entry-file {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.entry-change {
+  color: var(--changed);
+  font-size: 12px;
+}

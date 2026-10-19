@@ -40,6 +40,22 @@ _Avoid_: accuracy, confidence, coverage
 The box around the functions of one file.
 _Avoid_: group, cluster, module
 
+**Folder frame**:
+The box around the file frames and the folder frames of one folder.
+_Avoid_: package, directory box
+
+**Bundled line**:
+One line between two file frames that stands for 2 or more kept calls between the two files, with their count. A click on it lists its calls. A call that the branch added or removed keeps its own line, so its mark shows.
+_Avoid_: aggregate edge, merged call
+
+**Entry point**:
+A function in scope that no other function in scope calls, such as a route handler or a scheduled job. The core finds the entry points from the call graph, so the rule is the same for every language. The list shows first the entry points that reach a changed function.
+_Avoid_: root, main, handler
+
+**Route**:
+The call tree of one entry point: the entry point and every function that it reaches through calls in scope. Each function shows once, so a cycle ends.
+_Avoid_: path, trace, flow
+
 ### Reading
 
 **Extractor**:
@@ -66,11 +82,19 @@ _Avoid_: report, dashboard, artifact
 The link on a function that opens its file and line in the reader's editor. A removed function has no editor link, because its file and line are gone from the working tree.
 _Avoid_: deep link, jump link
 
+**View**:
+One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data to boxes, frames and lines. The Diff view opens first. The marks, the open ends, the one-of groups and the code panel work in every view.
+_Avoid_: mode, screen, perspective
+
+**Outside function**:
+A function that the Folder view draws but that the chosen folder does not hold: a caller or a callee one hop out of the folder, or a function that the search opened. The view draws it greyed. This is not a review mark, so an outside function is also a neighbour only when it is one hop from a changed function.
+_Avoid_: neighbour, external function
+
 ### Review
 
 **Review**:
 The reader page for one branch: every changed function, one hop around each, and the calls the branch added or removed, against the merge base with the default branch.
-_Avoid_: diff view, PR view, change summary
+_Avoid_: PR view, change summary
 
 **Changed function**:
 A function that the branch added, removed, or changed in its body.
@@ -81,5 +105,5 @@ One call away from a function, in either direction. A caller and a callee are ea
 _Avoid_: level, step, depth
 
 **Neighbour**:
-A function one hop from a changed function that the branch did not change. The review shows it greyed, and a click opens its own next hop. The hop counts in the base graph and in the branch graph, so the far end of a call that the branch removed is a neighbour too, and the page shows that call.
+A function one hop from a changed function that the branch did not change. Every view shows it greyed. In the Diff view, a click opens its own next hop. A function further from the change gets no mark. The hop counts in the base graph and in the branch graph, so the far end of a call that the branch removed is a neighbour too, and the page shows that call.
 _Avoid_: context function, related function

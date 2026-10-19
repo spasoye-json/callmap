@@ -3,7 +3,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { featureBranchRepo, fixtureText, git } from './fixture-repo.ts';
-import { fakeOpener, loadReaderPage, pageDataOf, runArchmap } from './reader-page.ts';
+import {
+  boxesOf,
+  callsOf,
+  fakeOpener,
+  frameAround,
+  framesOf,
+  loadReaderPage,
+  pageDataOf,
+  runArchmap,
+} from './reader-page.ts';
 
 const CART = 'src/cart.ts';
 const MONEY = 'src/money.ts';
@@ -11,6 +20,7 @@ const CHECKOUT = 'src/checkout.ts';
 const REPORT = 'src/report.ts';
 const ALERTS = 'src/alerts.ts';
 const NOTIFY = 'src/notify.ts';
+const RATE = 'src/tax/rate.ts';
 
 let repo = '';
 let html = '';
@@ -84,6 +94,7 @@ describe('archmap review on a feature branch', () => {
       [MONEY]: fixtureText('branch', MONEY),
       [NOTIFY]: fixtureText('branch', NOTIFY),
       [REPORT]: fixtureText('branch', REPORT),
+      [RATE]: fixtureText('branch', RATE),
     });
     expect(sources.base).toEqual({ [CART]: fixtureText('base', CART) });
   });
@@ -109,51 +120,51 @@ describe('the reader page', () => {
     expect(html).not.toMatch(/@import|url\(\s*['"]?https?:/i);
   });
 
-  it('draws each function the review shows as a box inside the frame of its file', () => {
-    const { graph } = loadReaderPage(html);
-    const boxes = graph.nodes('.function');
+  it('draws each function the review shows as a box inside the frame of its file', async () => {
+    const page = await loadReaderPage(html);
+    const boxes = boxesOf(page).filter(({ kind }) => kind === 'function');
     expect(
       boxes
-        .map((box) => box.id())
+        .map(({ id }) => id)
         .sort()
         .slice(0, 2),
     ).toEqual([`${ALERTS}#alert`, `${ALERTS}#relay`]);
     expect(boxes).toHaveLength(11);
-    expect(graph.getElementById(`${CART}#taxed`).parent().data('label')).toBe(CART);
+    expect(frameAround(page, `${CART}#taxed`)).toBe(CART);
     expect(
-      graph
-        .nodes('.file-frame')
-        .map((frame) => frame.data('label') as string)
+      framesOf(page)
+        .map(({ label }) => label)
         .sort(),
     ).toEqual([ALERTS, CART, CHECKOUT, MONEY, NOTIFY]);
   });
 
-  it('draws each call as an arrow from the caller to the callee, with its mark', () => {
-    const { graph } = loadReaderPage(html);
-    const arrows = graph.edges('.call').map((edge) => ({
-      caller: edge.source().id(),
-      callee: edge.target().id(),
-      mark: ['added', 'removed', 'kept'].find((mark) => edge.hasClass(mark)),
+  it('draws each call as an arrow from the caller to the callee, with its mark', async () => {
+    const arrows = callsOf(await loadReaderPage(html)).map(({ from, to, classes }) => ({
+      caller: from,
+      callee: to,
+      mark: ['added', 'removed', 'kept'].find((mark) => classes.includes(mark)),
     }));
     expect(arrows).toEqual(pageDataOf(html).review.calls);
   });
 
-  it('marks each box with its mark', () => {
-    const { graph } = loadReaderPage(html);
-    expect(graph.getElementById(`${CART}#legacyTotal`).hasClass('removed')).toBe(true);
-    expect(graph.getElementById(`${MONEY}#format`).hasClass('neighbour')).toBe(true);
+  it('marks each box with its mark', async () => {
+    const classesOf = new Map(
+      boxesOf(await loadReaderPage(html)).map(({ id, classes }) => [id, classes]),
+    );
+    expect(classesOf.get(`${CART}#legacyTotal`)).toContain('removed');
+    expect(classesOf.get(`${MONEY}#format`)).toContain('neighbour');
   });
 
-  it('places every box the same way on every load, and the boxes of one file in line order', () => {
-    const positions = () =>
-      loadReaderPage(html)
-        .graph.nodes('.function')
-        .map((box) => [box.id(), box.position()]);
-    expect(positions()).toEqual(positions());
-    const { graph } = loadReaderPage(html);
-    const y = (name: string) => graph.getElementById(`${CART}#${name}`).position('y');
-    expect(y('subtotal')).toBeLessThan(y('taxed'));
-    expect(y('taxed')).toBeLessThan(y('receipt'));
+  it('places every box the same way on every load, and the boxes of one file and one column in line order', async () => {
+    const placed = async () => boxesOf(await loadReaderPage(html));
+    const boxes = await placed();
+    expect(await placed()).toEqual(boxes);
+    const boxOf = (name: string) => boxes.find(({ id }) => id === `${CART}#${name}`);
+    const [taxed, label] = [boxOf('taxed'), boxOf('label')];
+    if (taxed === undefined || label === undefined) throw new Error('the drawing lost a box');
+    expect(taxed.x + taxed.width).toBeGreaterThan(label.x);
+    expect(label.x + label.width).toBeGreaterThan(taxed.x);
+    expect(taxed.y).toBeLessThan(label.y);
   });
 });
 

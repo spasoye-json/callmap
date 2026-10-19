@@ -41,6 +41,17 @@ export const featureBranchRepo = (defaultBranch = 'main'): string => {
   return repo;
 };
 
+export const featureBranchRepoWithUnchangedFiles = (): string => {
+  const repo = featureBranchRepo();
+  git(repo, 'checkout', '--quiet', 'main');
+  cpSync(join(FIXTURE, 'unchanged'), repo, { recursive: true });
+  git(repo, 'add', '--all');
+  git(repo, 'commit', '--quiet', '--message', 'unchanged');
+  git(repo, 'checkout', '--quiet', 'feature');
+  git(repo, 'merge', '--quiet', '--no-edit', 'main');
+  return repo;
+};
+
 export const fixtureText = (tree: 'base' | 'branch', file: string): string =>
   readFileSync(join(FIXTURE, tree, file), 'utf8');
 
@@ -48,4 +59,21 @@ export const commitFile = (repo: string, path: string, text: string): void => {
   writeFileSync(join(repo, path), text);
   git(repo, 'add', path);
   git(repo, 'commit', '--quiet', '--message', `write ${path}`);
+};
+
+export const COUNTDOWN = 'src/countdown.ts';
+
+export const countdownRepo = (): string => {
+  const repo = featureBranchRepo();
+  commitFile(
+    repo,
+    COUNTDOWN,
+    `export const countdown = (from: number): number => tick(from);
+
+const tick = (left: number): number => (left > 0 ? tock(left - 1) : 0);
+
+const tock = (left: number): number => tick(left);
+`,
+  );
+  return repo;
 };

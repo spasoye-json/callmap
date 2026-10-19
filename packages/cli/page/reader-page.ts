@@ -1,23 +1,21 @@
-import type { Core, EventObject, StylesheetJson } from 'cytoscape';
+import type { FunctionId } from '@archmap/graph-document';
 import type { ReaderPageData } from './data.ts';
-import type { Colours } from './graph-style.ts';
-
-export type GraphStyle = (colours: Colours) => StylesheetJson;
+import type { FunctionBox, SceneLine } from './scene.ts';
+import type { Choice, View } from './view.ts';
 
 export interface ReaderPage {
   readonly data: ReaderPageData;
-  readonly graph: Core;
+  readonly graph: HTMLElement;
   readonly panels: HTMLElement;
-  readonly addGraphStyle: (style: GraphStyle) => void;
+  readonly onBoxClick: (handler: (box: FunctionBox) => void) => void;
+  readonly onLineClick: (handler: (line: SceneLine) => void) => void;
+  readonly onViewChange: (handler: (view: View) => void) => void;
+  readonly onChoiceChange: (handler: (view: View, choice: Choice) => void) => void;
+  readonly currentView: () => View;
+  readonly show: (ids: readonly FunctionId[], anchor?: FunctionId) => Promise<void>;
+  readonly open: (id: FunctionId) => Promise<void>;
+  readonly showView: (name: string) => Promise<void>;
+  readonly choose: (choice: Choice) => Promise<void>;
 }
 
 export type PagePart = (page: ReaderPage) => void;
-
-export const targetIdOf = (event: EventObject): string =>
-  (event.target as { id: () => string }).id();
-
-declare global {
-  interface Window {
-    readerPage?: ReaderPage;
-  }
-}
