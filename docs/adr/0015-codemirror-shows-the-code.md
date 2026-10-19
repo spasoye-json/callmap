@@ -23,7 +23,7 @@ The packages that npm installs with them, such as `@lezer/javascript`, `@lezer/l
 
 ## Consequences
 
-- The bundle inlines CodeMirror, so the page still makes no network request. The page of the fixture review grows from 1,474,033 bytes to 1,860,574 bytes.
+- The bundle inlines CodeMirror, so the page still makes no network request. The page of the fixture review grows from 1,474,033 bytes to 1,862,323 bytes.
 - The page uses `typescriptLanguage` and the other parsers of `@codemirror/lang-javascript`, not `javascript()`. So the bundle leaves out the autocomplete and the lint code.
 - CodeMirror writes its own base styles at run time. The page styles the diff and the syntax with the colour tokens of `page.css`, so light mode and dark mode need no other work.
 - The gutter shows the line numbers of the file. A removed line shows its number in the base, and every other line shows its number in the branch.
