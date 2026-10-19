@@ -98,6 +98,28 @@
   line-height: 1.6;
 }
 
+/* A styled scrollbar takes its own space, so an overlay scrollbar never covers the last line. */
+.code-panel .cm-editor .cm-scroller::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.code-panel .cm-editor .cm-scroller::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: var(--rule);
+}
+
+.code-panel .cm-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .code-panel .cm-editor .cm-scroller {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
+}
+
 .code-panel .cm-editor .cm-content {
   padding: 6px 0;
 }
