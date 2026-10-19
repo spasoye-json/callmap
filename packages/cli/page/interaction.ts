@@ -172,7 +172,9 @@ export const interactionOf = (
     currentView: () => current.view,
     show,
     open,
-    keepInView: drawing.keepInView,
+    keepSelectionInView: () => {
+      if (selected !== undefined) drawing.keepInView(selected);
+    },
     showView,
     choose,
   };

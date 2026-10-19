@@ -171,7 +171,7 @@ describe('the size of the code panel', () => {
 
   it('collapses after a click on its collapse button, and opens again after a click on a box', async () => {
     const page = await readFunction(`${CART}#receipt`);
-    fireEvent.click(codePanelOf(page).getByRole('button', { name: 'Collapse the code panel' }));
+    fireEvent.click(bodyOf(page).getByRole('button', { name: 'Collapse the code panel' }));
     expect(bodyOf(page).queryByRole('region', { name: 'Code' })).toBeNull();
     await clickBox(page, `${CART}#taxed`);
     expect(codePanelOf(page).getByRole('heading', { name: 'taxed' })).toBeDefined();
@@ -179,21 +179,23 @@ describe('the size of the code panel', () => {
 
   it('grows by the distance that the reader drags its left edge to the left, also when the browser gives no localStorage', async () => {
     const page = await readFunction(`${CART}#receipt`);
-    const edge = codePanelOf(page).getByRole('separator', { name: 'Width of the code panel' });
+    const edge = bodyOf(page).getByRole('separator', { name: 'Width of the code panel' });
     const before = Number(edge.getAttribute('aria-valuenow'));
     fireEvent.pointerDown(edge, { clientX: 700, pointerId: 1 });
     fireEvent.pointerMove(edge, { clientX: 640, pointerId: 1 });
     fireEvent.pointerUp(edge, { clientX: 640, pointerId: 1 });
     expect(Number(edge.getAttribute('aria-valuenow'))).toBe(before + 60);
-    expect(bodyOf(page).getByRole('region', { name: 'Code' }).style.width).toBe(
-      `${String(before + 60)}px`,
-    );
+    expect(
+      bodyOf(page)
+        .getByRole('complementary', { name: 'Code panel' })
+        .style.getPropertyValue('--panel-width'),
+    ).toBe(`${String(before + 60)}px`);
   });
 
   it('keeps the width that the reader chose for the next page load', async () => {
     const page = await loadReaderPage(html, {});
     await clickBox(page, `${CART}#receipt`);
-    const edge = codePanelOf(page).getByRole('separator', { name: 'Width of the code panel' });
+    const edge = bodyOf(page).getByRole('separator', { name: 'Width of the code panel' });
     const before = edge.getAttribute('aria-valuenow');
     fireEvent.keyDown(edge, { key: 'ArrowLeft' });
     const chosen = edge.getAttribute('aria-valuenow');
@@ -201,7 +203,7 @@ describe('the size of the code panel', () => {
     const next = await loadReaderPage(html, storedItemsOf(page));
     await clickBox(next, `${CART}#receipt`);
     expect(
-      codePanelOf(next)
+      bodyOf(next)
         .getByRole('separator', { name: 'Width of the code panel' })
         .getAttribute('aria-valuenow'),
     ).toBe(chosen);
