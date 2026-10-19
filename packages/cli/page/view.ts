@@ -12,6 +12,7 @@ export const choiceKeyOf = (choice: Choice): string =>
 export interface View {
   readonly name: string;
   readonly zoomLevels?: boolean;
+  readonly laidOutByCommand?: boolean;
   readonly sceneOf: (
     data: ReaderPageData,
     opened: ReadonlySet<FunctionId>,

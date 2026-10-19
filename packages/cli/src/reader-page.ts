@@ -1,9 +1,13 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Worker } from 'node:worker_threads';
 import { rolldown } from 'rolldown';
 import { DATA_BLOCK_ID } from '../page/data.ts';
 import type { ReaderPageData } from '../page/data.ts';
+import type { Placement } from '../page/layout.ts';
+import { READER_VIEWS } from '../page/reader-views.ts';
+import type { Scene } from '../page/scene.ts';
 
 const PAGE = fileURLToPath(new URL('../page/', import.meta.url));
 const PARTS = join(PAGE, 'parts');
@@ -54,7 +58,7 @@ const inlineScript = (code: string): string => code.replaceAll('</script', '<\\/
 
 const dataBlock = (data: ReaderPageData): string => JSON.stringify(data).replaceAll('<', '\\u003c');
 
-export const readerPageOf = async (data: ReaderPageData): Promise<string> => `<!doctype html>
+const pageOf = (data: ReaderPageData, script: string): string => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -72,8 +76,33 @@ ${pageStyle()}
 </div>
 <script type="application/json" id="${DATA_BLOCK_ID}">${dataBlock(data)}</script>
 <script>
-${inlineScript(await pageScript())}
+${inlineScript(script)}
 </script>
 </body>
 </html>
 `;
+
+const placementInWorkerOf = (scene: Scene): Promise<Placement> =>
+  new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('layout-worker.ts', import.meta.url), { workerData: scene });
+    worker.once('message', resolve);
+    worker.once('error', reject);
+  });
+
+const placementsOf = async (data: ReaderPageData): Promise<Readonly<Record<string, Placement>>> =>
+  Object.fromEntries(
+    await Promise.all(
+      READER_VIEWS.filter(({ laidOutByCommand }) => laidOutByCommand === true).map(
+        async (view): Promise<[string, Placement]> => [
+          view.name,
+          await placementInWorkerOf(view.sceneOf(data, new Set(), undefined)),
+        ],
+      ),
+    ),
+  );
+
+export const readerPageOf = async (review: Omit<ReaderPageData, 'placements'>): Promise<string> => {
+  const data: ReaderPageData = { ...review, placements: {} };
+  const [script, placements] = await Promise.all([pageScript(), placementsOf(data)]);
+  return pageOf({ ...data, placements }, script);
+};

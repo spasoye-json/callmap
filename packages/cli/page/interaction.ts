@@ -1,7 +1,7 @@
 import type { FunctionId } from '@callmap/graph-document';
 import type { ReaderPageData } from './data.ts';
 import { drawingOf } from './drawing.ts';
-import { layoutOf } from './layout.ts';
+import { laidOf, layoutOf } from './layout.ts';
 import type { Laid } from './layout.ts';
 import type { ReaderPage } from './reader-page.ts';
 import type { FunctionBox, Scene } from './scene.ts';
@@ -78,9 +78,15 @@ export const interactionOf = (
       (box): box is FunctionBox => box.kind === 'function' && box.id === id,
     );
 
+  const placementOf = ({ view, opened, choice }: ViewState) =>
+    opened.size === 0 && choice === undefined ? data.placements[view.name] : undefined;
+
   const render = (target: ViewState, anchor?: FunctionId): Promise<void> => {
     target.scene = undefined;
-    const laying = layoutOf(sceneOf(target));
+    const scene = sceneOf(target);
+    const placement = placementOf(target);
+    const laying =
+      placement === undefined ? layoutOf(scene) : Promise.resolve(laidOf(scene, placement));
     target.laid = laying;
     return queued(async () => {
       paint(target, await laying, anchor);

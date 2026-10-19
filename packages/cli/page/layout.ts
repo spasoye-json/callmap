@@ -41,6 +41,7 @@ const OPTIONS: Readonly<Record<string, string>> = {
   'elk.json.edgeCoords': 'ROOT',
   'elk.edgeLabels.placement': 'CENTER',
   'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+  'elk.layered.thoroughness': '3',
   'elk.layered.spacing.nodeNodeBetweenLayers': '56',
   'elk.layered.spacing.edgeNodeBetweenLayers': '16',
   'elk.layered.spacing.edgeEdgeBetweenLayers': '8',
@@ -122,18 +123,33 @@ const graphOf = ({ frames, boxes, lines }: Scene): ElkNode => {
 
 const rounded = (value: number | undefined): number => Math.round((value ?? 0) * 100) / 100;
 
-const rectOf = ({ x, y, width, height }: ElkNode | ElkLabel): Rect => ({
-  x: rounded(x),
-  y: rounded(y),
-  width: rounded(width),
-  height: rounded(height),
-});
+export type Place = readonly [x: number, y: number, width: number, height: number];
 
-const placedOf = (root: ElkNode): ReadonlyMap<string, Rect> => {
-  const placed = new Map<string, Rect>();
+export interface PlacedLine {
+  readonly points: readonly Point[];
+  readonly label?: Place;
+}
+
+export interface Placement {
+  readonly frames: readonly Place[];
+  readonly boxes: readonly Place[];
+  readonly lines: readonly PlacedLine[];
+  readonly width: number;
+  readonly height: number;
+}
+
+const placeOf = ({ x, y, width, height }: ElkNode | ElkLabel): Place => [
+  rounded(x),
+  rounded(y),
+  rounded(width),
+  rounded(height),
+];
+
+const placedOf = (root: ElkNode): ReadonlyMap<string, Place> => {
+  const placed = new Map<string, Place>();
   const walk = (node: ElkNode): void => {
     for (const child of node.children ?? []) {
-      placed.set(child.id, rectOf(child));
+      placed.set(child.id, placeOf(child));
       walk(child);
     }
   };
@@ -149,27 +165,51 @@ const pointsOf = (edge: ElkExtendedEdge | undefined): readonly Point[] =>
     ]),
   );
 
-const labelOf = (edge: ElkExtendedEdge | undefined): LineLabel | undefined => {
-  const label = edge?.labels?.[0];
-  return label?.text === undefined ? undefined : { ...rectOf(label), text: label.text };
-};
+const NOWHERE: Place = [0, 0, 0, 0];
 
-const elk = new ELK();
+let elk: InstanceType<typeof ELK> | undefined;
 
-export const layoutOf = async (scene: Scene): Promise<Laid> => {
+export const placementOf = async (scene: Scene): Promise<Placement> => {
+  elk ??= new ELK();
   const laid = await elk.layout(graphOf(scene));
   const placed = placedOf(laid);
-  const rectFor = (id: string): Rect => placed.get(id) ?? { x: 0, y: 0, width: 0, height: 0 };
+  const placeFor = ({ id }: { readonly id: string }): Place => placed.get(id) ?? NOWHERE;
   const edges = new Map((laid.edges ?? []).map((edge) => [edge.id, edge]));
   return {
-    frames: scene.frames.map((frame) => ({ ...frame, ...rectFor(frame.id) })),
-    boxes: scene.boxes.map((box) => ({ ...box, ...rectFor(box.id) })),
-    lines: scene.lines.map((line) => {
+    frames: scene.frames.map(placeFor),
+    boxes: scene.boxes.map(placeFor),
+    lines: scene.lines.map((line): PlacedLine => {
       const edge = edges.get(lineIdOf(line));
-      const label = labelOf(edge);
-      return { ...line, points: pointsOf(edge), ...(label === undefined ? {} : { label }) };
+      const label = edge?.labels?.[0];
+      return {
+        points: pointsOf(edge),
+        ...(label?.text === undefined ? {} : { label: placeOf(label) }),
+      };
     }),
     width: rounded(laid.width),
     height: rounded(laid.height),
   };
 };
+
+const rectOf = ([x, y, width, height]: Place = NOWHERE): Rect => ({ x, y, width, height });
+
+export const laidOf = (scene: Scene, placement: Placement): Laid => ({
+  frames: scene.frames.map((frame, index) => ({ ...frame, ...rectOf(placement.frames[index]) })),
+  boxes: scene.boxes.map((box, index) => ({ ...box, ...rectOf(placement.boxes[index]) })),
+  lines: scene.lines.map((line, index) => {
+    const placed = placement.lines[index];
+    const text = lineLabelOf(line);
+    return {
+      ...line,
+      points: placed?.points ?? [],
+      ...(placed?.label === undefined || text === undefined
+        ? {}
+        : { label: { ...rectOf(placed.label), text } }),
+    };
+  }),
+  width: placement.width,
+  height: placement.height,
+});
+
+export const layoutOf = async (scene: Scene): Promise<Laid> =>
+  laidOf(scene, await placementOf(scene));
