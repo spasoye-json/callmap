@@ -204,7 +204,7 @@ describe('the marks of a level', () => {
       [ORDERS, true, '2 changed, 1 added'],
       [MONEY, true, '1 removed'],
       [NOTIFY, true, '1 added, 1 open end'],
-      [CARRIERS, false, undefined],
+      [CARRIERS, true, '1 changed'],
     ]);
   });
 
@@ -224,7 +224,9 @@ describe('the marks of a level', () => {
   it('lists the calls of a line with their marks after a click on it', async () => {
     const page = await projectPage();
     const body = bodyOf(page);
-    fireEvent.click(body.getByRole('button', { name: `4 calls from ${ORDERS} to ${MONEY}` }));
+    fireEvent.click(
+      body.getByRole('button', { name: `4 calls from ${ORDERS} to ${MONEY}, 1 removed` }),
+    );
     const calls = within(body.getByRole('region', { name: 'Calls' }));
     expect(calls.getAllByRole('button').map((call) => call.textContent)).toEqual([
       'book calls round',
@@ -232,7 +234,9 @@ describe('the marks of a level', () => {
       'placeOrder calls format',
       'refund calls round',
     ]);
-    fireEvent.click(body.getByRole('button', { name: `1 call from ${ORDERS} to ${NOTIFY}` }));
+    fireEvent.click(
+      body.getByRole('button', { name: `1 call from ${ORDERS} to ${NOTIFY}, 1 added` }),
+    );
     expect(calls.getAllByRole('button').map((call) => call.textContent)).toEqual([
       'book calls confirm, added',
     ]);
@@ -433,5 +437,49 @@ describe('the file level', () => {
       `${broadcast} -> ${CHANNEL}#Push.deliver`,
       `${CHANNEL}#urgent -> ${broadcast}`,
     ]);
+  });
+});
+
+const COURIER = `${CARRIERS}/courier.ts`;
+const POST = `${CARRIERS}/post.ts`;
+
+const courierPage = async (): Promise<LoadedPage> => {
+  const page = await projectPage();
+  await clickBox(page, CARRIERS);
+  await clickBox(page, COURIER);
+  return page;
+};
+
+describe('a bundled line on the file level', () => {
+  it('lights the outside box at its end when the function at its other end is selected', async () => {
+    const page = await courierPage();
+    await clickBox(page, `${COURIER}#dispatch`);
+    expect(
+      boxesOf(page)
+        .filter(({ classes }) => classes.includes('connected'))
+        .map(({ id }) => id),
+    ).toEqual([POST]);
+  });
+
+  it('keeps the label of a one-of group that ends at an outside box', async () => {
+    const page = await courierPage();
+    const oneOf = linesOf(page).filter(({ classes }) => classes.includes('one-of'));
+    expect(oneOf.map(({ from, to, label }) => [from, to, label])).toEqual([
+      [`${COURIER}#dispatch`, POST, 'one of 2'],
+    ]);
+  });
+});
+
+describe('a bundled line with an added call and a removed call', () => {
+  it('shows the added mark and the removed mark', async () => {
+    const page = await projectPage();
+    await clickBox(page, CARRIERS);
+    const line = linesOf(page).find(({ from, to }) => from === COURIER && to === POST);
+    expect(line?.classes).toEqual(expect.arrayContaining(['added', 'removed']));
+    expect(
+      bodyOf(page).getByRole('button', {
+        name: `5 calls from ${COURIER} to ${POST}, 1 added, 1 removed`,
+      }),
+    ).toBeDefined();
   });
 });

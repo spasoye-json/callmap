@@ -35,13 +35,24 @@ const markOf = (calls: readonly SceneLine[]): CallMark =>
   (['added', 'removed'] as const).find((mark) => calls.some((call) => call.mark === mark)) ??
   'kept';
 
-const bundledLineOf = (from: string, to: string, calls: readonly SceneLine[]): SceneLine => ({
+const bundledLineOf = (
+  from: string,
+  to: string,
+  calls: readonly SceneLine[],
+  oneOf?: string,
+): SceneLine => ({
   kind: 'bundled',
   from,
   to,
   mark: markOf(calls),
+  ...(oneOf === undefined ? {} : { oneOf }),
   calls,
-  title: `${counted(calls.length, 'call', 'calls').join('')} from ${from} to ${to}`,
+  title: [
+    `${counted(calls.length, 'call', 'calls').join('')} from ${from} to ${to}`,
+    ...(['added', 'removed'] as const).flatMap((mark) =>
+      counted(calls.filter((call) => call.mark === mark).length, mark),
+    ),
+  ].join(', '),
 });
 
 const openEndCallersOf = ({ review, branchGraph }: ReaderPageData): readonly string[] => {
@@ -137,7 +148,7 @@ const levelsFor = (data: ReaderPageData): Levels => {
     for (const line of scene.lines) {
       if (line.kind !== 'call') continue;
       const pair = [endOf(line.from), endOf(line.to)] as const;
-      const key = arrowKeyOf(...pair);
+      const key = `${arrowKeyOf(...pair)} ${line.oneOf ?? ''}`;
       ends.set(key, pair);
       appendTo(byPair, key, line);
     }
@@ -148,7 +159,7 @@ const levelsFor = (data: ReaderPageData): Levels => {
         const [only, ...others] = group;
         return only !== undefined && others.length === 0
           ? { ...only, from, to }
-          : bundledLineOf(from, to, group);
+          : bundledLineOf(from, to, group, only?.oneOf);
       });
     const outside = [...new Set(callLines.flatMap(({ from, to }) => [from, to]))]
       .filter((path) => !ownIds.has(path))

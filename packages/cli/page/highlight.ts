@@ -7,7 +7,8 @@ export interface Highlight {
 }
 
 export const highlightOf = (laid: Laid, selected: string): Highlight | undefined => {
-  if (!laid.boxes.some(({ id }) => id === selected)) return undefined;
+  const boxIds = new Set(laid.boxes.map(({ id }) => id));
+  if (!boxIds.has(selected)) return undefined;
   const boxes = new Set<string>();
   const lines = new Set<number>();
   laid.lines.forEach((line, index) => {
@@ -16,7 +17,10 @@ export const highlightOf = (laid: Laid, selected: string): Highlight | undefined
     );
     if (touching.length === 0) return;
     lines.add(index);
-    for (const { from, to } of touching) boxes.add(from === selected ? to : from);
+    for (const { from, to } of touching) {
+      const [otherEnd, lineEnd] = from === selected ? [to, line.to] : [from, line.from];
+      boxes.add(boxIds.has(otherEnd) ? otherEnd : lineEnd);
+    }
   });
   return { selected, boxes, lines };
 };

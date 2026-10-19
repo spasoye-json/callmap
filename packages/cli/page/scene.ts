@@ -56,7 +56,7 @@ export interface SceneLine {
 }
 
 export const lineLabelOf = ({ oneOf, calls }: SceneLine): string | undefined =>
-  calls === undefined ? oneOf : String(calls.length);
+  oneOf ?? (calls === undefined ? undefined : String(calls.length));
 
 export interface Scene {
   readonly frames: readonly SceneFrame[];
