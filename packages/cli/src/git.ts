@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
@@ -36,6 +36,9 @@ const succeeds = (cwd: string, ...args: readonly string[]): boolean => {
 
 export const repoRootOf = (path: string): string =>
   gitOr(`${path} is not inside a git repo`, path, 'rev-parse', '--show-toplevel');
+
+export const commonDirOf = (root: string): string =>
+  realpathSync(git(root, 'rev-parse', '--path-format=absolute', '--git-common-dir'));
 
 const REMOTE_HEAD = /^refs\/remotes\/(.+)\/HEAD$/;
 
