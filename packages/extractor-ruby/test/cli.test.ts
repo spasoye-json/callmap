@@ -8,7 +8,7 @@ const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
 
 /**
- * The extractor as the host runs it: another process, answering over its standard output. A run
+ * The extractor as the caller runs it: another process, answering over its standard output. A run
  * costs a Node process and a Ruby process, so it is remembered by its arguments.
  */
 const runs = new Map<string, SpawnSyncReturns<string>>();

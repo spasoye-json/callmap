@@ -10,12 +10,12 @@ export default tseslint.config(
   {
     ignores: [
       'node_modules/**',
-      'types/**',
       'coverage/**',
       'packages/*/fixture/**',
+      'packages/*/fixture-*/**',
       'packages/*/dist/**',
-      'packages/app/src-tauri/**',
       '.claude/**',
+      'docs/**',
     ],
   },
   js.configs.recommended,

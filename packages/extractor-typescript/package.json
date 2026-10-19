@@ -17,10 +17,8 @@
     "archmap-extract-typescript": "./src/cli.ts"
   },
   "dependencies": {
+    "@archmap/graph-document": "*",
     "@archmap/scope": "*",
     "typescript": "^6.0.3"
-  },
-  "devDependencies": {
-    "@archmap/reference-graph": "*"
   }
 }

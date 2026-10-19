@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The Ruby extractor as the host runs it: a separate process that reads a repo and writes its
+ * The Ruby extractor as a CLI: a separate process that reads a repo and writes its
  * reference graph document to standard output (ADR-0009), on the same terms as every other
  * extractor. Nothing but the document goes to standard output; a refusal goes to standard error
  * with a non-zero exit, so a repo it could not read is never mistaken for a repo with nothing in it.

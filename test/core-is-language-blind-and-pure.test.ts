@@ -1,13 +1,10 @@
 /**
- * A guard over the whole core, not over one module: the seam modules read data an extractor
+ * A guard over the whole core, not over one module: the core packages read data an extractor
  * already emitted and nothing else. If a package ever needs a filesystem, it stops being core and
- * belongs behind the extractor contract or in the sidecar (ADR-0009).
+ * belongs behind the extractor contract (ADR-0009).
  *
  * An extractor package is the other side of that contract, so the guard reads it the other way
  * round: it is the one that reads a repo and the one that names a language.
- *
- * The host is the third kind: the sidecar runs the extractors and the UI talks to the sidecar
- * (ADR-0006). It is held to its own rules, so the core list stays exact.
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -17,18 +14,10 @@ import { describe, expect, it } from 'vitest';
 
 const PACKAGES_DIR = join(import.meta.dirname, '..', 'packages');
 
-/** The one package that exists to describe a fixture repo, so it may name languages. */
-const TEST_SUPPORT = 'testing';
-
 /** A package that reads a repo and emits a document. It is not core; it is what core reads. */
 const isExtractor = (name: string): boolean => name.startsWith('extractor-');
 
-/**
- * The packages that run the app: the sidecar that reads a repo and runs extractors, and the UI
- * that talks to it (ADR-0006). They are neither core nor an extractor, and the list is exact, so a
- * new package cannot escape the core guard by calling itself host.
- */
-const HOST_PACKAGES: readonly string[] = ['app', 'sidecar'];
+const HOST_PACKAGES: readonly string[] = ['cli'];
 
 const isHost = (name: string): boolean => HOST_PACKAGES.includes(name);
 
@@ -71,27 +60,23 @@ const corePackages = packageNames.filter((name) => !isExtractor(name) && !isHost
 const extractorPackages = packageNames.filter(isExtractor);
 const hostPackages = packageNames.filter(isHost);
 
-const importsIn = (name: string): ReadonlySet<string> =>
-  new Set(
-    sourceFilesOf(join(PACKAGES_DIR, name, 'src')).flatMap((path) =>
-      importsOf(readFileSync(path, 'utf8')),
-    ),
-  );
+const importsUnder = (directory: string): ReadonlySet<string> =>
+  new Set(sourceFilesOf(directory).flatMap((path) => importsOf(readFileSync(path, 'utf8'))));
 
-describe('the ported core', () => {
-  it('holds every seam module the skeleton needs', () => {
+const importsIn = (name: string): ReadonlySet<string> =>
+  importsUnder(join(PACKAGES_DIR, name, 'src'));
+
+const isNodeBuiltin = (specifier: string): boolean =>
+  specifier.startsWith('node:') || builtinModules.includes(specifier.split('/')[0] ?? '');
+
+describe('the core', () => {
+  it('holds every core package the reader keeps', () => {
     expect(corePackages).toEqual([
-      'canvas-model',
-      'cost',
-      'discovery',
-      'flow-document',
-      'flow-library',
-      'layout',
+      'editor-link',
+      'graph-document',
       'reference-graph',
+      'review',
       'scope',
-      'staleness',
-      TEST_SUPPORT,
-      'trace',
     ]);
   });
 
@@ -119,19 +104,16 @@ describe('the ported core', () => {
     expect(offenders).toEqual([]);
   });
 
-  it.each(corePackages.filter((name) => name !== TEST_SUPPORT))(
-    '%s names no language, because the core is language-blind',
-    (name) => {
-      const offenders = sourceFilesOf(join(PACKAGES_DIR, name, 'src')).filter((path) =>
-        /'(typescript|javascript|go|ruby)'/.test(readFileSync(path, 'utf8')),
-      );
-      expect(offenders).toEqual([]);
-    },
-  );
+  it.each(corePackages)('%s names no language, because the core is language-blind', (name) => {
+    const offenders = sourceFilesOf(join(PACKAGES_DIR, name, 'src')).filter((path) =>
+      /'(typescript|javascript|go|ruby)'/.test(readFileSync(path, 'utf8')),
+    );
+    expect(offenders).toEqual([]);
+  });
 });
 
 describe('the extractors it ships', () => {
-  it('holds one package per language version one supports, so far', () => {
+  it('holds one package per language that Archmap reads, so far', () => {
     expect(extractorPackages).toEqual(['extractor-go', 'extractor-ruby', 'extractor-typescript']);
   });
 
@@ -151,34 +133,25 @@ describe('the extractors it ships', () => {
   );
 });
 
-/** A module specifier that names a Node built-in, whether or not it carries the `node:` prefix. */
-const isNodeBuiltin = (specifier: string): boolean =>
-  specifier.startsWith('node:') || builtinModules.includes(specifier.split('/')[0] ?? '');
-
 describe('the host that runs it', () => {
-  it('holds the sidecar and the UI, and nothing else', () => {
+  it('holds the CLI, and nothing else', () => {
     expect(hostPackages).toEqual(HOST_PACKAGES);
   });
 
-  it('runs every extractor from the sidecar, as a process of its own', () => {
-    expect(importsIn('sidecar')).toContain('node:child_process');
+  it('runs every extractor from the CLI, as a process of its own', () => {
+    expect(importsIn('cli')).toContain('node:child_process');
   });
 
-  it('keeps the UI off the filesystem and away from every extractor', () => {
-    const offenders = [...importsIn('app')].filter(
-      (specifier) => isNodeBuiltin(specifier) || specifier.startsWith('@archmap/extractor-'),
+  it('reads source text for the code panel but parses none, because it imports no parser and no extractor', () => {
+    expect(importsIn('cli')).toContain('node:fs');
+    const offenders = [...importsIn('cli')].filter(
+      (specifier) => specifier === 'typescript' || specifier.startsWith('@archmap/extractor-'),
     );
     expect(offenders).toEqual([]);
   });
 
-  it('lets the UI name the sidecar command surface by type only', () => {
-    const offenders = sourceFilesOf(join(PACKAGES_DIR, 'app', 'src')).filter((path) => {
-      const text = readFileSync(path, 'utf8');
-      const named = text.match(/['"]@archmap\/sidecar['"]/g)?.length ?? 0;
-      const byType =
-        text.match(/import type\s*\{[^}]*\}\s*from\s*['"]@archmap\/sidecar['"]/g)?.length ?? 0;
-      return named !== byType;
-    });
+  it('keeps the page script off every Node built-in, because it runs in the browser', () => {
+    const offenders = [...importsUnder(join(PACKAGES_DIR, 'cli', 'page'))].filter(isNodeBuiltin);
     expect(offenders).toEqual([]);
   });
 });

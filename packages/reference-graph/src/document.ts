@@ -45,8 +45,8 @@ const DRIVE_LETTER = /^[A-Za-z]:/;
  * document is repo-relative, reads with forward slashes, and spells a file one way only, so one
  * machine's document means the same thing on the next one and two documents cannot claim one file
  * under two names. A second spelling would be read as a second file: the duplicate-language check
- * of a merge would not see the pair, and a claim about `src/a.ts` would not be checked against the
- * document that named `./src/a.ts`. So a Windows separator, a leading slash, a drive letter, a
+ * of a merge would not see the pair, and an edge to `src/a.ts` would miss the document that named
+ * `./src/a.ts`. So a Windows separator, a leading slash, a drive letter, a
  * segment that climbs out of the repo, and a segment that names nothing at all, an empty one or a
  * bare dot, are all refused.
  */

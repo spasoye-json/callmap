@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code to map</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --page: #f1f3f0;
+  --surface: #ffffff;
+  --text: #24322e;
+  --muted: #56675f;
+  --accent: #176049;
+  --tint: #edf5ef;
+  --border: #d7e0d9;
+  --box: #f7faf8;
+  --line: #24322e;
+  --infer: #a35d00;
+  --infer-tint: #fff4e3;
+  --error: #b42318;
+  --error-tint: #fdecea;
+  --effect: #3e4fb3;
+  --effect-tint: #eef0fc;
+  --lane: #f4f6f3;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--page);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #111614;
+    --surface: #18201d;
+    --text: #dce6e1;
+    --muted: #9fb0a8;
+    --accent: #5fc79f;
+    --tint: #1d2d26;
+    --border: #2c3a34;
+    --box: #1f2925;
+    --line: #dce6e1;
+    --infer: #f0a94a;
+    --infer-tint: #33281a;
+    --error: #ff8a80;
+    --error-tint: #3a1f1d;
+    --effect: #9aa8ff;
+    --effect-tint: #232842;
+    --lane: #141b18;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #111614; --surface: #18201d; --text: #dce6e1; --muted: #9fb0a8; --accent: #5fc79f;
+  --tint: #1d2d26; --border: #2c3a34; --box: #1f2925; --line: #dce6e1; --infer: #f0a94a;
+  --infer-tint: #33281a; --error: #ff8a80; --error-tint: #3a1f1d; --effect: #9aa8ff;
+  --effect-tint: #232842; --lane: #141b18;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); }
+main {
+  width: min(100% - 32px, 860px);
+  margin: 40px auto;
+  padding: clamp(20px, 5vw, 56px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+h1 { margin: 8px 0 16px; font-size: clamp(1.8rem, 4.5vw, 2.5rem); line-height: 1.15; letter-spacing: -0.03em; }
+h2 { margin: 40px 0 8px; font-size: 1.15rem; }
+p, li { max-width: 68ch; }
+.eyebrow { margin: 0; color: var(--accent); font-size: .72rem; font-weight: 750; text-transform: uppercase; letter-spacing: .12em; }
+.answer { padding: 16px 20px; background: var(--tint); border-left: 4px solid var(--accent); border-radius: 8px; }
+figure { margin: 24px 0; }
+svg { width: 100%; height: auto; display: block; }
+figcaption { margin-top: 10px; font-size: .85rem; color: var(--muted); }
+code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .88em; }
+.src { font-size: .8rem; color: var(--muted); margin: 6px 0 0; }
+ol li, ul li { margin: 6px 0; }
+.box { fill: var(--box); stroke: var(--line); stroke-width: 1.2; }
+.lane { fill: var(--lane); stroke: var(--border); }
+.lane-label { fill: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.t { fill: var(--text); font-size: 13px; font-family: ui-monospace, Menlo, monospace; }
+.tl { fill: var(--muted); font-size: 11px; font-family: ui-monospace, Menlo, monospace; }
+.ts { fill: var(--text); font-size: 13px; }
+.th { fill: var(--text); font-size: 14px; font-weight: 700; }
+.edge { stroke: var(--line); stroke-width: 1.6; fill: none; }
+.infer { stroke: var(--infer); stroke-width: 1.8; fill: none; stroke-dasharray: 6 4; }
+.infer-t { fill: var(--infer); font-size: 11.5px; font-family: ui-monospace, Menlo, monospace; }
+.dec { fill: var(--box); stroke: var(--accent); stroke-width: 1.4; }
+.err { fill: var(--error-tint); stroke: var(--error); stroke-width: 1.2; }
+.err-t { fill: var(--error); font-size: 12.5px; font-family: ui-monospace, Menlo, monospace; }
+.eff { fill: var(--effect-tint); stroke: var(--effect); stroke-width: 1.4; }
+.tx { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.bar-bg { fill: var(--lane); stroke: var(--border); }
+.bar { fill: var(--accent); }
+.miss { fill: var(--error); }
+.goal { stroke: var(--infer); stroke-width: 2; stroke-dasharray: 5 4; }
+.legend-t { fill: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+<p class="eyebrow">Archmap, 2026-10-18</p>
+<h1>Code to map, with no model</h1>
+
+<div class="answer">
+<p><strong>Yes, the technique exists, and it needs no agent.</strong> The TypeScript type checker ties each call in a file to the one function that it runs. On a private app it tied 96.7% of backend calls and 98.8% of mobile calls to a function in your own code. The map that it gives is the same for the same code, and it costs no tokens.</p>
+<p><strong>What you lose:</strong> the business words. A box shows <code>if (!store)</code>, not "The store does not exist".</p>
+</div>
+
+<h2>1. The technique: three passes over the code</h2>
+<figure>
+<svg viewBox="0 0 760 190" role="img" aria-label="Source file goes to syntax tree, then type checker, then two graphs">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker>
+  </defs>
+  <rect class="box" x="10" y="40" width="150" height="90" rx="10"/>
+  <text class="th" x="85" y="68" text-anchor="middle">Source file</text>
+  <text class="tl" x="85" y="90" text-anchor="middle">orders.service.ts</text>
+  <text class="tl" x="85" y="108" text-anchor="middle">text only</text>
+
+  <rect class="box" x="205" y="40" width="160" height="90" rx="10"/>
+  <text class="th" x="285" y="68" text-anchor="middle">1. Parse</text>
+  <text class="tl" x="285" y="90" text-anchor="middle">syntax tree: each</text>
+  <text class="tl" x="285" y="108" text-anchor="middle">call, if, throw, return</text>
+
+  <rect class="box" x="410" y="40" width="160" height="90" rx="10"/>
+  <text class="th" x="490" y="68" text-anchor="middle">2. Resolve</text>
+  <text class="tl" x="490" y="90" text-anchor="middle">type checker: each call</text>
+  <text class="tl" x="490" y="108" text-anchor="middle">→ the function it runs</text>
+
+  <rect class="box" x="615" y="10" width="135" height="70" rx="10"/>
+  <text class="th" x="682" y="38" text-anchor="middle">Call graph</text>
+  <text class="tl" x="682" y="58" text-anchor="middle">who calls whom</text>
+  <rect class="box" x="615" y="100" width="135" height="70" rx="10"/>
+  <text class="th" x="682" y="128" text-anchor="middle">3. Control flow</text>
+  <text class="tl" x="682" y="148" text-anchor="middle">per function</text>
+
+  <path class="edge" d="M160 85 H200" marker-end="url(#a)"/>
+  <path class="edge" d="M365 85 H405" marker-end="url(#a)"/>
+  <path class="edge" d="M570 75 L610 50" marker-end="url(#a)"/>
+  <path class="edge" d="M570 95 L610 130" marker-end="url(#a)"/>
+</svg>
+<figcaption>The three passes. Each pass is plain code in the TypeScript compiler, so the same input always gives the same output.</figcaption>
+</figure>
+<ol>
+<li><strong>Parse.</strong> <code>ts.createProgram</code> reads every file in the <code>tsconfig.json</code> and builds a syntax tree. The tree knows that line 109 is an <code>if</code> and line 110 is a <code>throw</code>. It does not know what <code>this.ordersService</code> is.</li>
+<li><strong>Resolve.</strong> <code>checker.getResolvedSignature(call)</code> follows the types. <code>this.ordersService.create(...)</code> has the type <code>OrdersService</code>, because NestJS injects it through the constructor. So the checker returns <code>OrdersService.create</code> in <code>orders.service.ts:97</code>. That is the edge, proven by the compiler.</li>
+<li><strong>Control flow.</strong> A walk over each function body turns <code>if</code>, <code>switch</code>, <code>throw</code>, <code>try</code> and an early <code>return</code> into decisions and error exits. This is the flowchart inside one function.</li>
+</ol>
+<p><strong>Why the type checker and not text search:</strong> a text search for "create(" finds 10 methods with that name in the backend. The checker finds the one that runs. Your question "which variables it is calling" is the same pass: <code>checker.getSymbolAtLocation(name)</code> gives the declaration of each variable.</p>
+
+<h2>2. The measurement on a private app</h2>
+<figure>
+<svg viewBox="0 0 760 200" role="img" aria-label="Backend 96.7 percent resolved, mobile 98.8 percent resolved, goal line at 90 percent">
+  <text class="ts" x="10" y="52">Backend</text>
+  <text class="tl" x="10" y="70">389 calls</text>
+  <rect class="bar-bg" x="110" y="35" width="600" height="34" rx="6"/>
+  <rect class="bar" x="110" y="35" width="580" height="34" rx="6"/>
+  <rect class="miss" x="690" y="35" width="20" height="34"/>
+  <text x="400" y="57" text-anchor="middle" style="fill:var(--surface);font-size:13px;font-weight:700">376 resolved, 96.7%</text>
+
+  <text class="ts" x="10" y="122">Mobile</text>
+  <text class="tl" x="10" y="140">518 calls</text>
+  <rect class="bar-bg" x="110" y="105" width="600" height="34" rx="6"/>
+  <rect class="bar" x="110" y="105" width="593" height="34" rx="6"/>
+  <rect class="miss" x="703" y="105" width="7" height="34"/>
+  <text x="400" y="127" text-anchor="middle" style="fill:var(--surface);font-size:13px;font-weight:700">512 resolved, 98.8%</text>
+
+  <line class="goal" x1="650" y1="20" x2="650" y2="155"/>
+  <text class="infer-t" x="650" y="14" text-anchor="middle">your 90% goal</text>
+
+  <rect class="bar" x="110" y="175" width="14" height="12"/><text class="legend-t" x="130" y="185">tied to one function in your code</text>
+  <rect class="miss" x="380" y="175" width="14" height="12"/><text class="legend-t" x="400" y="185">not tied: untyped library, or a map of strategies</text>
+</svg>
+<figcaption>Calls that the checker tied to one function body. Real numbers, not invented. A call into a library, such as <code>array.map</code> or a TypeORM <code>save</code>, is a leaf of the map and is not counted: 1,761 in the backend and 1,842 in mobile.</figcaption>
+</figure>
+<p class="src">Source: a private app, scope <code>server/src</code> and <code>mobile-app</code>, test files left out. The folder names are invented. Script: <code>docs/research/2026-10-18-call-resolution/calls.cjs</code>.</p>
+<p>The 13 backend misses are of two kinds:</p>
+<ul>
+<li><strong>Untyped libraries, 11 calls:</strong> <code>bcrypt.hash</code>, <code>bcrypt.compare</code>, <code>sharp</code> and <code>multer</code>. These are leaves anyway. A type package for each library fixes them.</li>
+<li><strong>A map of strategies, 2 calls:</strong> <code>this.rules[kind].bodyOf</code> in <code>export-targets.service.ts:128</code>. These names are invented. The checker knows the interface but not which object runs. The map can draw an edge to each implementation and mark the choice.</li>
+</ul>
+
+<h2>3. One real flow, drawn with no model</h2>
+<p>This is "place an order", from the mobile store to the confirmation mail. Each box is a real line of code. Each label is the code itself.</p>
+<figure>
+<svg viewBox="0 0 760 1010" role="img" aria-label="Flowchart of order placement across mobile, backend and listener">
+  <defs>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker>
+    <marker id="c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--infer)"/></marker>
+    <marker id="d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--error)"/></marker>
+  </defs>
+
+  <rect class="lane" x="0" y="0" width="760" height="100" rx="10"/>
+  <text class="lane-label" x="14" y="22">Mobile app</text>
+  <rect class="box" x="200" y="34" width="320" height="50" rx="8"/>
+  <text class="t" x="360" y="56" text-anchor="middle">POST("/orders", body)</text>
+  <text class="tl" x="360" y="74" text-anchor="middle">stores/order.ts:286</text>
+
+  <path class="infer" d="M360 84 V150" marker-end="url(#c)"/>
+  <text class="infer-t" x="372" y="112">HTTP: "/orders" matches</text>
+  <text class="infer-t" x="372" y="128">@Controller('orders') + @Post()</text>
+
+  <rect class="lane" x="0" y="140" width="760" height="740" rx="10"/>
+  <text class="lane-label" x="14" y="162">Backend request</text>
+
+  <rect class="box" x="200" y="152" width="320" height="50" rx="8"/>
+  <text class="t" x="360" y="174" text-anchor="middle">OrdersController.create</text>
+  <text class="tl" x="360" y="192" text-anchor="middle">orders.controller.ts:48</text>
+  <path class="edge" d="M360 202 V222" marker-end="url(#b)"/>
+
+  <rect class="box" x="200" y="224" width="320" height="50" rx="8"/>
+  <text class="t" x="360" y="246" text-anchor="middle">OrdersService.create</text>
+  <text class="tl" x="360" y="264" text-anchor="middle">orders.service.ts:97</text>
+  <path class="edge" d="M360 274 V294" marker-end="url(#b)"/>
+
+  <rect class="box" x="200" y="296" width="320" height="44" rx="8"/>
+  <text class="t" x="360" y="317" text-anchor="middle">priceGuard.assertValid()</text>
+  <text class="tl" x="360" y="333" text-anchor="middle">:99</text>
+  <path class="edge" d="M360 340 V360" marker-end="url(#b)"/>
+
+  <rect class="box" x="200" y="362" width="320" height="44" rx="8"/>
+  <text class="t" x="360" y="383" text-anchor="middle">findOne(product), findOne(store)</text>
+  <text class="tl" x="360" y="399" text-anchor="middle">:101</text>
+  <path class="edge" d="M360 406 V422" marker-end="url(#b)"/>
+
+  <polygon class="dec" points="360,424 450,452 360,480 270,452"/>
+  <text class="t" x="360" y="457" text-anchor="middle">!product</text>
+  <path class="edge" d="M450 452 H560" marker-end="url(#d)" style="stroke:var(--error)"/>
+  <text class="tl" x="470" y="446">yes</text>
+  <rect class="err" x="562" y="430" width="180" height="44" rx="8"/>
+  <text class="err-t" x="652" y="451" text-anchor="middle">throw NotFound</text>
+  <text class="tl" x="652" y="467" text-anchor="middle">:110</text>
+  <path class="edge" d="M360 480 V498" marker-end="url(#b)"/>
+  <text class="tl" x="368" y="494">no</text>
+
+  <polygon class="dec" points="360,500 450,528 360,556 270,528"/>
+  <text class="t" x="360" y="533" text-anchor="middle">!store</text>
+  <path class="edge" d="M450 528 H560" marker-end="url(#d)" style="stroke:var(--error)"/>
+  <text class="tl" x="470" y="522">yes</text>
+  <rect class="err" x="562" y="506" width="180" height="44" rx="8"/>
+  <text class="err-t" x="652" y="527" text-anchor="middle">throw NotFound</text>
+  <text class="tl" x="652" y="543" text-anchor="middle">:115</text>
+  <path class="edge" d="M360 556 V574" marker-end="url(#b)"/>
+  <text class="tl" x="368" y="570">no</text>
+
+  <polygon class="dec" points="360,576 470,604 360,632 250,604"/>
+  <text class="t" x="360" y="609" text-anchor="middle">couponIds.length &gt; 0</text>
+  <path class="edge" d="M250 604 H120 V650" marker-end="url(#b)"/>
+  <text class="tl" x="200" y="598">yes</text>
+  <rect class="box" x="30" y="652" width="180" height="44" rx="8"/>
+  <text class="t" x="120" y="673" text-anchor="middle">getMany(coupons)</text>
+  <text class="tl" x="120" y="689" text-anchor="middle">:119</text>
+  <path class="edge" d="M120 696 V740 H226" marker-end="url(#b)"/>
+  <path class="edge" d="M360 632 V708" marker-end="url(#b)"/>
+  <text class="tl" x="368" y="650">no</text>
+
+  <rect class="tx" x="226" y="710" width="268" height="104" rx="10"/>
+  <text class="tl" x="236" y="726">dataSource.transaction  :125</text>
+  <rect class="box" x="246" y="732" width="228" height="32" rx="6"/>
+  <text class="t" x="360" y="753" text-anchor="middle">lockStockForUpdate()</text>
+  <path class="edge" d="M360 764 V772" marker-end="url(#b)"/>
+  <rect class="eff" x="246" y="774" width="228" height="32" rx="6"/>
+  <text class="t" x="360" y="795" text-anchor="middle">save(Order)  side effect</text>
+  <path class="edge" d="M360 814 V826" marker-end="url(#b)"/>
+
+  <rect class="eff" x="170" y="828" width="380" height="44" rx="8"/>
+  <text class="t" x="360" y="849" text-anchor="middle">emit(OrderEvents.OrderPlaced)</text>
+  <text class="tl" x="360" y="865" text-anchor="middle">:147  side effect</text>
+
+  <path class="infer" d="M550 850 H700 V948 H530" marker-end="url(#c)"/>
+  <text class="infer-t" x="560" y="842">event: the same constant</text>
+  <text class="infer-t" x="560" y="900" style="font-size:11px">order.placed</text>
+
+  <rect class="lane" x="0" y="900" width="500" height="100" rx="10"/>
+  <text class="lane-label" x="14" y="922">Async listener</text>
+  <rect class="box" x="190" y="926" width="338" height="50" rx="8"/>
+  <text class="t" x="359" y="948" text-anchor="middle">MailListener.handleOrderPlaced</text>
+  <text class="tl" x="359" y="966" text-anchor="middle">notifications/listeners/mail.listener.ts:45</text>
+</svg>
+<figcaption>Black arrows are calls or sequence that the compiler proves. Dashed amber arrows cross a process, so code matches them by a string or a constant. Red boxes are error exits. Blue boxes are side effects. The dashed grey box is the database transaction.</figcaption>
+</figure>
+<p class="src">Source: a private app. The paths and the names in this diagram are invented, because the app is private: <code>mobile-app/stores/order.ts:286</code>, <code>server/src/modules/orders/orders.controller.ts:47</code>, <code>server/src/modules/orders/orders.service.ts:97</code>, <code>server/src/modules/notifications/listeners/mail.listener.ts:44</code>. I drew this diagram by hand from the code. No tool produced it yet.</p>
+<p><strong>How each arrow is found, with no model:</strong></p>
+<ol>
+<li><strong>Mobile to backend:</strong> the call <code>POST("/orders")</code> has a string. The controller has <code>@Controller('orders')</code> and <code>@Post()</code>. A rule joins the two strings and matches them. A route that the code builds at run time does not match, and the map shows it as an open end.</li>
+<li><strong>Controller to service:</strong> the type checker resolves <code>this.ordersService.create</code> to <code>orders.service.ts:97</code>. This is a proof.</li>
+<li><strong>Inside the service:</strong> the walk over the function body gives the order of the steps, the 3 decisions and the 2 error exits. This is a proof too.</li>
+<li><strong>Side effects:</strong> a short rule list marks the calls that change state: a TypeORM <code>save</code>, <code>update</code> or <code>delete</code>, an <code>emit</code>, and an HTTP call.</li>
+<li><strong>Service to listener:</strong> <code>emit</code> and <code>@OnEvent</code> use the same constant, <code>OrderEvents.OrderPlaced</code>. The checker proves that it is the same symbol, so this match is stronger than a string match.</li>
+</ol>
+
+<h2>4. What the view without a model cannot do</h2>
+<ul>
+<li><strong>Business words:</strong> the boxes show code. If your names are good, the code reads well. <code>!product</code> is clear. A name like <code>handle2</code> is not.</li>
+<li><strong>Which branch matters:</strong> every <code>if</code> becomes a decision, also a small one. A long function gives a tall chart. Collapse per function helps.</li>
+<li><strong>Dynamic calls:</strong> an <code>any</code> value, a callback, or a route built at run time. The measurement shows that these are few in the private app.</li>
+</ul>
+<p><strong>A model can come later, for the words only.</strong> It reads the drawn flow and writes one plain label per box. It never adds or removes a box or an arrow. A content hash keeps each label until the code under it changes.</p>
+
+<h2>5. What this changes in the Archmap plan</h2>
+<ul>
+<li><strong>The flow comes from code, not from a trace pass.</strong> The trace pass, the curation by Claude, and the AI discovery pass leave the first version.</li>
+<li><strong>Accuracy is a number:</strong> the share of calls that the checker resolved. You can show it for each flow.</li>
+<li><strong>The same code gives the same map, with no hash rule needed for the structure.</strong> The compiler is deterministic.</li>
+<li><strong>The review is a diff of two graphs:</strong> the graph on the merge base and the graph on the branch. Code computes it in seconds, with no tokens.</li>
+</ul>
+
+<h2>Code reading route</h2>
+<ol>
+<li>Run the measurement: <code>node docs/research/2026-10-18-call-resolution/calls.cjs &lt;path to tsconfig.json&gt; /server/src/</code>. The path filter is invented.</li>
+<li>Read the script <code>docs/research/2026-10-18-call-resolution/calls.cjs</code>. It is 50 lines: <code>ts.createProgram</code>, <code>ts.forEachChild</code>, and <code>checker.getResolvedSignature</code>.</li>
+<li>Read <code>packages/extractor-typescript/src/imports.ts</code> in archmap. It builds the program today, but it keeps only the imports.</li>
+<li>Diagram 3 comes from a private app, so this route cannot show its code.</li>
+<li>Read the TypeScript Compiler API page: <code>github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API</code>.</li>
+</ol>
+</main>
+</body>
+</html>

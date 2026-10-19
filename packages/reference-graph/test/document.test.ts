@@ -170,11 +170,6 @@ describe('referenceGraphFromDocuments', () => {
     expect(graph.languageOf('app/models/order.rb')).toBe('ruby');
   });
 
-  it('leaves two documents in two languages, so nothing verified rides across them', () => {
-    const graph = referenceGraphFromDocuments(typescript, ruby);
-    expect(graph.sameLanguage('app/checkout.ts', 'app/models/order.rb')).toBe(false);
-  });
-
   it('refuses a document whose edge reaches a file another document claims in another language', () => {
     const client = document({
       language: 'typescript',

@@ -1,26 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createReferenceGraph,
-  emptyReferenceGraph,
-  mergeReferenceGraphs,
-  ReferenceGraphError,
-} from '../src/index.ts';
+import { createReferenceGraph, mergeReferenceGraphs, ReferenceGraphError } from '../src/index.ts';
 import type { ReferenceGraphInput } from '../src/index.ts';
 
 const ts = (...paths: readonly string[]) => paths.map((path) => ({ path, language: 'typescript' }));
 
 describe('createReferenceGraph', () => {
-  it('knows every file an extractor claimed', () => {
-    const graph = createReferenceGraph({ files: ts('a.ts', 'b.ts'), edges: [] });
-    expect(graph.knows('a.ts')).toBe(true);
-    expect(graph.knows('b.ts')).toBe(true);
-  });
-
-  it('does not know a file no extractor claimed', () => {
-    const graph = createReferenceGraph({ files: ts('a.ts'), edges: [] });
-    expect(graph.knows('invented.ts')).toBe(false);
-  });
-
   it('reports the language of a known file', () => {
     const graph = createReferenceGraph({
       files: [
@@ -34,7 +18,8 @@ describe('createReferenceGraph', () => {
   });
 
   it('reports no language for an unknown file', () => {
-    expect(emptyReferenceGraph().languageOf('a.ts')).toBeUndefined();
+    const graph = createReferenceGraph({ files: ts('a.ts'), edges: [] });
+    expect(graph.languageOf('invented.ts')).toBeUndefined();
   });
 
   it('holds files in path order whatever order they arrived in', () => {
@@ -146,52 +131,6 @@ describe('references', () => {
   });
 });
 
-describe('joins', () => {
-  const graph = createReferenceGraph({
-    files: ts('caller.ts', 'listener.ts', 'lonely.ts'),
-    edges: [{ from: 'caller.ts', to: 'listener.ts' }],
-  });
-
-  it('joins a pair in the direction of the reference', () => {
-    expect(graph.joins('caller.ts', 'listener.ts')).toBe(true);
-  });
-
-  it('joins a pair against the direction of the reference, because a callback inverts it', () => {
-    expect(graph.joins('listener.ts', 'caller.ts')).toBe(true);
-  });
-
-  it('does not join a pair no reference edge touches', () => {
-    expect(graph.joins('caller.ts', 'lonely.ts')).toBe(false);
-  });
-
-  it('does not join a file to itself', () => {
-    expect(graph.joins('caller.ts', 'caller.ts')).toBe(false);
-  });
-});
-
-describe('sameLanguage', () => {
-  const graph = createReferenceGraph({
-    files: [
-      { path: 'app/web.ts', language: 'typescript' },
-      { path: 'app/api.ts', language: 'typescript' },
-      { path: 'server/main.go', language: 'go' },
-    ],
-    edges: [],
-  });
-
-  it('is true for two files of one language', () => {
-    expect(graph.sameLanguage('app/web.ts', 'app/api.ts')).toBe(true);
-  });
-
-  it('is false across two languages', () => {
-    expect(graph.sameLanguage('app/web.ts', 'server/main.go')).toBe(false);
-  });
-
-  it('is false when a file is unknown', () => {
-    expect(graph.sameLanguage('app/web.ts', 'invented.ts')).toBe(false);
-  });
-});
-
 describe('mergeReferenceGraphs', () => {
   const typescript = {
     files: ts('app/checkout.ts', 'app/api-client.ts'),
@@ -213,8 +152,6 @@ describe('mergeReferenceGraphs', () => {
   it('holds every file of every extractor that matched the repo', () => {
     const merged = mergeReferenceGraphs(typescript, ruby);
     expect(merged.files).toHaveLength(4);
-    expect(merged.knows('app/checkout.ts')).toBe(true);
-    expect(merged.knows('app/models/order.rb')).toBe(true);
   });
 
   it('keeps each extractor language tag', () => {
@@ -231,11 +168,6 @@ describe('mergeReferenceGraphs', () => {
     );
   });
 
-  it('leaves the two languages unjoined, so nothing invents a cross-language reference', () => {
-    const merged = mergeReferenceGraphs(typescript, ruby);
-    expect(merged.joins('app/checkout.ts', 'app/controllers/orders_controller.rb')).toBe(false);
-  });
-
   it('refuses an edge one extractor named across a file another extractor claimed in another language', () => {
     expect(() =>
       mergeReferenceGraphs(
@@ -248,12 +180,12 @@ describe('mergeReferenceGraphs', () => {
     ).toThrow(/a\.ts.*b\.rb.*typescript.*ruby/);
   });
 
-  it('joins a pair one extractor named across a file another extractor claimed in its language', () => {
+  it('holds an edge one extractor named into a file another extractor claimed in its language', () => {
     const graph = mergeReferenceGraphs(
       { files: [{ path: 'a.ts', language: 'typescript' }], edges: [{ from: 'a.ts', to: 'b.ts' }] },
       { files: [{ path: 'b.ts', language: 'typescript' }], edges: [] },
     );
-    expect(graph.joins('a.ts', 'b.ts')).toBe(true);
+    expect(graph.references('a.ts', 'b.ts')).toBe(true);
   });
 
   it('refuses an edge across two languages that one input claims both ends of', () => {
@@ -295,15 +227,6 @@ describe('mergeReferenceGraphs', () => {
     const right = mergeReferenceGraphs(ruby, typescript);
     expect(left.files).toEqual(right.files);
     expect(left.edges).toEqual(right.edges);
-  });
-});
-
-describe('emptyReferenceGraph', () => {
-  it('knows no file, so every claim about the code is rejected against it', () => {
-    const graph = emptyReferenceGraph();
-    expect(graph.files).toEqual([]);
-    expect(graph.edges).toEqual([]);
-    expect(graph.knows('anything.ts')).toBe(false);
   });
 });
 

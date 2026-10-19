@@ -8,7 +8,7 @@ import { goExtractorBinary } from '../src/index.ts';
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
 
 /**
- * The extractor as the host runs it: a compiled Go program, answering over its standard output. A
+ * The extractor as the caller runs it: a compiled Go program, answering over its standard output. A
  * run is remembered by its arguments, so two cases that ask the same thing pay for one.
  */
 const runs = new Map<string, SpawnSyncReturns<string>>();

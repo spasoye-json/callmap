@@ -1,5 +1,7 @@
 # Entry points are AI-proposed, validator-anchored, human-curated
 
+> Superseded by ADR-0012. Archmap is a call graph reader, with no AI.
+
 The prototype scan reads NestJS decorators and expo-router files, so a repo with a hand-rolled server gets an empty picker. Framework scanners do not scale across four languages and their frameworks. In the product, one AI pass proposes entry points for any repo that has a reference graph. The validator rejects a proposal whose file the reference graph does not know. A human curates the resulting list, the same pattern that round one settled for components. Framework scanners survive as optional fast-path hint plugins where they exist.
 
 The alternatives were a scanner per framework forever, which multiplies work by every framework in every language, and hand-pinning only, which makes the first open empty and hides the system from a new user.

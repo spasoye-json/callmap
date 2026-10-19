@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Directories that hold no source of the repo being mapped. The go tool itself never builds
+// Directories that hold no source of the repo that the extractor reads. The go tool itself never builds
 // testdata, vendor holds other people's modules, and a dot directory holds a tool's bookkeeping.
 func skipped(name string) bool {
 	return name == "vendor" || name == "testdata" || name == "node_modules" || strings.HasPrefix(name, ".")
