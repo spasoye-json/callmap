@@ -196,3 +196,9 @@ export const chooseEntry = async (page: LoadedPage, name: string): Promise<void>
   fireEvent.click(entryListOf(page).getByRole('button', { name: new RegExp(`^${name} `) }));
   await settled(page);
 };
+
+export const pickFolder = async (page: LoadedPage, folder: string): Promise<void> => {
+  const tree = within(page.window.document.body).getByRole('navigation', { name: 'Folders' });
+  fireEvent.click(within(tree).getByRole('button', { name: folder }));
+  await settled(page);
+};

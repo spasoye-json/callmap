@@ -3,6 +3,7 @@ import type { ReaderPageData } from './data.ts';
 import { interactionOf } from './interaction.ts';
 import type { PagePart } from './reader-page.ts';
 import { diffView } from './views/diff.ts';
+import { folderView } from './views/folder.ts';
 import { routeView } from './views/route.ts';
 import { wholeProjectView } from './views/whole-project.ts';
 
@@ -17,7 +18,7 @@ export const startReaderPage = (parts: readonly PagePart[]): void => {
   const { page, render } = interactionOf(
     data,
     { graph: elementOf('graph'), panels: elementOf('panels'), tabs: elementOf('views') },
-    [diffView, wholeProjectView, routeView],
+    [diffView, wholeProjectView, folderView, routeView],
   );
   for (const part of parts) part(page);
   void render();

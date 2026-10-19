@@ -33,7 +33,7 @@ const entryPoints: PagePart = (page) => {
     button.addEventListener('click', () => {
       for (const other of buttons) other.removeAttribute('aria-current');
       button.setAttribute('aria-current', 'true');
-      void page.choose(id);
+      void page.pick(id);
     });
     const item = document.createElement('li');
     item.append(button);
@@ -43,7 +43,7 @@ const entryPoints: PagePart = (page) => {
   buttons[0]?.setAttribute('aria-current', 'true');
 
   page.onViewChange((view) => {
-    section.hidden = view.name !== routeView.name;
+    section.hidden = view !== routeView;
   });
 };
 

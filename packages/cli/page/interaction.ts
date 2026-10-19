@@ -22,7 +22,7 @@ export interface PageElements {
 interface Shown {
   readonly view: View;
   readonly opened: Set<FunctionId>;
-  chosen: string | undefined;
+  choice: string | undefined;
   scene: Scene | undefined;
   laid: Promise<Laid> | undefined;
 }
@@ -38,7 +38,7 @@ export const interactionOf = (
   const shown = views.map((view): Shown => ({
     view,
     opened: new Set(),
-    chosen: undefined,
+    choice: undefined,
     scene: undefined,
     laid: undefined,
   })) as [Shown, ...Shown[]];
@@ -60,13 +60,13 @@ export const interactionOf = (
 
   const paint = (target: Shown, laid: Laid, anchor?: FunctionId): void => {
     if (target !== current) return;
-    drawing.draw(laid, anchor);
+    drawing.draw(laid, { anchor, zoomLevels: target.view.zoomLevels === true });
     if (drawn !== target) drawing.fit();
     drawn = target;
   };
 
   const sceneOf = (target: Shown): Scene => {
-    target.scene ??= target.view.sceneOf(data, target.opened, target.chosen);
+    target.scene ??= target.view.sceneOf(data, target.opened, target.choice);
     return target.scene;
   };
 
@@ -76,7 +76,7 @@ export const interactionOf = (
     );
 
   const render = (target: Shown, anchor?: FunctionId): Promise<void> => {
-    target.scene = target.view.sceneOf(data, target.opened, target.chosen);
+    target.scene = target.view.sceneOf(data, target.opened, target.choice);
     const laying = layoutOf(target.scene);
     target.laid = laying;
     return queued(async () => {
@@ -105,13 +105,6 @@ export const interactionOf = (
     choose(box);
   };
 
-  const chooseInView = (chosen: string): Promise<void> => {
-    if (current.chosen === chosen) return queue;
-    current.chosen = chosen;
-    drawn = undefined;
-    return render(current);
-  };
-
   const showView = (name: string): Promise<void> => {
     const target = shown.find(({ view }) => view.name === name);
     if (target === undefined || target === current) return queue;
@@ -123,6 +116,13 @@ export const interactionOf = (
     return queued(async () => {
       paint(target, await laid);
     });
+  };
+
+  const pick = (choice: string): Promise<void> => {
+    current.choice = choice;
+    current.opened.clear();
+    drawn = undefined;
+    return render(current);
   };
 
   const tabBar = tabBarOf(
@@ -147,8 +147,8 @@ export const interactionOf = (
     },
     show,
     open,
-    choose: chooseInView,
     showView,
+    pick,
   };
   return { page, render: () => render(current) };
 };

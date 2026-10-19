@@ -9,9 +9,16 @@ const FIT_MARGIN = 40;
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 3;
 const DRAG_THRESHOLD = 4;
+const FAR_SCALE = 0.5;
+const NEAR_SCALE = 1;
+
+export interface DrawOptions {
+  readonly anchor?: string | undefined;
+  readonly zoomLevels?: boolean;
+}
 
 export interface Drawing {
-  readonly draw: (laid: Laid, anchor?: string) => void;
+  readonly draw: (laid: Laid, options?: DrawOptions) => void;
   readonly fit: () => void;
   readonly select: (id: string) => void;
   readonly focus: (id: string) => void;
@@ -147,10 +154,19 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   const camera: Camera = { scale: 1, x: 0, y: 0 };
   let laid: Laid = { frames: [], boxes: [], lines: [], width: 0, height: 0 };
   let selected: string | undefined;
+  let zoomLevels = false;
+  let details = svgOf('g', { class: 'details' });
   const handlers: ((box: LaidFunction) => void)[] = [];
   const lineHandlers: ((line: LaidLine) => void)[] = [];
 
+  const showDetails = (): void => {
+    const far = zoomLevels && camera.scale < FAR_SCALE;
+    if (far) details.remove();
+    else if (details.parentNode === null) viewport.append(details);
+  };
+
   const apply = (): void => {
+    showDetails();
     viewport.setAttribute(
       'transform',
       `translate(${String(camera.x)},${String(camera.y)}) scale(${String(camera.scale)})`,
@@ -183,6 +199,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     const box = boxOfId(id);
     const { width, height } = sizeOf();
     if (box === undefined || width === 0) return;
+    if (zoomLevels) camera.scale = Math.max(camera.scale, NEAR_SCALE);
     const [x, y] = centreOf(box);
     camera.x = width / 2 - x * camera.scale;
     camera.y = height / 2 - y * camera.scale;
@@ -190,23 +207,34 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   };
 
   const markSelected = (): void => {
-    for (const element of viewport.querySelectorAll('.box.selected')) {
+    for (const element of details.querySelectorAll('.box.selected')) {
       element.classList.remove('selected');
     }
-    const element = [...viewport.querySelectorAll('[data-box]')].find(
+    const element = [...details.querySelectorAll('[data-box]')].find(
       (candidate) => candidate.getAttribute('data-box') === selected,
     );
     element?.classList.add('selected');
   };
 
-  const draw = (next: Laid, anchor?: string): void => {
+  const draw = (next: Laid, { anchor, zoomLevels: levels = false }: DrawOptions = {}): void => {
     const before = anchor === undefined ? undefined : boxOfId(anchor);
     laid = next;
-    viewport.replaceChildren(
-      svgOf('g', { class: 'frames' }, ...next.frames.map(frameOf)),
-      svgOf('g', { class: 'lines' }, ...next.lines.map(lineOf)),
+    zoomLevels = levels;
+    const linesOf = (bundled: boolean): SVGGElement[] =>
+      next.lines.flatMap((line, index) =>
+        (line.kind === 'bundle') === bundled ? [lineOf(line, index)] : [],
+      );
+    details = svgOf(
+      'g',
+      { class: 'details' },
+      svgOf('g', { class: 'lines' }, ...linesOf(false)),
       svgOf('g', { class: 'boxes' }, ...next.boxes.map(boxOf)),
     );
+    viewport.replaceChildren(
+      svgOf('g', { class: 'frames' }, ...next.frames.map(frameOf)),
+      svgOf('g', { class: 'lines' }, ...linesOf(true)),
+    );
+    showDetails();
     markSelected();
     const after = anchor === undefined ? undefined : boxOfId(anchor);
     if (before !== undefined && after !== undefined) {

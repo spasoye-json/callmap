@@ -16,8 +16,8 @@ export const routeEntryPointsOf = ({
 
 export const routeView: View = {
   name: 'Route',
-  sceneOf: (data, _opened, chosen) => {
-    const entry = chosen ?? routeEntryPointsOf(data)[0]?.id;
+  sceneOf: (data, _opened, choice) => {
+    const entry = choice ?? routeEntryPointsOf(data)[0]?.id;
     if (entry === undefined) return sceneOf(data, [], []);
     const functions = markedFunctionsOf(data);
     const tree = new Set(callTreeOf(data.branchGraph, entry));
