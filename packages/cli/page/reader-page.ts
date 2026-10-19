@@ -1,10 +1,11 @@
 import type { FunctionId } from '@callmap/graph-document';
-import type { ReaderPageData } from './data.ts';
+import type { ReaderPageData, Sources } from './data.ts';
 import type { FunctionBox, SceneLine } from './scene.ts';
 import type { Choice, View } from './view.ts';
 
 export interface ReaderPage {
   readonly data: ReaderPageData;
+  readonly sources: Promise<Sources>;
   readonly graph: HTMLElement;
   readonly panels: HTMLElement;
   readonly onBoxClick: (handler: (box: FunctionBox) => void) => void;

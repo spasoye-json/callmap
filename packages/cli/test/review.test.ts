@@ -6,12 +6,14 @@ import { featureBranchRepo, fixtureText, git } from './fixture-repo.ts';
 import {
   boxesOf,
   callsOf,
+  dataBlockOf,
   fakeOpener,
   frameAround,
   framesOf,
   loadReaderPage,
   pageDataOf,
   runCallmap,
+  sourcesOf,
 } from './reader-page.ts';
 
 const CART = 'src/cart.ts';
@@ -85,8 +87,23 @@ describe('callmap review on a feature branch', () => {
     expect(branchGraph.functions.map(({ id }) => id)).toContain(`${MONEY}#round`);
   });
 
+  it('holds no plain file text in the data block', () => {
+    const block = dataBlockOf(html);
+    const lines = [ALERTS, CART, CHECKOUT, MONEY, NOTIFY, REPORT, RATE]
+      .flatMap((file) => [
+        ...fixtureText('branch', file).split('\n'),
+        ...(file === ALERTS || file === CART ? fixtureText('base', file).split('\n') : []),
+      ])
+      .filter((line) => line.trim().length >= 20);
+    expect(lines.length).toBeGreaterThan(10);
+    for (const line of lines) {
+      expect(block).not.toContain(line);
+      expect(block).not.toContain(JSON.stringify(line).slice(1, -1));
+    }
+  });
+
   it('holds the branch text of every file that the review or the search shows, and the base text of every file with a removed or changed function', () => {
-    const { sources } = pageDataOf(html);
+    const sources = sourcesOf(html);
     expect(sources.branch).toEqual({
       [ALERTS]: fixtureText('branch', ALERTS),
       [CART]: fixtureText('branch', CART),

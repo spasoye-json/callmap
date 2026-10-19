@@ -3,9 +3,10 @@ import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 import { fireEvent, within } from '@testing-library/dom';
 import { JSDOM } from 'jsdom';
-import type { ReaderPageData } from '../page/data.ts';
+import type { ReaderPageData, Sources } from '../page/data.ts';
 
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 
@@ -48,13 +49,21 @@ export const reviewHtmlOf = (repo: string, ...flags: readonly string[]): string 
   return readFileSync(out, 'utf8');
 };
 
-export const pageDataOf = (html: string): ReaderPageData => {
+export const dataBlockOf = (html: string): string => {
   const block = /<script type="application\/json" id="reader-page-data">([^<]*)<\/script>/.exec(
     html,
   );
   if (block?.[1] === undefined) throw new Error('the page holds no data block');
-  return JSON.parse(block[1]) as ReaderPageData;
+  return block[1];
 };
+
+export const pageDataOf = (html: string): ReaderPageData =>
+  JSON.parse(dataBlockOf(html)) as ReaderPageData;
+
+export const sourcesOf = (html: string): Sources =>
+  JSON.parse(
+    gunzipSync(Buffer.from(pageDataOf(html).packedSources, 'base64')).toString('utf8'),
+  ) as Sources;
 
 export const withPageData = (html: string, data: ReaderPageData): string =>
   html.replace(
@@ -100,9 +109,12 @@ export interface LoadedPage {
 const LAYOUT_TIMEOUT = 10_000;
 
 export const settled = async ({ window }: LoadedPage): Promise<void> => {
-  const graph = window.document.getElementById('graph');
+  const { document } = window;
+  const busy = (): boolean =>
+    document.getElementById('graph')?.getAttribute('aria-busy') !== 'false' ||
+    document.querySelector('[aria-busy="true"]') !== null;
   const started = Date.now();
-  while (graph?.getAttribute('aria-busy') !== 'false') {
+  while (busy()) {
     if (Date.now() - started > LAYOUT_TIMEOUT) throw new Error('the drawing did not settle');
     await new Promise((settle) => setTimeout(settle, 5));
   }
@@ -110,16 +122,31 @@ export const settled = async ({ window }: LoadedPage): Promise<void> => {
 
 export type StoredItems = Readonly<Record<string, string>>;
 
-const withStorage = (stored: StoredItems | undefined) =>
-  stored === undefined
-    ? {}
-    : {
-        url: 'http://localhost/',
-        beforeParse: (window: JSDOM['window']) => {
-          for (const [key, value] of Object.entries(stored))
-            window.localStorage.setItem(key, value);
-        },
-      };
+const decompressionHeldUntil = (held: Promise<void>) =>
+  class {
+    readonly writable: WritableStream<BufferSource>;
+    readonly readable: ReadableStream<Uint8Array>;
+
+    constructor(format: CompressionFormat) {
+      const decompression = new DecompressionStream(format);
+      this.writable = decompression.writable;
+      this.readable = decompression.readable.pipeThrough(
+        new TransformStream<Uint8Array, Uint8Array>({ start: () => held }),
+      );
+    }
+  };
+
+const withBrowserApis = (stored: StoredItems | undefined, textsHeldUntil?: Promise<void>) => ({
+  ...(stored === undefined ? {} : { url: 'http://localhost/' }),
+  beforeParse: (window: JSDOM['window']) => {
+    Object.assign(window, {
+      DecompressionStream:
+        textsHeldUntil === undefined ? DecompressionStream : decompressionHeldUntil(textsHeldUntil),
+    });
+    for (const [key, value] of Object.entries(stored ?? {}))
+      window.localStorage.setItem(key, value);
+  },
+});
 
 export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
   Object.fromEntries(
@@ -129,11 +156,15 @@ export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
     }),
   );
 
-export const loadReaderPage = async (html: string, stored?: StoredItems): Promise<LoadedPage> => {
+export const loadReaderPage = async (
+  html: string,
+  stored?: StoredItems,
+  textsHeldUntil?: Promise<void>,
+): Promise<LoadedPage> => {
   const dom = new JSDOM(html, {
     runScripts: 'dangerously',
     pretendToBeVisual: true,
-    ...withStorage(stored),
+    ...withBrowserApis(stored, textsHeldUntil),
   });
   const page = { window: dom.window };
   await settled(page);
@@ -216,10 +247,14 @@ export const framesAround = (page: LoadedPage, id: string): readonly DrawnFrame[
 export const callsOf = (page: LoadedPage): readonly DrawnLine[] =>
   linesOf(page).filter(({ classes }) => classes.includes('call'));
 
-export const clickBox = async (page: LoadedPage, id: string): Promise<void> => {
+export const pressBox = (page: LoadedPage, id: string): void => {
   const box = boxElementOf(page, id);
   if (box === undefined) throw new Error(`the drawing holds no box ${id}`);
   box.dispatchEvent(new page.window.MouseEvent('click', { bubbles: true }));
+};
+
+export const clickBox = async (page: LoadedPage, id: string): Promise<void> => {
+  pressBox(page, id);
   await settled(page);
 };
 

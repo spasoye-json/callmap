@@ -44,19 +44,27 @@ const codePanel: PagePart = (page) => {
   });
   page.graph.after(panel.element);
   let editor: EditorView | undefined;
+  let latest: PageFunction | undefined;
 
-  const show = (shown: PageFunction): void => {
+  const show = async (shown: PageFunction): Promise<void> => {
+    latest = shown;
     const heading = document.createElement('h2');
     heading.textContent = shown.name;
     editor?.destroy();
-    editor = codeEditorOf(shown.file, functionCodeOf(page.data, shown));
-    section.replaceChildren(heading, placeOf(page, shown), editor.dom);
+    editor = undefined;
+    section.replaceChildren(heading, placeOf(page, shown));
+    section.setAttribute('aria-busy', 'true');
     panel.open();
+    const sources = await page.sources;
+    if (latest !== shown) return;
+    editor = codeEditorOf(shown.file, functionCodeOf(page.data, sources, shown));
+    section.append(editor.dom);
+    section.setAttribute('aria-busy', 'false');
   };
 
   page.onBoxClick(({ id }) => {
     const shown = functions.get(id);
-    if (shown !== undefined) show(shown);
+    if (shown !== undefined) void show(shown);
   });
 };
 
