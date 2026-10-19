@@ -48,7 +48,7 @@ Tests stay in the review unless a glob leaves them out. A test that mocks its ca
 
 The page is one HTML file with no network access, so it opens from a file anywhere. ELK lays out the graph in the browser, and the page draws it as SVG. Each call is a line that turns only at 90 degrees and never goes through a box. The callers stand on the left and the callees on the right. Drag the graph to pan it, and use the mouse wheel to zoom.
 
-A click on a function shows its code, with the changed lines marked and a mark below each deletion. The search finds any function in scope by name. Each function carries an editor link that opens its file at its first line.
+A click on a function selects it. The graph highlights its calls in and out and the functions at their other ends, and it fades the rest. A click on the empty graph or the Escape key clears the selection. The click also opens the code panel. The panel shows the code of the function in a read-only editor, with syntax highlighting and the line numbers of the file. For a changed function, it shows a unified diff as Git does: each removed line in red above the added lines in green, and the exact changed characters in bold. An added function is all green, and a removed function is all red. The code panel is on the right of the graph. The left panel holds the search, the resolution rate, the legend of the marks, and the lists of a view. Each panel collapses and opens with its own button, and a drag on its inner edge changes its width. The graph keeps the selected function in view when a panel opens or closes. The search finds any function in scope by name. Each function carries an editor link that opens its file at its first line.
 
 ### The views
 

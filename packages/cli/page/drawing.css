@@ -201,3 +201,26 @@
 .arrow.open-end {
   fill: var(--removed);
 }
+
+.box.faded,
+.line.faded {
+  opacity: 0.2;
+}
+
+.box.connected > rect {
+  stroke-width: 3;
+}
+
+.box.connected.neighbour > rect,
+.box.connected:not(.added, .removed, .changed, .neighbour) > rect {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.box.connected > text {
+  fill: var(--ink);
+}
+
+.line.connected > path:not(.hit) {
+  stroke-width: 3;
+}

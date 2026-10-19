@@ -182,9 +182,9 @@ describe('the Whole project view', () => {
     await clickBox(page, `${REPORT}#report`);
     const code = within(bodyOf(page).getByRole('region', { name: 'Code' }));
     expect(code.getByRole('heading', { name: 'report' })).toBeDefined();
-    expect(
-      code.getByText('export const report = (title: string): string => `${heading(title)}\\n`;'),
-    ).toBeDefined();
+    expect(code.getByRole('textbox').textContent).toBe(
+      'export const report = (title: string): string => `${heading(title)}\\n`;',
+    );
     expect(code.getByRole('link', { name: 'Open in VS Code' }).getAttribute('href')).toMatch(
       new RegExp(`/${REPORT}:3$`),
     );

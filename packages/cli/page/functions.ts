@@ -1,6 +1,6 @@
 import type { FunctionId, GraphFunction } from '@callmap/graph-document';
 import type { FunctionMark, MarkedCall } from '@callmap/review';
-import type { ReaderPageData } from './data.ts';
+import type { LineSpan, ReaderPageData, SourceTexts } from './data.ts';
 import { callKeyOf } from './scene.ts';
 
 export type PageFunction = GraphFunction & { readonly mark?: FunctionMark };
@@ -25,10 +25,33 @@ export const markedCallsOf = (data: ReaderPageData): readonly MarkedCall[] => {
   return [...calls.values()];
 };
 
-export const sourceLinesOf = (
-  data: ReaderPageData,
-  { file, firstLine, lastLine, mark }: PageFunction,
-): readonly string[] => {
-  const texts = mark === 'removed' ? data.sources.base : data.sources.branch;
-  return (texts[file] ?? '').split(/\r?\n/).slice(firstLine - 1, lastLine);
+export interface FunctionText {
+  readonly firstLine: number;
+  readonly text: string;
+}
+
+export type FunctionCode =
+  | { readonly kind: 'diff'; readonly base: FunctionText; readonly branch: FunctionText }
+  | { readonly kind: 'added' | 'removed' | 'kept'; readonly code: FunctionText };
+
+const textOf = (
+  texts: SourceTexts,
+  file: string,
+  { firstLine, lastLine }: LineSpan,
+): FunctionText => ({
+  firstLine,
+  text: (texts[file] ?? '')
+    .split(/\r?\n/)
+    .slice(firstLine - 1, lastLine)
+    .join('\n'),
+});
+
+export const functionCodeOf = (data: ReaderPageData, shown: PageFunction): FunctionCode => {
+  const { base, branch } = data.sources;
+  if (shown.mark === 'removed') return { kind: 'removed', code: textOf(base, shown.file, shown) };
+  const code = textOf(branch, shown.file, shown);
+  if (shown.mark === 'added') return { kind: 'added', code };
+  const basePlace = shown.mark === 'changed' ? data.basePlaces[shown.id] : undefined;
+  if (basePlace === undefined) return { kind: 'kept', code };
+  return { kind: 'diff', base: textOf(base, shown.file, basePlace), branch: code };
 };

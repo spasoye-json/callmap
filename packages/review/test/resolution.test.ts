@@ -41,7 +41,7 @@ const C = 'src/c.ts#c';
 const D = 'src/d.ts#d';
 
 const rateOf = (branch: GraphDocument, base: GraphDocument = graph([])) =>
-  reviewOf({ base, branch, changedLinesByFile: {} }).resolutionRate;
+  reviewOf({ base, branch }).resolutionRate;
 
 describe('the resolution rate of a review', () => {
   it('divides the calls of the branch graph by those calls plus its open ends', () => {
@@ -81,7 +81,7 @@ describe('the open ends of a review', () => {
       [],
       [openEnd(A, 'JSON.parse(raw).notify', 7), openEnd(D, 'hook', 9)],
     );
-    expect(reviewOf({ base, branch, changedLinesByFile: {} }).openEnds).toEqual([
+    expect(reviewOf({ base, branch }).openEnds).toEqual([
       { caller: A, line: 7, expression: 'JSON.parse(raw).notify' },
       { caller: B, line: 3, expression: 'legacy.run' },
     ]);
@@ -95,7 +95,7 @@ describe('the one-of groups of a review', () => {
       [fn(A), fn(B), fn(C), fn(D)],
       [oneOf(A, B, 'src/a.ts:4:3'), oneOf(A, C, 'src/a.ts:4:3'), oneOf(D, B, 'src/d.ts:2:1')],
     );
-    expect(reviewOf({ base, branch, changedLinesByFile: {} }).oneOfGroups).toEqual([
+    expect(reviewOf({ base, branch }).oneOfGroups).toEqual([
       { id: 'src/a.ts:4:3', caller: A, line: 4, callees: [B, C] },
     ]);
   });
@@ -103,7 +103,7 @@ describe('the one-of groups of a review', () => {
   it('marks the calls of a one-of group as calls the branch added, like any other call', () => {
     const base = graph([fn(B), fn(C)]);
     const branch = graph([fn(A), fn(B), fn(C)], [oneOf(A, B, 'g'), oneOf(A, C, 'g')]);
-    expect(reviewOf({ base, branch, changedLinesByFile: {} }).calls).toEqual([
+    expect(reviewOf({ base, branch }).calls).toEqual([
       { caller: A, callee: B, mark: 'added' },
       { caller: A, callee: C, mark: 'added' },
     ]);

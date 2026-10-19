@@ -1,8 +1,6 @@
 import type { FunctionId, GraphDocument, GraphFunction } from '@callmap/graph-document';
 import { markedCallsOf } from './calls.ts';
 import type { MarkedCall } from './calls.ts';
-import { changedLinesOf } from './changed-lines.ts';
-import type { ChangedLines, ChangedLinesByFile } from './changed-lines.ts';
 import { changesOf, functionsById } from './changes.ts';
 import type { ChangeMark } from './changes.ts';
 import { hopsOf, oneHopFrom } from './hops.ts';
@@ -19,13 +17,11 @@ export interface MarkedFunction extends GraphFunction {
 export interface Review extends Resolution {
   readonly functions: readonly MarkedFunction[];
   readonly calls: readonly MarkedCall[];
-  readonly changedLines: ChangedLines;
 }
 
 export interface ReviewInput {
   readonly base: GraphDocument;
   readonly branch: GraphDocument;
-  readonly changedLinesByFile: ChangedLinesByFile;
 }
 
 export const reviewOf = (input: ReviewInput): Review => {
@@ -57,7 +53,6 @@ export const reviewOf = (input: ReviewInput): Review => {
   return {
     functions,
     calls,
-    changedLines: changedLinesOf(functions, input.changedLinesByFile),
     ...resolutionOf(input, marks),
   };
 };

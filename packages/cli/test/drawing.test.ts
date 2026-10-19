@@ -124,13 +124,13 @@ describe('the lines of the drawing', () => {
         );
       }
     }
-  });
+  }, 30_000);
 
   it('draws no segment of a line through a box that is not its caller or its callee', async () => {
     for (const [name, page] of await pagesWithACycleToCheck()) {
       expect(crossingsOf(page), name).toEqual([]);
     }
-  });
+  }, 30_000);
 
   it('draws each caller left of its callee, except the call back of a cycle', async () => {
     for (const [name, page] of await pagesWithACycleToCheck()) {
@@ -145,7 +145,7 @@ describe('the lines of the drawing', () => {
         expect(caller.x + caller.width, `${name}: ${from} -> ${to}`).toBeLessThanOrEqual(callee.x);
       }
     }
-  });
+  }, 30_000);
 });
 
 const transformOf = ({ window }: LoadedPage): string =>

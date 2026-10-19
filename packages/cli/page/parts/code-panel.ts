@@ -1,43 +1,10 @@
 import { EDITORS, editorUrl } from '@callmap/editor-link';
-import { pageFunctionsOf, sourceLinesOf } from '../functions.ts';
+import type { EditorView } from '@codemirror/view';
+import { codeEditorOf } from '../code-editor.ts';
+import { functionCodeOf, pageFunctionsOf } from '../functions.ts';
 import type { PageFunction } from '../functions.ts';
 import type { PagePart, ReaderPage } from '../reader-page.ts';
-
-type LineMark = 'changed' | 'removed-above' | 'kept';
-
-const REMOVED_ABOVE = 'The branch removed lines above this line.';
-
-const lineOf = (number: number, text: string, mark: LineMark): HTMLElement => {
-  const line = document.createElement(mark === 'changed' ? 'ins' : 'span');
-  line.className = mark === 'removed-above' ? 'line removed-above' : 'line';
-  if (mark === 'removed-above') line.title = REMOVED_ABOVE;
-  const gutter = document.createElement('span');
-  gutter.className = 'line-number';
-  gutter.textContent = String(number);
-  const code = document.createElement('span');
-  code.className = 'line-text';
-  code.textContent = text;
-  line.append(gutter, code);
-  return line;
-};
-
-const codeOf = (page: ReaderPage, shown: PageFunction): HTMLElement => {
-  const lines = page.data.review.changedLines[shown.id];
-  const changed = new Set(lines?.changed);
-  const removedAbove = new Set(lines?.removedAbove);
-  const markOf = (number: number): LineMark =>
-    changed.has(number) ? 'changed' : removedAbove.has(number) ? 'removed-above' : 'kept';
-  const pre = document.createElement('pre');
-  const code = document.createElement('code');
-  code.append(
-    ...sourceLinesOf(page.data, shown).map((text, index) => {
-      const number = shown.firstLine + index;
-      return lineOf(number, text, markOf(number));
-    }),
-  );
-  pre.append(code);
-  return pre;
-};
+import { sidePanelOf } from '../side-panel.ts';
 
 const editorLinkOf = ({ data }: ReaderPage, { file, firstLine }: PageFunction): HTMLElement => {
   const link = document.createElement('a');
@@ -47,15 +14,13 @@ const editorLinkOf = ({ data }: ReaderPage, { file, firstLine }: PageFunction): 
   return link;
 };
 
-const show = (section: HTMLElement, page: ReaderPage, shown: PageFunction): void => {
-  const heading = document.createElement('h2');
-  heading.textContent = shown.name;
+const placeOf = (page: ReaderPage, shown: PageFunction): HTMLElement => {
   const place = document.createElement('p');
   place.className = 'code-place';
   const where = `${shown.file}:${String(shown.firstLine)}`;
   place.textContent = shown.mark === undefined ? where : `${where}, ${shown.mark}`;
   if (shown.mark !== 'removed') place.append(' ', editorLinkOf(page, shown));
-  section.replaceChildren(heading, place, codeOf(page, shown));
+  return place;
 };
 
 const codePanel: PagePart = (page) => {
@@ -67,11 +32,31 @@ const codePanel: PagePart = (page) => {
   hint.className = 'code-hint';
   hint.textContent = 'Click a box to read its code.';
   section.append(hint);
-  page.panels.append(section);
+  const panel = sidePanelOf({
+    side: 'right',
+    label: 'Code panel',
+    name: 'code panel',
+    body: section,
+    widthKey: 'callmap.code-panel.width',
+    defaultWidth: 520,
+    open: false,
+    onChange: page.keepSelectionInView,
+  });
+  page.graph.after(panel.element);
+  let editor: EditorView | undefined;
+
+  const show = (shown: PageFunction): void => {
+    const heading = document.createElement('h2');
+    heading.textContent = shown.name;
+    editor?.destroy();
+    editor = codeEditorOf(shown.file, functionCodeOf(page.data, shown));
+    section.replaceChildren(heading, placeOf(page, shown), editor.dom);
+    panel.open();
+  };
 
   page.onBoxClick(({ id }) => {
     const shown = functions.get(id);
-    if (shown !== undefined) show(section, page, shown);
+    if (shown !== undefined) show(shown);
   });
 };
 

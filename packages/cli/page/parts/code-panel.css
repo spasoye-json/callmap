@@ -1,3 +1,7 @@
+.code-panel.side-body {
+  gap: 0;
+}
+
 .code-panel h2 {
   margin: 0;
   font-size: 15px;
@@ -15,47 +19,143 @@
   color: var(--ink);
 }
 
-.code-panel pre {
-  margin: 0;
-  padding: 8px 0;
-  overflow-x: auto;
-  background: var(--code);
+.code-panel .cm-editor {
   border: 1px solid var(--rule);
   border-radius: 4px;
-  font:
-    12px/1.5 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+  background: var(--code);
+  color: var(--ink);
+  font-size: 12px;
 }
 
-.code-panel code {
-  display: inline-block;
-  min-width: 100%;
+.code-panel .cm-editor .cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.6;
 }
 
-.code-panel .line {
-  display: block;
-  padding-right: 12px;
-  white-space: pre;
+/* A styled scrollbar takes its own space, so an overlay scrollbar never covers the last line. */
+.code-panel .cm-editor .cm-scroller::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.code-panel .cm-editor .cm-scroller::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: var(--rule);
+}
+
+.code-panel .cm-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .code-panel .cm-editor .cm-scroller {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
+}
+
+.code-panel .cm-editor .cm-content {
+  padding: 6px 0;
+}
+
+.code-panel .cm-editor .cm-gutters {
+  border-right: 1px solid var(--rule);
+  background: var(--code);
+  color: var(--muted);
+}
+
+.code-panel .cm-editor .cm-lineNumbers .cm-gutterElement {
+  min-width: 3.5em;
+  padding: 0 10px 0 6px;
+}
+
+.code-panel .cm-editor .cm-changedLine,
+.code-panel .cm-editor .cm-deletedLine {
+  background: var(--diff-added-line);
+  box-shadow: inset 3px 0 0 var(--added);
+}
+
+.code-panel .cm-editor .cm-deletedLine {
+  background: var(--diff-removed-line);
+  box-shadow: inset 3px 0 0 var(--removed);
+}
+
+.code-panel .cm-editor .cm-deletedChunk {
+  padding-left: 0;
+  background: none;
+}
+
+.code-panel .cm-editor .cm-deletedChunk .cm-deletedLine {
+  padding: 0 2px 0 6px;
+}
+
+.code-panel .cm-editor ins,
+.code-panel .cm-editor del {
   text-decoration: none;
+}
+
+.code-panel .cm-editor .cm-changedLine .cm-changedText,
+.code-panel .cm-editor .cm-deletedChunk .cm-deletedText {
+  border-radius: 2px;
+  background: var(--diff-added-text);
+  font-weight: 700;
+}
+
+.code-panel .cm-editor .cm-deletedChunk .cm-deletedText {
+  background: var(--diff-removed-text);
+}
+
+.code-panel .cm-editor .cm-changedLine.added-only .cm-changedText,
+.code-panel .cm-editor .cm-deletedChunk:not(:has(+ .cm-changedLine)) .cm-deletedText {
+  background: none;
+  font-weight: inherit;
+}
+
+.code-panel .cm-editor .cm-gutterElement:has(> .removed-line-numbers) {
+  padding: 0;
+}
+
+.code-panel .cm-editor .cm-gutterElement.added-number,
+.code-panel .cm-editor .removed-number,
+.code-panel .cm-editor .cm-gutterElement.removed-number {
+  background: color-mix(in srgb, var(--diff-added-line) 55%, var(--diff-added-text));
   color: var(--ink);
 }
 
-.code-panel ins.line {
-  background: var(--changed-line);
-  box-shadow: inset 3px 0 0 var(--changed);
+.code-panel .cm-editor .removed-number,
+.code-panel .cm-editor .cm-gutterElement.removed-number {
+  background: color-mix(in srgb, var(--diff-removed-line) 55%, var(--diff-removed-text));
 }
 
-.code-panel .line.removed-above {
-  box-shadow: inset 0 2px 0 var(--removed);
+.code-panel .cm-editor .removed-number {
+  padding: 0 10px 0 6px;
 }
 
-.line-number {
-  display: inline-block;
-  min-width: 3.5em;
-  padding-right: 12px;
-  text-align: right;
+.syntax-keyword {
+  color: var(--syntax-keyword);
+}
+
+.syntax-string {
+  color: var(--syntax-string);
+}
+
+.syntax-literal {
+  color: var(--syntax-literal);
+}
+
+.syntax-comment {
   color: var(--muted);
-  user-select: none;
+  font-style: italic;
+}
+
+.syntax-type {
+  color: var(--syntax-type);
+}
+
+.syntax-function {
+  color: var(--syntax-function);
+}
+
+.syntax-definition {
+  color: var(--syntax-definition);
 }
