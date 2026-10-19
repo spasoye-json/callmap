@@ -22,6 +22,7 @@ export interface PageElements {
 interface Shown {
   readonly view: View;
   readonly opened: Set<FunctionId>;
+  chosen: string | undefined;
   scene: Scene | undefined;
   laid: Promise<Laid> | undefined;
 }
@@ -37,6 +38,7 @@ export const interactionOf = (
   const shown = views.map((view): Shown => ({
     view,
     opened: new Set(),
+    chosen: undefined,
     scene: undefined,
     laid: undefined,
   })) as [Shown, ...Shown[]];
@@ -64,7 +66,7 @@ export const interactionOf = (
   };
 
   const sceneOf = (target: Shown): Scene => {
-    target.scene ??= target.view.sceneOf(data, target.opened);
+    target.scene ??= target.view.sceneOf(data, target.opened, target.chosen);
     return target.scene;
   };
 
@@ -74,7 +76,7 @@ export const interactionOf = (
     );
 
   const render = (target: Shown, anchor?: FunctionId): Promise<void> => {
-    target.scene = target.view.sceneOf(data, target.opened);
+    target.scene = target.view.sceneOf(data, target.opened, target.chosen);
     const laying = layoutOf(target.scene);
     target.laid = laying;
     return queued(async () => {
@@ -101,6 +103,13 @@ export const interactionOf = (
     if (box === undefined) return;
     drawing.focus(id);
     choose(box);
+  };
+
+  const chooseInView = (chosen: string): Promise<void> => {
+    if (current.chosen === chosen) return queue;
+    current.chosen = chosen;
+    drawn = undefined;
+    return render(current);
   };
 
   const showView = (name: string): Promise<void> => {
@@ -138,6 +147,7 @@ export const interactionOf = (
     },
     show,
     open,
+    choose: chooseInView,
     showView,
   };
   return { page, render: () => render(current) };

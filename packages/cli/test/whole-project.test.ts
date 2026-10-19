@@ -44,6 +44,7 @@ describe('the tabs of the views', () => {
     expect(body.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Diff',
       'Whole project',
+      'Route',
     ]);
     expect(body.getByRole('tab', { selected: true }).textContent).toBe('Diff');
   });

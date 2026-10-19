@@ -3,15 +3,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { featureBranchRepo } from './fixture-repo.ts';
+import { COUNTDOWN, countdownRepo, featureBranchRepo } from './fixture-repo.ts';
 import {
   boxElementOf,
   boxesOf,
+  chooseEntry,
   clickBox,
   linesOf,
   framesOf,
   loadReaderPage,
   openTab,
+  reviewHtmlOf,
   runArchmap,
 } from './reader-page.ts';
 import type { DrawnBox, DrawnLine, LoadedPage, Point } from './reader-page.ts';
@@ -20,12 +22,14 @@ const MONEY = 'src/money.ts';
 const CART = 'src/cart.ts';
 
 let html = '';
+let cycleHtml = '';
 
 beforeAll(() => {
   const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
   const finished = runArchmap(['review', featureBranchRepo(), '--no-open', '--out', out]);
   expect(finished.status, finished.stderr).toBe(0);
   html = readFileSync(out, 'utf8');
+  cycleHtml = reviewHtmlOf(countdownRepo());
 }, 120_000);
 
 type Segment = readonly [Point, Point];
@@ -61,16 +65,37 @@ const pagesToCheck = async (): Promise<readonly [string, LoadedPage][]> => {
   await clickBox(opened, `${CART}#subtotal`);
   const project = await loadReaderPage(html);
   await openTab(project, 'Whole project');
+  const route = await loadReaderPage(html);
+  await openTab(route, 'Route');
+  const checkout = await loadReaderPage(html);
+  await openTab(checkout, 'Route');
+  await chooseEntry(checkout, 'checkout');
   return [
     ['the review', await loadReaderPage(html)],
     ['the review after two next hops', opened],
     ['the Whole project view', project],
+    ['the Route view', route],
+    ['the Route view of checkout', checkout],
   ];
 };
 
+const BACK_CALL = `${COUNTDOWN}#tock -> ${COUNTDOWN}#tick`;
+
+const routeWithACycle = async (): Promise<[string, LoadedPage]> => {
+  const page = await loadReaderPage(cycleHtml);
+  await openTab(page, 'Route');
+  await chooseEntry(page, 'countdown');
+  return ['the Route view of a cycle', page];
+};
+
+const pagesWithACycleToCheck = async (): Promise<readonly [string, LoadedPage][]> => [
+  ...(await pagesToCheck()),
+  await routeWithACycle(),
+];
+
 describe('the lines of the drawing', () => {
   it('draws every segment of every line horizontal or vertical', async () => {
-    for (const [name, page] of await pagesToCheck()) {
+    for (const [name, page] of await pagesWithACycleToCheck()) {
       const lines = linesOf(page);
       expect(lines.length, name).toBeGreaterThan(0);
       for (const line of lines) {
@@ -82,15 +107,16 @@ describe('the lines of the drawing', () => {
   });
 
   it('draws no segment of a line through a box that is not its caller or its callee', async () => {
-    for (const [name, page] of await pagesToCheck()) {
+    for (const [name, page] of await pagesWithACycleToCheck()) {
       expect(crossingsOf(page), name).toEqual([]);
     }
   });
 
-  it('draws each caller left of its callee', async () => {
-    for (const [name, page] of await pagesToCheck()) {
+  it('draws each caller left of its callee, except the call back of a cycle', async () => {
+    for (const [name, page] of await pagesWithACycleToCheck()) {
       const boxes = new Map([...framesOf(page), ...boxesOf(page)].map((box) => [box.id, box]));
       for (const { from, to } of linesOf(page)) {
+        if (`${from} -> ${to}` === BACK_CALL) continue;
         const caller = boxes.get(from);
         const callee = boxes.get(to);
         expect(caller, `${name}: ${from}`).toBeDefined();

@@ -12,6 +12,7 @@ export interface ReaderPage {
   readonly onViewChange: (handler: (view: View) => void) => void;
   readonly show: (ids: readonly FunctionId[], anchor?: FunctionId) => Promise<void>;
   readonly open: (id: FunctionId) => Promise<void>;
+  readonly choose: (chosen: string) => Promise<void>;
   readonly showView: (name: string) => Promise<void>;
 }
 

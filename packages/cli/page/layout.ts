@@ -51,6 +51,11 @@ const OPTIONS: Readonly<Record<string, string>> = {
   'elk.padding': '[top=20,left=20,bottom=20,right=20]',
 };
 
+// ELK reads the cycle breaking from the parent of the boxes, so each frame carries it too.
+const CYCLE_BREAKING: Readonly<Record<string, string>> = {
+  'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
+};
+
 const FRAME_PADDING = '[top=30,left=12,bottom=12,right=12]';
 const BOX_HEIGHT = 30;
 const OPEN_END_HEIGHT = 22;
@@ -67,6 +72,7 @@ const boxNodeOf = (box: SceneBox): ElkNode =>
 const frameNodeOf = (frame: SceneFrame, children: ElkNode[]): ElkNode => ({
   id: frame.id,
   layoutOptions: {
+    ...CYCLE_BREAKING,
     'elk.padding': FRAME_PADDING,
     'elk.nodeSize.constraints': '[MINIMUM_SIZE]',
     'elk.nodeSize.minimum': `(${String(widthOf(frame.label, 6.6, 28))}, 40)`,
@@ -105,7 +111,7 @@ const graphOf = ({ frames, boxes, lines }: Scene): ElkNode => {
     ]);
   return {
     id: 'root',
-    layoutOptions: { ...OPTIONS },
+    layoutOptions: { ...OPTIONS, ...CYCLE_BREAKING },
     children: [
       ...sorted.filter(({ parent }) => parent === undefined || !frameIds.has(parent)).map(nodeOf),
       ...(childrenOf.get('') ?? []),

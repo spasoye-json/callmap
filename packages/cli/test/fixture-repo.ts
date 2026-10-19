@@ -49,3 +49,20 @@ export const commitFile = (repo: string, path: string, text: string): void => {
   git(repo, 'add', path);
   git(repo, 'commit', '--quiet', '--message', `write ${path}`);
 };
+
+export const COUNTDOWN = 'src/countdown.ts';
+
+export const countdownRepo = (): string => {
+  const repo = featureBranchRepo();
+  commitFile(
+    repo,
+    COUNTDOWN,
+    `export const countdown = (from: number): number => tick(from);
+
+const tick = (left: number): number => (left > 0 ? tock(left - 1) : 0);
+
+const tock = (left: number): number => tick(left);
+`,
+  );
+  return repo;
+};

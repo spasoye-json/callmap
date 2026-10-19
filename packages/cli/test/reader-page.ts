@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +33,13 @@ export const runArchmap = (args: readonly string[], opener?: Opener) =>
         ? process.env
         : { ...process.env, PATH: `${opener.bin}${delimiter}${process.env['PATH'] ?? ''}` },
   });
+
+export const reviewHtmlOf = (repo: string): string => {
+  const out = join(mkdtempSync(join(tmpdir(), 'archmap-out-')), 'review.html');
+  const finished = runArchmap(['review', repo, '--no-open', '--out', out]);
+  if (finished.status !== 0) throw new Error(finished.stderr);
+  return readFileSync(out, 'utf8');
+};
 
 export const pageDataOf = (html: string): ReaderPageData => {
   const block = /<script type="application\/json" id="reader-page-data">([^<]*)<\/script>/.exec(
@@ -179,5 +186,13 @@ export const clickBox = async (page: LoadedPage, id: string): Promise<void> => {
 
 export const openTab = async (page: LoadedPage, name: string): Promise<void> => {
   fireEvent.click(within(page.window.document.body).getByRole('tab', { name }));
+  await settled(page);
+};
+
+export const entryListOf = ({ window }: LoadedPage) =>
+  within(within(window.document.body).getByRole('region', { name: 'Entry points' }));
+
+export const chooseEntry = async (page: LoadedPage, name: string): Promise<void> => {
+  fireEvent.click(entryListOf(page).getByRole('button', { name: new RegExp(`^${name} `) }));
   await settled(page);
 };
