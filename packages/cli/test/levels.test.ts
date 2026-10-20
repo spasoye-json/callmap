@@ -90,10 +90,10 @@ describe('a folder level', () => {
     expect(lineLabelsOf(page)).toEqual({
       [`${API} -> ${MONEY}`]: '2',
       [`${API} -> ${SERVICE}`]: '2',
-      [`${NOTIFY} -> ${SERVICE}`]: '1',
+      [`${NOTIFY} -> ${SERVICE}`]: '',
       [`${SERVICE} -> ${MONEY}`]: '2',
-      [`${SERVICE} -> ${NOTIFY}`]: '1',
-      [`${SERVICE} -> ${CARRIERS}`]: '1',
+      [`${SERVICE} -> ${NOTIFY}`]: '',
+      [`${SERVICE} -> ${CARRIERS}`]: '',
     });
   });
 
@@ -221,14 +221,14 @@ describe('the breadcrumb', () => {
 });
 
 describe('the lines of a level', () => {
-  it('draws one line from a caller box to a callee box with the count of their calls', async () => {
+  it('draws one line from a caller box to a callee box, with the count of their calls from 2 calls', async () => {
     const page = await projectPage();
     expect(lineLabelsOf(page)).toEqual({
-      [`${NOTIFY} -> ${ORDERS}`]: '1',
+      [`${NOTIFY} -> ${ORDERS}`]: '',
       [`${ORDERS} -> ${MONEY}`]: '4',
-      [`${ORDERS} -> ${NOTIFY}`]: '1',
-      [`${ORDERS} -> ${CARRIERS}`]: '1',
-      [`${RATE} -> ${MONEY}`]: '1',
+      [`${ORDERS} -> ${NOTIFY}`]: '',
+      [`${ORDERS} -> ${CARRIERS}`]: '',
+      [`${RATE} -> ${MONEY}`]: '',
     });
   });
 
@@ -244,8 +244,14 @@ describe('the lines of a level', () => {
   });
 });
 
-const countsOf = (page: LoadedPage, id: string): string | undefined =>
-  boxElementOf(page, id)?.querySelector('.counts')?.textContent ?? undefined;
+const countsOf = (page: LoadedPage, id: string): readonly string[] =>
+  [...(boxElementOf(page, id)?.querySelectorAll('.count') ?? [])].map(
+    (count) =>
+      `${count.querySelector('.chip')?.textContent ?? ''} ${count.getAttribute('data-mark') ?? ''} ${count.getAttribute('data-count') ?? ''}`,
+  );
+
+const iconOf = (page: LoadedPage, id: string): string | undefined =>
+  boxElementOf(page, id)?.querySelector('.icon')?.getAttribute('data-icon') ?? undefined;
 
 const hasClass = (page: LoadedPage, id: string, name: string): boolean =>
   boxElementOf(page, id)?.classList.contains(name) ?? false;
@@ -260,11 +266,23 @@ describe('the marks of a level', () => {
         countsOf(page, id),
       ]),
     ).toEqual([
-      [ORDERS, true, '2 changed, 1 added'],
-      [MONEY, true, '1 removed'],
-      [NOTIFY, true, '1 added, 1 open end'],
-      [CARRIERS, true, '1 changed'],
+      [ORDERS, true, ['Δ changed 2', '+ added 1']],
+      [MONEY, true, ['− removed 1']],
+      [NOTIFY, true, ['+ added 1', '? open-end 1']],
+      [CARRIERS, true, ['Δ changed 1']],
     ]);
+  });
+
+  it('names the counts of a box in words, for a screen reader', async () => {
+    const page = await projectPage();
+    expect(boxElementOf(page, NOTIFY)?.getAttribute('aria-label')).toBe(
+      'notify/, 1 added, 1 open end',
+    );
+  });
+
+  it('shows a folder icon on a folder box and a file icon on a file box', async () => {
+    const page = await projectPage();
+    expect([iconOf(page, ORDERS), iconOf(page, RATE)]).toEqual(['folder', 'file']);
   });
 
   it('gives the added mark or the removed mark to a line that holds an added or a removed call', async () => {

@@ -1,8 +1,9 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import type { ElkExtendedEdge, ElkLabel, ElkNode } from 'elkjs/lib/elk-api.js';
 import { appendTo, byText } from '@callmap/review';
-import { arrowKeyOf, countsTextOf, lineLabelOf } from './scene.ts';
-import type { Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
+import { COUNTS_GAP, ICON_ROOM, LEVEL_PADDING, countWidthOf } from './box-sizes.ts';
+import { arrowKeyOf, chipMarkOf, lineLabelOf, markCountsOf } from './scene.ts';
+import type { LevelBox, Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 
 export interface Rect {
   readonly x: number;
@@ -62,22 +63,40 @@ const BOX_HEIGHT = 30;
 const OPEN_END_HEIGHT = 22;
 const COUNTED_BOX_HEIGHT = 46;
 const LABEL_HEIGHT = 16;
+const CHIP_ROOM = 24;
 
 const widthOf = (text: string, perCharacter: number, padding: number): number =>
   Math.ceil(text.length * perCharacter) + padding;
 
+const countsWidthOf = ({ counts }: LevelBox): number =>
+  markCountsOf(counts).reduce(
+    (width, { count }, index) => width + countWidthOf(count) + (index === 0 ? 0 : COUNTS_GAP),
+    2 * LEVEL_PADDING,
+  );
+
 const boxNodeOf = (box: SceneBox): ElkNode => {
   switch (box.kind) {
     case 'function':
-      return { id: box.id, width: Math.max(96, widthOf(box.label, 7, 24)), height: BOX_HEIGHT };
+      return {
+        id: box.id,
+        width: Math.max(
+          96,
+          widthOf(box.label, 7, chipMarkOf(box) === undefined ? 24 : 24 + CHIP_ROOM),
+        ),
+        height: BOX_HEIGHT,
+      };
     case 'open-end':
       return { id: box.id, width: widthOf(box.label, 6, 16), height: OPEN_END_HEIGHT };
     case 'folder':
     case 'file':
       return {
         id: box.id,
-        width: Math.max(96, widthOf(box.label, 7, 24), widthOf(countsTextOf(box), 6, 24)),
-        height: box.counts.length === 0 ? BOX_HEIGHT : COUNTED_BOX_HEIGHT,
+        width: Math.max(
+          96,
+          widthOf(box.label, 7, 2 * LEVEL_PADDING + ICON_ROOM),
+          countsWidthOf(box),
+        ),
+        height: markCountsOf(box.counts).length === 0 ? BOX_HEIGHT : COUNTED_BOX_HEIGHT,
       };
   }
 };

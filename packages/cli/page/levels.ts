@@ -5,7 +5,7 @@ import { markedCallsOf, pageFunctionsOf } from './functions.ts';
 import type { PageFunction } from './functions.ts';
 import { folderIdOf, foldersAbove } from './nested-scene.ts';
 import { arrowKeyOf, sceneOf as functionSceneOf } from './scene.ts';
-import type { LevelBox, Scene, SceneFrame, SceneLine } from './scene.ts';
+import type { LevelBox, LevelCounts, Scene, SceneFrame, SceneLine } from './scene.ts';
 
 export interface Crumb {
   readonly path: string;
@@ -137,24 +137,20 @@ const levelsFor = (data: ReaderPageData): Levels => {
 
   const marked = data.review.functions;
   const openEndCallers = openEndCallersOf(data);
-  const countsOf = (
-    box: string,
-  ): { readonly changed: boolean; readonly counts: readonly string[] } => {
+  const countsOf = (box: string): LevelCounts => {
     const inBox = ({ file }: Pick<PageFunction, 'file'>): boolean => isInBox(box, file);
     const withMark = (mark: string): number =>
       marked.filter((shown) => shown.mark === mark && inBox(shown)).length;
-    const changes = [
-      ...counted(withMark('changed'), 'changed'),
-      ...counted(withMark('added'), 'added'),
-      ...counted(withMark('removed'), 'removed'),
-    ];
-    const openEnds = openEndCallers.filter((caller) => {
-      const shown = functions.get(caller);
-      return shown !== undefined && inBox(shown);
-    }).length;
     return {
-      changed: changes.length > 0,
-      counts: [...changes, ...counted(openEnds, 'open end', 'open ends')],
+      functions: [...functions.values()].filter((shown) => shown.mark !== 'removed' && inBox(shown))
+        .length,
+      changed: withMark('changed'),
+      added: withMark('added'),
+      removed: withMark('removed'),
+      openEnds: openEndCallers.filter((caller) => {
+        const shown = functions.get(caller);
+        return shown !== undefined && inBox(shown);
+      }).length,
     };
   };
 
@@ -164,7 +160,7 @@ const levelsFor = (data: ReaderPageData): Levels => {
     label: `${outside ? path : relativeTo(level, path)}${isFolder(path) ? '/' : ''}`,
     frame,
     outside,
-    ...countsOf(path),
+    counts: countsOf(path),
     opens: { kind: 'level', path },
   });
 

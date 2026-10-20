@@ -1,13 +1,13 @@
 import { highlightOf } from './highlight.ts';
-import type { Laid, LaidBox, LaidFrame, LaidLine, Point, Rect } from './layout.ts';
-import { countsTextOf, isLevelBox } from './scene.ts';
+import type { Laid, LaidBox, LaidLine, Point, Rect } from './layout.ts';
+import { isLevelBox } from './scene.ts';
 import type { FunctionBox, LevelBox } from './scene.ts';
+import { arrowsOf, boxOf, endMarksOf, frameOf, lineOf } from './shapes.ts';
+import { svgOf } from './svg.ts';
 
 type LaidFunction = FunctionBox & Rect;
 type LaidLevelBox = LevelBox & Rect;
 
-const SVG = 'http://www.w3.org/2000/svg';
-const ARROWS = ['kept', 'added', 'removed', 'open-end'] as const;
 const FIT_MARGIN = 40;
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 3;
@@ -17,7 +17,7 @@ const VIEW_MARGIN = 24;
 export interface Drawing {
   readonly draw: (laid: Laid, anchor?: string) => void;
   readonly fit: () => void;
-  readonly highlight: (selected: string | undefined) => void;
+  readonly highlight: (selected: string | undefined, hovered?: string) => void;
   readonly focus: (id: string) => void;
   readonly keepInView: (id: string) => void;
   readonly onBoxClick: (handler: (box: LaidFunction) => void) => void;
@@ -26,154 +26,6 @@ export interface Drawing {
   readonly onEmptyClick: (handler: () => void) => void;
   readonly onBoxHover: (handler: (id: string | undefined) => void) => void;
 }
-
-const svgOf = <Name extends keyof SVGElementTagNameMap>(
-  name: Name,
-  attributes: Readonly<Record<string, string | number>> = {},
-  ...children: readonly (SVGElement | string)[]
-): SVGElementTagNameMap[Name] => {
-  const element = document.createElementNS(SVG, name);
-  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, String(value));
-  element.append(...children);
-  return element;
-};
-
-const rectOf = ({ x, y, width, height }: Rect, rounding: number): SVGRectElement =>
-  svgOf('rect', { x, y, width, height, rx: rounding });
-
-const arrowsOf = (): SVGDefsElement =>
-  svgOf(
-    'defs',
-    {},
-    ...ARROWS.map((kind) =>
-      svgOf(
-        'marker',
-        {
-          id: `arrow-${kind}`,
-          viewBox: '0 0 10 10',
-          refX: 10,
-          refY: 5,
-          markerWidth: 9,
-          markerHeight: 9,
-          markerUnits: 'userSpaceOnUse',
-          orient: 'auto',
-        },
-        svgOf('path', {
-          class: `arrow ${kind}`,
-          d: kind === 'open-end' ? 'M7,0 L10,0 L10,10 L7,10 z' : 'M0,0 L10,5 L0,10 z',
-        }),
-      ),
-    ),
-  );
-
-const frameOf = (frame: LaidFrame): SVGGElement =>
-  svgOf(
-    'g',
-    { class: `frame ${frame.kind}`, 'data-frame': frame.id },
-    rectOf(frame, 6),
-    svgOf('text', { x: frame.x + 10, y: frame.y + 19 }, frame.label),
-  );
-
-const levelBoxOf = (box: LaidLevelBox): SVGGElement => {
-  const x = box.x + box.width / 2;
-  const texts =
-    box.counts.length === 0
-      ? [svgOf('text', { x, y: box.y + box.height / 2 }, box.label)]
-      : [
-          svgOf('text', { x, y: box.y + 16 }, box.label),
-          svgOf('text', { x, y: box.y + 32, class: 'counts' }, countsTextOf(box)),
-        ];
-  return svgOf(
-    'g',
-    {
-      class: [
-        'box',
-        'level',
-        box.kind,
-        ...(box.changed ? ['changed'] : []),
-        ...(box.outside ? ['outside'] : []),
-        'opens',
-      ].join(' '),
-      'data-box': box.id,
-      'data-kind': box.kind,
-      role: 'button',
-      tabindex: 0,
-      'aria-label': [box.label, ...box.counts].join(', '),
-    },
-    rectOf(box, 5),
-    ...texts,
-  );
-};
-
-const boxOf = (box: LaidBox): SVGGElement => {
-  if (isLevelBox(box)) return levelBoxOf(box);
-  const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  const text = svgOf('text', { x: centre.x, y: centre.y }, box.label);
-  if (box.kind === 'open-end') {
-    return svgOf(
-      'g',
-      { class: 'box open-end', 'data-box': box.id, 'data-kind': box.kind },
-      rectOf(box, 4),
-      text,
-    );
-  }
-  const { mark, file } = box.pageFunction;
-  const marks = mark === undefined ? [] : [mark];
-  return svgOf(
-    'g',
-    {
-      class: ['box', 'function', ...marks, ...(box.outside ? ['outside'] : [])].join(' '),
-      'data-box': box.id,
-      'data-kind': box.kind,
-      role: 'button',
-      tabindex: 0,
-      'aria-label': [box.label, file, ...marks].join(', '),
-    },
-    rectOf(box, 5),
-    text,
-  );
-};
-
-const pathOf = (points: readonly Point[]): string =>
-  points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${String(x)},${String(y)}`).join(' ');
-
-const lineOf = (line: LaidLine, index: number): SVGGElement => {
-  const arrow = line.kind === 'open-end' ? 'open-end' : line.mark;
-  const marks = new Set([line.mark, ...(line.calls ?? []).map(({ mark }) => mark)]);
-  const classes = ['line', line.kind, ...(line.kind === 'open-end' ? [] : marks)];
-  if (line.oneOf !== undefined) classes.push('one-of');
-  const label =
-    line.label === undefined
-      ? []
-      : [
-          rectOf(line.label, 7),
-          svgOf(
-            'text',
-            { x: line.label.x + line.label.width / 2, y: line.label.y + line.label.height / 2 },
-            line.label.text,
-          ),
-        ];
-  const path = pathOf(line.points);
-  const clickable =
-    line.calls === undefined
-      ? []
-      : [svgOf('path', { class: 'hit', d: path }), svgOf('title', {}, line.title ?? '')];
-  return svgOf(
-    'g',
-    {
-      class: classes.join(' '),
-      'data-from': line.from,
-      'data-to': line.to,
-      'data-line': index,
-      ...(line.calls === undefined
-        ? {}
-        : { role: 'button', tabindex: 0, 'aria-label': line.title ?? '' }),
-    },
-    svgOf('path', { d: path, 'marker-end': `url(#arrow-${arrow})` }),
-    ...label,
-    ...clickable,
-  );
-};
 
 interface Camera {
   scale: number;
@@ -250,25 +102,28 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     apply();
   };
 
-  const highlight = (selected: string | undefined): void => {
-    const lit = selected === undefined ? undefined : highlightOf(laid, selected);
+  const highlight = (selected: string | undefined, hovered?: string): void => {
+    const centre = hovered ?? selected;
+    const lit = centre === undefined ? undefined : highlightOf(laid, centre);
     for (const element of viewport.querySelectorAll('[data-box], [data-line]')) {
       const box = element.getAttribute('data-box');
       const line = Number(element.getAttribute('data-line'));
-      const isSelected = box !== null && box === lit?.selected;
+      const isCentre = box !== null && box === lit?.selected;
       const connected = box === null ? lit?.lines.has(line) : lit?.boxes.has(box);
-      element.classList.toggle('selected', isSelected);
+      element.classList.toggle('selected', box !== null && box === selected);
+      element.classList.toggle('hovered', isCentre && box !== selected);
       element.classList.toggle('connected', connected === true);
-      element.classList.toggle('faded', lit !== undefined && !isSelected && connected !== true);
+      element.classList.toggle('faded', lit !== undefined && !isCentre && connected !== true);
     }
   };
 
   const draw = (next: Laid, anchor?: string): void => {
     const before = anchor === undefined ? undefined : boxOfId(anchor);
     laid = next;
+    const endMarkOf = endMarksOf(next.boxes);
     const linesOf = (bundled: boolean): SVGGElement[] =>
       next.lines.flatMap((line, index) =>
-        (line.kind === 'bundled') === bundled ? [lineOf(line, index)] : [],
+        (line.kind === 'bundled') === bundled ? [lineOf(line, index, endMarkOf)] : [],
       );
     viewport.replaceChildren(
       svgOf('g', { class: 'frames' }, ...next.frames.map(frameOf)),

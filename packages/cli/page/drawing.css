@@ -22,40 +22,37 @@
 
 .frame > rect {
   fill: var(--frame);
-  stroke: var(--muted);
+  stroke: var(--frame-rule);
   stroke-width: 1;
 }
 
 .frame > text {
   dominant-baseline: auto;
   fill: var(--muted);
-  font-size: 11px;
+  font: 11px var(--font-code);
 }
 
 .frame.folder > rect {
   fill: none;
-  stroke: var(--ink);
-  stroke-opacity: 0.35;
-  stroke-dasharray: 5 4;
-  stroke-width: 1.2;
+  stroke: var(--rule-strong);
 }
 
-.frame.folder > text {
-  fill: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
+.icon > path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
 }
 
 .box > rect {
   fill: var(--paper);
-  stroke: var(--ink);
-  stroke-width: 2;
+  stroke: var(--rule-strong);
+  stroke-width: 1;
 }
 
 .box > text {
   fill: var(--ink);
-  font-size: 12px;
-  text-anchor: middle;
+  font: 12px var(--font-code);
 }
 
 .box.function,
@@ -70,111 +67,178 @@
 
 .box.function:focus-visible > rect,
 .box.opens:focus-visible > rect {
-  stroke-width: 4;
+  stroke: var(--focus);
+  stroke-width: 2;
 }
 
-.box.level:not(.changed) > rect {
-  stroke: var(--rule);
-  stroke-width: 1.5;
+.chip > rect {
+  fill: none;
 }
 
-.box.level.folder > text:not(.counts) {
-  font-weight: 600;
+.chip > text {
+  font: 700 11px var(--font-code);
+  text-anchor: middle;
 }
 
-.box.level > text.counts {
+.chip.added > rect {
+  fill: var(--added-soft);
+}
+
+.chip.added > text {
+  fill: var(--added);
+}
+
+.chip.removed > rect {
+  fill: var(--removed-soft);
+}
+
+.chip.removed > text {
+  fill: var(--removed);
+}
+
+.chip.changed > rect {
+  fill: var(--changed-soft);
+}
+
+.chip.changed > text {
   fill: var(--changed);
-  font-size: 11px;
 }
 
-.box.level:not(.changed) > text.counts {
-  fill: var(--muted);
+.chip.neighbour > rect {
+  stroke: var(--neighbour);
+  stroke-width: 1;
 }
 
-.box.added > rect {
-  stroke: var(--added);
-  stroke-width: 3;
+.chip.neighbour > text {
+  fill: var(--neighbour);
+}
+
+.chip.open-end > rect {
+  stroke: var(--open);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.chip.open-end > text {
+  fill: var(--open);
+}
+
+.box.neighbour > rect {
+  stroke: var(--rule);
+}
+
+.box.neighbour > text,
+.box.removed > text {
+  fill: var(--ink-2);
 }
 
 .box.removed > rect {
   stroke: var(--removed);
-  stroke-width: 3;
-  stroke-dasharray: 6 3;
+  stroke-dasharray: 4 3;
 }
 
-.box.changed > rect {
-  stroke: var(--changed);
-  stroke-width: 3;
+.box.level > text.name {
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.box.neighbour > rect {
-  stroke: var(--muted);
-  stroke-width: 1;
+.count > text {
+  fill: var(--ink-2);
+  font: 12px var(--font-code);
 }
 
-.box.neighbour > text {
-  fill: var(--muted);
+.count > .chip > text {
+  font-size: 10px;
 }
 
-.box.function:not(.added, .removed, .changed, .neighbour) > rect {
+.box.outside > rect {
+  fill: var(--canvas);
   stroke: var(--rule);
-  stroke-width: 1.5;
 }
 
-.box.function:not(.added, .removed, .changed, .neighbour) > text {
+.box.outside > text {
   fill: var(--muted);
+  font-weight: 500;
 }
 
-.box.outside {
-  opacity: 0.55;
+.box.open-end > rect {
+  fill: none;
+  stroke: none;
+}
+
+.box.open-end > text {
+  fill: var(--ink-2);
+  font-size: 11px;
+  text-anchor: middle;
+}
+
+.box.hovered > rect {
+  stroke: var(--focus);
+  stroke-width: 2;
 }
 
 .box.selected > rect {
   fill: var(--selected);
-  stroke-width: 4;
+  stroke: var(--focus);
+  stroke-width: 2;
+  stroke-dasharray: none;
 }
 
-.box.open-end > rect {
-  stroke: var(--removed);
-  stroke-width: 1;
-  stroke-dasharray: 4 3;
+.box.selected > text {
+  font-weight: 600;
 }
 
-.box.open-end > text {
-  fill: var(--removed);
-  font-size: 10px;
-}
-
-.line > path {
+.line > .edge {
   fill: none;
-  stroke: var(--muted);
+  stroke: var(--edge);
+  stroke-width: 1.25;
+}
+
+.line.added > .edge {
+  stroke: var(--added);
   stroke-width: 1.5;
 }
 
-.line.added > path {
-  stroke: var(--added);
-  stroke-width: 2.5;
-}
-
-.line.removed > path {
+.line.removed > .edge {
   stroke: var(--removed);
-  stroke-width: 2.5;
-  stroke-dasharray: 6 4;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
 }
 
-.line.one-of > path {
-  stroke-dasharray: 2 3;
+.line.one-of > .edge {
+  stroke-width: 2;
+  stroke-dasharray: 0 4;
+  stroke-linecap: round;
+}
+
+.line.open-end > .edge {
+  stroke: var(--open);
+  stroke-dasharray: 3 3;
+}
+
+.junction {
+  fill: var(--edge);
+}
+
+.open-ring > circle {
+  fill: var(--canvas);
+  stroke: var(--open);
+  stroke-width: 1.25;
+  stroke-dasharray: 2 2;
+}
+
+.open-ring > text {
+  fill: var(--ink-2);
+  font: 700 9px var(--font-code);
+  text-anchor: middle;
 }
 
 .line.bundled {
   cursor: pointer;
 }
 
-.line.bundled > path {
-  stroke-width: 3;
-}
-
 .line.bundled > path.hit {
+  fill: none;
   stroke: transparent;
   stroke-width: 12;
 }
@@ -183,65 +247,91 @@
   outline: none;
 }
 
-.line.bundled:hover > path:not(.hit),
-.line.bundled:focus-visible > path:not(.hit) {
+.line.bundled:hover > .edge,
+.line.bundled:focus-visible > .edge {
   stroke: var(--ink);
 }
 
-.line.bundled > text {
-  fill: var(--ink);
-}
-
-.line.open-end > path {
-  stroke: var(--removed);
-  stroke-width: 1;
-  stroke-dasharray: 4 3;
-}
-
-.line > rect {
-  fill: var(--paper);
-  stroke: var(--muted);
-  stroke-width: 1;
-}
-
-.line > text {
-  fill: var(--muted);
-  font-size: 10px;
+.label > text {
   text-anchor: middle;
 }
 
+.badge > rect {
+  fill: var(--paper);
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+}
+
+.badge > text {
+  fill: var(--ink-2);
+  font: 600 11px var(--font-code);
+  font-variant-numeric: tabular-nums;
+}
+
+.pill > rect {
+  fill: var(--canvas);
+  stroke: var(--rule);
+  stroke-width: 1;
+}
+
+.pill > text {
+  fill: var(--ink-2);
+  font: 11px var(--font-ui);
+}
+
 .arrow.kept {
-  fill: var(--muted);
+  fill: var(--edge);
 }
 
 .arrow.added {
   fill: var(--added);
 }
 
-.arrow.removed,
-.arrow.open-end {
+.arrow.removed {
   fill: var(--removed);
+}
+
+.arrow.focus {
+  fill: var(--focus);
+}
+
+.line.connected > .edge {
+  stroke: var(--focus);
+  stroke-width: 2;
+  marker-end: url(#arrow-focus);
+}
+
+.line.connected.added > .edge {
+  stroke: var(--added);
+  marker-end: url(#arrow-added);
+}
+
+.line.connected.removed > .edge {
+  stroke: var(--removed);
+  marker-end: url(#arrow-removed);
+}
+
+.line.connected.open-end > .edge {
+  stroke: var(--open);
+  stroke-width: 1.5;
+}
+
+.line.connected > .junction {
+  fill: var(--focus);
+}
+
+.line.connected .badge > rect,
+.line.connected .pill > rect {
+  stroke: var(--focus);
+  stroke-width: 1.5;
+}
+
+.line.connected .badge > text,
+.line.connected .pill > text {
+  fill: var(--focus);
 }
 
 .box.faded,
 .line.faded {
-  opacity: 0.2;
-}
-
-.box.connected > rect {
-  stroke-width: 3;
-}
-
-.box.connected.neighbour > rect,
-.box.connected:not(.added, .removed, .changed, .neighbour) > rect {
-  stroke: var(--ink);
-  stroke-width: 2;
-}
-
-.box.connected > text {
-  fill: var(--ink);
-}
-
-.line.connected > path:not(.hit) {
-  stroke-width: 3;
+  opacity: var(--fade);
 }

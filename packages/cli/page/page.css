@@ -1,51 +1,80 @@
 :root {
   color-scheme: light dark;
-  --ink: #1d2330;
-  --muted: #7a8394;
+  --font-ui:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-code: ui-monospace, 'SF Mono', SFMono-Regular, 'Cascadia Mono', Menlo, Consolas, monospace;
   --paper: #ffffff;
-  --frame: #f2f4f7;
-  --rule: #d8dce3;
-  --added: #1f8a4c;
-  --removed: #c23a3a;
-  --changed: #b7791f;
-  --changed-line: #fbefd5;
-  --selected: #dbe6fb;
-  --code: #f6f7f9;
-  --diff-added-line: #ccf5d5;
-  --diff-added-text: #92e4a6;
-  --diff-removed-line: #ffd7d5;
-  --diff-removed-text: #ffb0a8;
-  --syntax-keyword: #a2289c;
-  --syntax-string: #0a3069;
-  --syntax-literal: #0550ae;
-  --syntax-type: #953800;
-  --syntax-function: #8250df;
-  --syntax-definition: #1d2330;
+  --canvas: #f6f7f9;
+  --grid: #e2e5ea;
+  --frame: #eceff3;
+  --frame-rule: #dfe3e9;
+  --code: #fbfbfc;
+  --ink: #1b2130;
+  --ink-2: #465063;
+  --muted: #5f6878;
+  --rule: #d5d9e0;
+  --rule-strong: #b4bbc7;
+  --edge: #8a93a3;
+  --added: #17804a;
+  --added-soft: #e2f4e8;
+  --removed: #c0362c;
+  --removed-soft: #fce6e3;
+  --changed: #94600a;
+  --changed-soft: #f9eed8;
+  --neighbour: #6b7385;
+  --open: #6b7385;
+  --focus: #2356d1;
+  --selected: #e6eeff;
+  --focus-ring: rgb(35 86 209 / 0.18);
+  --fade: 0.28;
+  --diff-added-line: #e3f6e8;
+  --diff-added-word: #b4e6c2;
+  --diff-removed-line: #fde7e4;
+  --diff-removed-word: #f6bfb8;
+  --syn-keyword: #6a3db0;
+  --syn-function: #1b5ca6;
+  --syn-type: #0b6f80;
+  --syn-string: #8e3a60;
+  --syn-comment: #5f6878;
+  --shadow: 0 1px 2px rgb(20 24 33 / 0.06), 0 6px 16px rgb(20 24 33 / 0.08);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink: #e6e9ef;
-    --muted: #8d96a8;
     --paper: #1b1f27;
-    --frame: #242a35;
-    --rule: #343b48;
-    --added: #4cc27f;
-    --removed: #ef6b6b;
-    --changed: #e0a84a;
-    --changed-line: #4a3a1c;
-    --selected: #2b3a57;
-    --code: #151920;
-    --diff-added-line: #17301f;
-    --diff-added-text: #22603a;
-    --diff-removed-line: #3d1e24;
-    --diff-removed-text: #7f2f35;
-    --syntax-keyword: #ff7b72;
-    --syntax-string: #a5d6ff;
-    --syntax-literal: #79c0ff;
-    --syntax-type: #ffa657;
-    --syntax-function: #d2a8ff;
-    --syntax-definition: #e6e9ef;
+    --canvas: #121419;
+    --grid: #1e222a;
+    --frame: #181c23;
+    --frame-rule: #262b35;
+    --code: #161920;
+    --ink: #e4e7ee;
+    --ink-2: #b3bac7;
+    --muted: #8d96a6;
+    --rule: #2c323d;
+    --rule-strong: #454d5b;
+    --edge: #6d7686;
+    --added: #4bc17d;
+    --added-soft: #16301f;
+    --removed: #ff7d73;
+    --removed-soft: #3b1a19;
+    --changed: #e5a845;
+    --changed-soft: #352810;
+    --neighbour: #8d96a6;
+    --open: #8d96a6;
+    --focus: #7ea6ff;
+    --selected: #1d2a47;
+    --focus-ring: rgb(126 166 255 / 0.22);
+    --fade: 0.26;
+    --diff-added-line: #13301e;
+    --diff-added-word: #1f5a35;
+    --diff-removed-line: #3a1817;
+    --diff-removed-word: #6e2823;
+    --syn-keyword: #c6a4ff;
+    --syn-function: #8ab6ff;
+    --syn-type: #6fd3e3;
+    --syn-string: #f1a2c3;
+    --syn-comment: #8d96a6;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 16px rgb(0 0 0 / 0.35);
   }
 }
 
@@ -64,9 +93,7 @@ body {
   flex-direction: column;
   background: var(--paper);
   color: var(--ink);
-  font:
-    14px/1.4 system-ui,
-    sans-serif;
+  font: 13px/1.4 var(--font-ui);
 }
 
 .page-header {
@@ -117,7 +144,9 @@ body {
 #graph {
   flex: 1;
   min-width: 0;
-  background: var(--paper);
+  background-color: var(--canvas);
+  background-image: radial-gradient(var(--grid) 1px, transparent 1.3px);
+  background-size: 16px 16px;
 }
 
 .side-panel {
@@ -250,4 +279,39 @@ body {
 
 .mark.changed::before {
   border-color: var(--changed);
+}
+
+span.chip {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  font: 700 11px/1 var(--font-code);
+}
+
+span.chip.added {
+  background: var(--added-soft);
+  color: var(--added);
+}
+
+span.chip.removed {
+  background: var(--removed-soft);
+  color: var(--removed);
+}
+
+span.chip.changed {
+  background: var(--changed-soft);
+  color: var(--changed);
+}
+
+span.chip.neighbour {
+  border: 1px solid var(--neighbour);
+  color: var(--neighbour);
+}
+
+span.chip.open-end {
+  border: 1px dashed var(--open);
+  color: var(--open);
 }
