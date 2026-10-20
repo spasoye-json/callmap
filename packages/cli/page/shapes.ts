@@ -6,7 +6,9 @@ import {
   ICON_ROOM,
   ICON_SIZE,
   LEVEL_PADDING,
+  LEVEL_ROW_OFFSET,
   countWidthOf,
+  functionCountOf,
 } from './box-sizes.ts';
 import type { LaidBox, LaidFrame, LaidLine, Point, Rect } from './layout.ts';
 import { chipMarkOf, hasChanges, isLevelBox, markCountsOf } from './scene.ts';
@@ -101,9 +103,12 @@ const countsRowOf = (counts: LevelCounts, x: number, middle: number): SVGGElemen
   );
 };
 
+const NO_CHANGES = 'No changes';
+
 const levelBoxOf = (box: LevelBox & Rect): SVGGElement => {
-  const counted = markCountsOf(box.counts).length > 0;
-  const nameMiddle = counted ? box.y + 16 : box.y + box.height / 2;
+  const words = markCountsOf(box.counts).map((count) => count.words);
+  const nameMiddle = box.y + box.height / 2 - LEVEL_ROW_OFFSET;
+  const countsMiddle = box.y + box.height / 2 + LEVEL_ROW_OFFSET;
   const left = box.x + LEVEL_PADDING;
   return svgOf(
     'g',
@@ -120,12 +125,24 @@ const levelBoxOf = (box: LevelBox & Rect): SVGGElement => {
       'data-kind': box.kind,
       role: 'button',
       tabindex: 0,
-      'aria-label': [box.label, ...markCountsOf(box.counts).map(({ words }) => words)].join(', '),
+      'aria-label': [box.label, ...words].join(', '),
     },
     rectOf(box, 8),
     svgOf('text', { class: 'name', x: left + ICON_ROOM, y: nameMiddle }, box.label),
     iconOf(box.kind, left, nameMiddle - ICON_SIZE / 2, ICON_SIZE),
-    ...(counted ? [countsRowOf(box.counts, left, box.y + 33)] : []),
+    ...(box.outside
+      ? []
+      : [
+          svgOf(
+            'text',
+            { class: 'functions', x: box.x + box.width - LEVEL_PADDING, y: nameMiddle },
+            functionCountOf(box.counts.functions),
+          ),
+        ]),
+    words.length === 0
+      ? svgOf('text', { class: 'no-changes', x: left, y: countsMiddle }, NO_CHANGES)
+      : countsRowOf(box.counts, left, countsMiddle),
+    svgOf('title', {}, words.length === 0 ? NO_CHANGES : words.join(', ')),
   );
 };
 
