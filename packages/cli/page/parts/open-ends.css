@@ -76,7 +76,7 @@
 
 .open-ends .open-end:hover,
 .open-ends .open-end:focus-visible {
-  background: var(--selected);
+  background: var(--hover);
 }
 
 .open-ends .expression {

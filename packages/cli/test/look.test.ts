@@ -82,6 +82,21 @@ describe('the colours of the page', () => {
     expect(withoutTokens(style)).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
   });
 
+  it('keeps --selected for the selection fill, and gives hover and focus the --hover token of light and dark mode', () => {
+    const style = styleOf(html);
+    const dark = /@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{([^}]*)\}/.exec(
+      style,
+    )?.[1];
+    expect(style).toMatch(/^\s*:root\s*\{[^}]*--hover:\s*#[0-9a-f]{6}/);
+    expect(dark).toMatch(/--hover:\s*#[0-9a-f]{6}/);
+    const rules = [...withoutTokens(style).matchAll(/([^{}]+)\{([^{}]*)\}/g)];
+    const hoverRules = rules.filter(([, selectors = '']) => /:hover|:focus/.test(selectors));
+    expect(hoverRules.length).toBeGreaterThan(0);
+    for (const [, selectors = '', body = ''] of hoverRules) {
+      expect(body, selectors.trim()).not.toContain('var(--selected)');
+    }
+  });
+
   it('fades the boxes and the lines off the selected path with the opacity token', () => {
     const style = styleOf(html);
     expect(style).toMatch(/--fade:\s*0?\.28/);

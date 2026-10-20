@@ -51,7 +51,7 @@
 
 .breadcrumb button:hover,
 .breadcrumb button:focus-visible {
-  background: var(--selected);
+  background: var(--hover);
 }
 
 .breadcrumb button[aria-current='location'] {

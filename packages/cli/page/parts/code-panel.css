@@ -84,7 +84,7 @@ button.call-row {
 
 button.call-row:hover,
 button.call-row:focus-visible {
-  background: var(--selected);
+  background: var(--hover);
 }
 
 .call-row .name {

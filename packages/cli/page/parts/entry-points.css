@@ -26,7 +26,10 @@
 }
 
 .entry-points button:hover,
-.entry-points button:focus-visible,
+.entry-points button:focus-visible {
+  background: var(--hover);
+}
+
 .entry-points button[aria-current='true'] {
   background: var(--selected);
 }
