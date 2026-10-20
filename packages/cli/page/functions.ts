@@ -5,6 +5,9 @@ import { callKeyOf } from './scene.ts';
 
 export type PageFunction = GraphFunction & { readonly mark?: FunctionMark };
 
+export const isChangeMark = (mark: FunctionMark | undefined): boolean =>
+  mark !== undefined && mark !== 'neighbour';
+
 export const pageFunctionsOf = (data: ReaderPageData): ReadonlyMap<FunctionId, PageFunction> =>
   new Map<FunctionId, PageFunction>([
     ...data.branchGraph.functions.map((graphFunction): [FunctionId, PageFunction] => [

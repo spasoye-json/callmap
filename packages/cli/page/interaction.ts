@@ -271,6 +271,7 @@ export const interactionOf = (
       boxHandlers.push(handler);
     },
     onLineClick: drawing.onLineClick,
+    onHighlight: drawing.onHighlight,
     onViewChange: (handler) => {
       viewHandlers.push(handler);
     },

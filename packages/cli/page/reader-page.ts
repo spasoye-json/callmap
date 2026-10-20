@@ -2,6 +2,7 @@ import type { FunctionId } from '@callmap/graph-document';
 import type { FunctionMark } from '@callmap/review';
 import type { Camera } from './camera.ts';
 import type { ReaderPageData, Sources } from './data.ts';
+import type { SelectedPath } from './highlight.ts';
 import type { FunctionBox, SceneLine } from './scene.ts';
 import type { Choice, View } from './view.ts';
 
@@ -13,6 +14,7 @@ export interface ReaderPage {
   readonly panels: HTMLElement;
   readonly onBoxClick: (handler: (box: FunctionBox) => void) => void;
   readonly onLineClick: (handler: (line: SceneLine) => void) => void;
+  readonly onHighlight: (handler: (path: SelectedPath) => void) => void;
   readonly onViewChange: (handler: (view: View) => void) => void;
   readonly onChoiceChange: (handler: (view: View, choice: Choice) => void) => void;
   readonly currentView: () => View;

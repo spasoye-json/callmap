@@ -1,16 +1,18 @@
+import { arrowIconOf } from '../arrows.ts';
+import type { Direction } from '../arrows.ts';
 import type { CameraView } from '../camera.ts';
 import type { LaidBox, Point, Rect } from '../layout.ts';
 import type { PagePart } from '../reader-page.ts';
 import { isHiddenBy } from '../scene.ts';
-import { svgOf } from '../svg.ts';
+import { countWordsOf } from '../words.ts';
 
 type Edge = 'top' | 'right' | 'bottom' | 'left';
 
-const EDGES: Readonly<Record<Edge, { readonly words: string; readonly arrow: string }>> = {
-  top: { words: 'above', arrow: 'M8 13V3M4 7l4-4 4 4' },
-  right: { words: 'to the right', arrow: 'M3 8h10M9 4l4 4-4 4' },
-  bottom: { words: 'below', arrow: 'M8 3v10M4 9l4 4 4-4' },
-  left: { words: 'to the left', arrow: 'M13 8H3M7 4L3 8l4 4' },
+const EDGES: Readonly<Record<Edge, { readonly words: string; readonly arrow: Direction }>> = {
+  top: { words: 'above', arrow: 'up' },
+  right: { words: 'to the right', arrow: 'right' },
+  bottom: { words: 'below', arrow: 'down' },
+  left: { words: 'to the left', arrow: 'left' },
 };
 
 const distancePast = (edge: Edge, box: Rect, visible: Rect): number => {
@@ -28,14 +30,6 @@ const distancePast = (edge: Edge, box: Rect, visible: Rect): number => {
 
 const EDGE_GAP = 12;
 
-const coveredTopOf = (graph: HTMLElement): number =>
-  Math.max(
-    0,
-    ...[...graph.querySelectorAll(':scope > [data-covers="top"]')].map(
-      (cover) => cover.getBoundingClientRect().height,
-    ),
-  );
-
 const centreOf = ({ x, y, width, height }: Rect): Point => [x + width / 2, y + height / 2];
 
 const hintOf = (edge: Edge): HTMLButtonElement => {
@@ -52,9 +46,9 @@ const edgeHints: PagePart = ({ graph, camera, hiddenMarks, onHiddenMarksChange }
   const nearest = new Map<Edge, LaidBox>();
   graph.append(...hints.values());
 
-  const show = ({ level, visible }: CameraView): void => {
+  const show = ({ level, visible, coveredTop }: CameraView): void => {
     const hidden = hiddenMarks();
-    hints.get('top')?.style.setProperty('top', `${String(coveredTopOf(graph) + EDGE_GAP)}px`);
+    hints.get('top')?.style.setProperty('top', `${String(coveredTop + EDGE_GAP)}px`);
     const shown = visible.width > 0 ? level.boxes.filter((box) => !isHiddenBy(hidden, box)) : [];
     for (const [edge, hint] of hints) {
       const past = shown
@@ -68,21 +62,13 @@ const edgeHints: PagePart = ({ graph, camera, hiddenMarks, onHiddenMarksChange }
         continue;
       }
       nearest.set(edge, first.box);
-      const count = String(past.length);
       hint.setAttribute(
         'aria-label',
-        `${count} more ${past.length === 1 ? 'box' : 'boxes'} ${EDGES[edge].words}`,
+        `${countWordsOf(past.length, 'more box', 'more boxes')} ${EDGES[edge].words}`,
       );
       const words = document.createElement('span');
-      words.textContent = `${count} more`;
-      hint.replaceChildren(
-        words,
-        svgOf(
-          'svg',
-          { viewBox: '0 0 16 16', width: 12, height: 12, 'aria-hidden': 'true' },
-          svgOf('path', { d: EDGES[edge].arrow }),
-        ),
-      );
+      words.textContent = `${String(past.length)} more`;
+      hint.replaceChildren(words, arrowIconOf(EDGES[edge].arrow));
     }
   };
 

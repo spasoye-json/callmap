@@ -1,4 +1,5 @@
 import { highlightOf } from './highlight.ts';
+import type { SelectedPath } from './highlight.ts';
 import { cameraOf } from './camera.ts';
 import type { Camera } from './camera.ts';
 import type { Laid, LaidBox, LaidLine, Rect } from './layout.ts';
@@ -23,14 +24,16 @@ export interface Drawing {
   readonly onLineClick: (handler: (line: LaidLine) => void) => void;
   readonly onEmptyClick: (handler: () => void) => void;
   readonly onBoxHover: (handler: (id: string | undefined) => void) => void;
+  readonly onHighlight: (handler: (path: SelectedPath) => void) => void;
 }
 
-const countOf = (entry: Element): number => Number(entry.getAttribute('data-count'));
+const dataCountOf = (entry: Element): number => Number(entry.getAttribute('data-count'));
 
 const markBiggestCounts = (root: Element): void => {
   for (const counts of root.querySelectorAll('.counts')) {
     const biggest = [...counts.querySelectorAll(':scope > .count')].reduce<Element | undefined>(
-      (best, entry) => (best === undefined || countOf(entry) > countOf(best) ? entry : best),
+      (best, entry) =>
+        best === undefined || dataCountOf(entry) > dataCountOf(best) ? entry : best,
       undefined,
     );
     biggest?.classList.add('biggest');
@@ -51,6 +54,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   const lineHandlers: ((line: LaidLine) => void)[] = [];
   const emptyHandlers: (() => void)[] = [];
   const hoverHandlers: ((id: string | undefined) => void)[] = [];
+  const highlightHandlers: ((path: SelectedPath) => void)[] = [];
 
   const boxOfId = (id: string): LaidBox | undefined => laid.boxes.find((box) => box.id === id);
 
@@ -67,6 +71,8 @@ export const drawingOf = (container: HTMLElement): Drawing => {
       element.classList.toggle('connected', connected === true);
       element.classList.toggle('faded', lit !== undefined && !isCentre && connected !== true);
     }
+    const path: SelectedPath = { selected, connected: lit?.boxes ?? new Set() };
+    for (const handler of highlightHandlers) handler(path);
   };
 
   const draw = (next: Laid, anchor?: string): void => {
@@ -165,6 +171,9 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     },
     onBoxHover: (handler) => {
       hoverHandlers.push(handler);
+    },
+    onHighlight: (handler) => {
+      highlightHandlers.push(handler);
     },
   };
 };

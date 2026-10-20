@@ -1,8 +1,11 @@
 import type { FunctionId, OpenEnd } from '@callmap/graph-document';
 import { byText } from '@callmap/review';
 import { pageFunctionsOf } from '../functions.ts';
+import { moreButtonOf, sectionHeadOf, spanOf } from '../panel-elements.ts';
 import type { PagePart, ReaderPage } from '../reader-page.ts';
+import { byLine } from '../scene.ts';
 import { svgOf } from '../svg.ts';
+import { countWordsOf } from '../words.ts';
 
 const FILES_SHOWN = 5;
 const OPEN_CHEVRON = 'M4 6l4 4 4-4';
@@ -25,7 +28,7 @@ const filesOf = (page: ReaderPage): readonly FileOpenEnds[] => {
   return [...byFile]
     .map(([file, openEnds]) => ({
       file,
-      openEnds: [...openEnds].sort((left, right) => left.line - right.line),
+      openEnds: [...openEnds].sort(byLine),
     }))
     .sort(
       (left, right) =>
@@ -91,15 +94,10 @@ const openEnds: PagePart = (page) => {
   const section = document.createElement('section');
   section.setAttribute('aria-label', 'Open ends');
   section.className = 'open-ends';
-  const head = document.createElement('div');
-  head.className = 'section-head';
-  const eyebrow = document.createElement('h2');
-  eyebrow.className = 'eyebrow';
-  eyebrow.textContent = 'Open ends';
-  const total = document.createElement('span');
-  total.className = 'total';
-  total.textContent = page.data.review.openEnds.length.toLocaleString('en-US');
-  head.append(eyebrow, total);
+  const head = sectionHeadOf(
+    'Open ends',
+    spanOf('total', page.data.review.openEnds.length.toLocaleString('en-US')),
+  );
   const hint = document.createElement('p');
   hint.className = 'hint';
   hint.textContent = 'Calls the checker could not resolve, by file';
@@ -109,14 +107,15 @@ const openEnds: PagePart = (page) => {
   section.append(...groups.slice(0, FILES_SHOWN));
   const rest = groups.slice(FILES_SHOWN);
   if (rest.length > 0) {
-    const more = document.createElement('button');
-    more.type = 'button';
-    more.className = 'more';
-    more.textContent = `Show ${String(rest.length)} more ${rest.length === 1 ? 'file' : 'files'}`;
-    more.addEventListener('click', () => {
-      more.replaceWith(...rest);
-    });
-    section.append(more);
+    section.append(
+      moreButtonOf(
+        'more',
+        `Show ${countWordsOf(rest.length, 'more file', 'more files')}`,
+        (more) => {
+          more.replaceWith(...rest);
+        },
+      ),
+    );
   }
   page.panels.append(section);
 };

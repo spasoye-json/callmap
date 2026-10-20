@@ -1,3 +1,4 @@
+import { isChangeMark } from './functions.ts';
 import type { Laid, LaidBox, Point, Rect } from './layout.ts';
 import { isLevelBox } from './scene.ts';
 
@@ -22,9 +23,16 @@ const bandOf = (scale: number): ZoomBand => {
 const openZoomOf = (fitZoom: number): number =>
   fitZoom >= READING_FLOOR ? Math.min(fitZoom, OPEN_MAX) : 1;
 
+const COVERS = 'data-covers';
+
+export const coverTopOfGraph = (element: HTMLElement): void => {
+  element.setAttribute(COVERS, 'top');
+};
+
 export interface CameraView {
   readonly scale: number;
   readonly band: ZoomBand;
+  readonly coveredTop: number;
   readonly visible: Rect;
   readonly level: Laid;
 }
@@ -50,8 +58,7 @@ export interface CameraRig extends Camera {
 const changesOf = (box: LaidBox): number => {
   if (isLevelBox(box)) return box.counts.changed + box.counts.added + box.counts.removed;
   if (box.kind !== 'function') return 0;
-  const { mark } = box.pageFunction;
-  return mark === undefined || mark === 'neighbour' ? 0 : 1;
+  return isChangeMark(box.pageFunction.mark) ? 1 : 0;
 };
 
 const isOutside = (box: LaidBox): boolean => box.kind !== 'open-end' && box.outside;
@@ -86,7 +93,7 @@ export const cameraOf = (
 
   const sizeOf = (): { readonly width: number; readonly height: number; readonly top: number } => {
     const { width, height } = container.getBoundingClientRect();
-    const top = [...container.querySelectorAll(':scope > [data-covers="top"]')].reduce(
+    const top = [...container.querySelectorAll(`:scope > [${COVERS}="top"]`)].reduce(
       (covered, cover) => Math.max(covered, cover.getBoundingClientRect().height),
       0,
     );
@@ -98,6 +105,7 @@ export const cameraOf = (
     return {
       scale,
       band: bandOf(scale),
+      coveredTop: top,
       visible: {
         x: -x / scale,
         y: (top - y) / scale,

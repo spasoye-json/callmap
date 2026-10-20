@@ -19,7 +19,7 @@
   background: var(--focus);
 }
 
-.crumb-bar:not([hidden]) ~ .busy .busy-progress {
+#graph:has(> .level-bar:not([hidden])) .busy-progress {
   top: 40px;
 }
 

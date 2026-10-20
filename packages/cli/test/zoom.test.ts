@@ -298,7 +298,7 @@ describe('the text that keeps its screen size', () => {
   });
 });
 
-describe('the level summary bar over the graph', () => {
+describe('the level bar over the graph', () => {
   const FLAT: GraphSize = { width: 2000, height: 130 };
 
   const topsOnScreen = (page: LoadedPage): readonly number[] => {
