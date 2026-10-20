@@ -1,10 +1,12 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@callmap/reference-graph';
-import { extractGo, GoExtractionError } from '../src/index.ts';
+import { extractGo, GoExtractionError, removeGoExtractorBinary } from '../src/index.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
+
+afterAll(removeGoExtractorBinary);
 
 /** The tiny Go repo this package commits, read the way an extractor reads a repo. */
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
@@ -24,7 +26,7 @@ const source = ['cmd/**', 'internal/**'];
 
 /** A throwaway repo written from a map of repo-relative path to file text. */
 const repoOf = (files: Readonly<Record<string, string>>): string => {
-  const repo = mkdtempSync(join(tmpdir(), 'callmap-go-repo-'));
+  const repo = tempDir('callmap-go-repo-');
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(dirname(join(repo, path)), { recursive: true });
     writeFileSync(join(repo, path), text);

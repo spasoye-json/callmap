@@ -1,11 +1,11 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@callmap/reference-graph';
 import type { ReferenceGraphDocument } from '@callmap/reference-graph';
 import { ExtractionError, extractRuby } from '../src/index.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 /** The tiny two-app Rails repo this package commits, read the way an extractor reads a repo. */
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
@@ -52,7 +52,7 @@ const appOf = (path: string): string => path.split('/')[0] ?? '';
 
 /** A throwaway repo holding exactly the given files. */
 const repoOf = (files: Readonly<Record<string, string>>): string => {
-  const repo = mkdtempSync(join(tmpdir(), 'callmap-ruby-'));
+  const repo = tempDir('callmap-ruby-');
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(dirname(join(repo, path)), { recursive: true });
     writeFileSync(join(repo, path), text);

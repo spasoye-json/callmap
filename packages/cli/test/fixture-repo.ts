@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const FIXTURE = fileURLToPath(new URL('../fixture-review', import.meta.url));
 const LEVELS = fileURLToPath(new URL('../fixture-levels', import.meta.url));
@@ -34,7 +34,7 @@ const commitTree = (repo: string, fixture: string, tree: string, message: string
 };
 
 const branchRepoOf = (fixture: string, defaultBranch: string): string => {
-  const repo = mkdtempSync(join(tmpdir(), 'callmap-review-'));
+  const repo = tempDir('callmap-review-');
   git(repo, 'init', '--quiet', '--initial-branch', defaultBranch);
   commitTree(repo, fixture, 'base', 'base');
   git(repo, 'checkout', '--quiet', '-b', 'feature');

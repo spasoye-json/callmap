@@ -1,12 +1,12 @@
-import { appendFileSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { featureBranchRepo, git } from './fixture-repo.ts';
 import { runCallmap } from './reader-page.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const review = (repo: string, name: string): string => {
-  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), name);
+  const out = join(tempDir('callmap-out-'), name);
   const finished = runCallmap(['review', repo, '--no-open', '--out', out]);
   expect(finished.status, finished.stderr).toBe(0);
   return readFileSync(out, 'utf8');

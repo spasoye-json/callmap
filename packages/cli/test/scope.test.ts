@@ -1,9 +1,9 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { featureBranchRepo } from './fixture-repo.ts';
 import { pageDataOf, runCallmap } from './reader-page.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const CART = 'src/cart.ts';
 const MONEY = 'src/money.ts';
@@ -11,7 +11,7 @@ const MONEY = 'src/money.ts';
 let repo = '';
 
 const pageOfReview = (...flags: readonly string[]) => {
-  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap(['review', repo, '--no-open', '--out', out, ...flags]);
   expect(finished.status, finished.stderr).toBe(0);
   return pageDataOf(readFileSync(out, 'utf8'));

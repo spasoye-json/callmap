@@ -1,5 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -15,6 +14,7 @@ import {
   settled,
 } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const CART = 'src/cart.ts';
 const MONEY = 'src/money.ts';
@@ -24,7 +24,7 @@ let repo = '';
 let html = '';
 
 const reviewPage = (...flags: readonly string[]): string => {
-  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap(['review', repo, '--no-open', '--out', out, ...flags]);
   expect(finished.status, finished.stderr).toBe(0);
   return readFileSync(out, 'utf8');

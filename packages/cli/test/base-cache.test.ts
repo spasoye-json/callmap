@@ -1,11 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { featureBranchRepo } from './fixture-repo.ts';
 import { pageDataOf, runCallmap } from './reader-page.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 const CART = 'src/cart.ts';
@@ -25,10 +25,10 @@ const EMPTY_BASE = JSON.stringify({
   openEnds: [],
 });
 
-const newCacheHome = (): string => mkdtempSync(join(tmpdir(), 'callmap-cache-'));
+const newCacheHome = (): string => tempDir('callmap-cache-');
 
 const reviewHtml = (cacheHome: string, repo: string, ...flags: readonly string[]): string => {
-  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap(
     ['review', repo, '--no-open', '--out', out, ...flags],
     undefined,
@@ -154,7 +154,7 @@ describe('the base cache of a review', () => {
   it('lives under ~/.cache/callmap when XDG_CACHE_HOME is not set', () => {
     const repo = featureBranchRepo();
     const home = newCacheHome();
-    const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+    const out = join(tempDir('callmap-out-'), 'review.html');
     const { XDG_CACHE_HOME: _, ...environment } = process.env;
     const finished = spawnSync(process.execPath, [CLI, 'review', repo, '--no-open', '--out', out], {
       encoding: 'utf8',

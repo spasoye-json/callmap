@@ -1,9 +1,11 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { inScope } from '@callmap/scope';
-import { extractGo } from '../src/index.ts';
+import { extractGo, removeGoExtractorBinary } from '../src/index.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
+
+afterAll(removeGoExtractorBinary);
 
 /**
  * Every extractor reads a scope glob the same way, or one scope would take different files
@@ -37,7 +39,7 @@ const GLOBS: readonly (readonly string[])[] = [
   ['!src/**'],
 ];
 
-const repo = mkdtempSync(join(tmpdir(), 'callmap-go-scope-'));
+const repo = tempDir('callmap-go-scope-');
 for (const path of PATHS) {
   mkdirSync(dirname(join(repo, path)), { recursive: true });
   writeFileSync(join(repo, path), 'package scope\n');

@@ -1,11 +1,16 @@
 import { spawnSync } from 'node:child_process';
 import type { SpawnSyncReturns } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@callmap/reference-graph';
-import { goExtractorBinary } from '../src/index.ts';
+import { goExtractorBinary, removeGoExtractorBinary } from '../src/index.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
+
+afterAll(removeGoExtractorBinary);
 
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
+const LAUNCH = new URL('../src/launch.ts', import.meta.url).href;
 
 /**
  * The extractor as the caller runs it: a compiled Go program, answering over its standard output. A
@@ -86,5 +91,23 @@ describe('the Go extractor as a separate process', () => {
     expect(finished.status).not.toBe(0);
     expect(finished.stdout).toBe('');
     expect(finished.stderr).toContain('nowhere');
+  });
+});
+
+describe('the build of the Go extractor', () => {
+  it('leaves nothing in the temp dir after the process that built it ends', () => {
+    const temp = tempDir('callmap-go-build-');
+    const finished = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '--eval',
+        `import { extractGo } from ${JSON.stringify(LAUNCH)};
+extractGo({ repo: ${JSON.stringify(FIXTURE)} });`,
+      ],
+      { encoding: 'utf8', env: { ...process.env, TMPDIR: temp } },
+    );
+    expect(finished.status, finished.stderr).toBe(0);
+    expect(readdirSync(temp)).toEqual([]);
   });
 });

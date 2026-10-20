@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { commitFile, featureBranchRepo, git } from './fixture-repo.ts';
 import { boxesOf, loadReaderPage, pageDataOf, runCallmap } from './reader-page.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const MONEY = 'src/money.ts';
 const CART = 'src/cart.ts';
@@ -15,7 +15,7 @@ const BRANCH_CHANGES = {
 };
 
 const marksOfReview = (repo: string, ...flags: readonly string[]) => {
-  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap(['review', repo, '--no-open', '--out', out, ...flags]);
   expect(finished.status, finished.stderr).toBe(0);
   return Object.fromEntries(
@@ -92,7 +92,7 @@ describe('the base checkout of a review', () => {
     git(repo, 'rm', '--quiet', 'src/area.ts');
     git(repo, 'commit', '--quiet', '--message', 'remove src/area.ts');
 
-    const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+    const out = join(tempDir('callmap-out-'), 'review.html');
     const finished = runCallmap(['review', repo, '--no-open', '--out', out, '--base', 'HEAD~1']);
     expect(finished.status, finished.stderr).toBe(0);
     const { review } = pageDataOf(readFileSync(out, 'utf8'));
@@ -106,7 +106,7 @@ describe('the base checkout of a review', () => {
 
 describe('a branch that changed no function', () => {
   it('gets a page that says so in place of an empty graph', async () => {
-    const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+    const out = join(tempDir('callmap-out-'), 'review.html');
     const finished = runCallmap([
       'review',
       featureBranchRepo(),

@@ -6,9 +6,10 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import type { SpawnSyncReturns } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { ReferenceGraphDocument } from '@callmap/reference-graph';
 import { readReferenceGraphDocument } from '@callmap/reference-graph';
 
@@ -31,23 +32,40 @@ const PROGRAM = join(import.meta.dirname, '../go');
 
 let built: string | undefined;
 
+/** Remove the compiled extractor and its directory. The next call builds it again. */
+export const removeGoExtractorBinary = (): void => {
+  if (built === undefined) return;
+  rmSync(dirname(built), { recursive: true, force: true });
+  built = undefined;
+  process.off('exit', removeGoExtractorBinary);
+};
+
+const buildFailureOf = (finished: SpawnSyncReturns<string>): string | undefined => {
+  if (finished.error !== undefined)
+    return `the Go toolchain could not be started: ${finished.error.message}`;
+  if (finished.status !== 0) return `the Go extractor did not build: ${finished.stderr.trim()}`;
+  return undefined;
+};
+
 /**
  * The compiled extractor, built once per caller process. A fresh directory per process keeps two
- * callers that build at the same time from writing over each other's binary. The Go build cache
- * makes every build after the first a relink.
+ * callers that build at the same time from writing over each other's binary. The process removes
+ * that directory when it exits, so a run leaves nothing in the temp dir. The Go build cache makes
+ * every build after the first a relink.
  */
 export const goExtractorBinary = (): string => {
   if (built !== undefined) return built;
-  const binary = join(mkdtempSync(join(tmpdir(), 'callmap-extract-go-')), 'callmap-extract-go');
-  const finished = spawnSync('go', ['build', '-o', binary, '.'], {
-    cwd: PROGRAM,
-    encoding: 'utf8',
-  });
-  if (finished.error !== undefined)
-    throw new GoExtractionError(`the Go toolchain could not be started: ${finished.error.message}`);
-  if (finished.status !== 0)
-    throw new GoExtractionError(`the Go extractor did not build: ${finished.stderr.trim()}`);
+  const folder = mkdtempSync(join(tmpdir(), 'callmap-extract-go-'));
+  const binary = join(folder, 'callmap-extract-go');
+  const failure = buildFailureOf(
+    spawnSync('go', ['build', '-o', binary, '.'], { cwd: PROGRAM, encoding: 'utf8' }),
+  );
+  if (failure !== undefined) {
+    rmSync(folder, { recursive: true, force: true });
+    throw new GoExtractionError(failure);
+  }
   built = binary;
+  process.once('exit', removeGoExtractorBinary);
   return binary;
 };
 

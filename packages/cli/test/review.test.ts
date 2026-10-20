@@ -1,5 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { featureBranchRepo, fixtureText, git } from './fixture-repo.ts';
@@ -15,6 +14,7 @@ import {
   runCallmap,
   sourcesOf,
 } from './reader-page.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const CART = 'src/cart.ts';
 const MONEY = 'src/money.ts';
@@ -35,7 +35,7 @@ beforeAll(() => {
   repo = featureBranchRepo();
   branchBefore = git(repo, 'rev-parse', '--abbrev-ref', 'HEAD');
   statusBefore = git(repo, 'status', '--porcelain');
-  out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap(['review', repo, '--no-open', '--out', out]);
   expect(finished.status, finished.stderr).toBe(0);
   stdout = finished.stdout;
@@ -198,7 +198,7 @@ describe('the reader page', () => {
 describe('opening the page', () => {
   it('opens the page in the browser when the run ends', async () => {
     const opener = fakeOpener();
-    const target = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'opened.html');
+    const target = join(tempDir('callmap-out-'), 'opened.html');
     const finished = runCallmap(['review', repo, '--out', target], opener);
     expect(finished.status, finished.stderr).toBe(0);
     await expect.poll(() => existsSync(opener.marker), { timeout: 5_000 }).toBe(true);
@@ -207,7 +207,7 @@ describe('opening the page', () => {
 
   it('opens no browser with --no-open, and still writes the page', async () => {
     const opener = fakeOpener();
-    const target = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'closed.html');
+    const target = join(tempDir('callmap-out-'), 'closed.html');
     const finished = runCallmap(['review', repo, '--no-open', '--out', target], opener);
     expect(finished.status, finished.stderr).toBe(0);
     expect(existsSync(target)).toBe(true);
