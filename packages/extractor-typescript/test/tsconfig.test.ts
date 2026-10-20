@@ -1,15 +1,15 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ExtractionError, extractGraphDocument } from '../src/index.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
 const INNER = `${FIXTURE}/src`;
 
 const repoWith = (files: Readonly<Record<string, string>>): string => {
-  const repo = mkdtempSync(join(tmpdir(), 'callmap-ts-config-'));
+  const repo = tempDir('callmap-ts-config-');
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(join(repo, path, '..'), { recursive: true });
     writeFileSync(join(repo, path), text);
@@ -114,7 +114,7 @@ describe('a monorepo whose packages import each other by name', () => {
     expect(document().calls).toContainEqual({
       caller: 'packages/extractor-go/src/launch.ts#extractGo',
       callee: 'packages/reference-graph/src/document.ts#readReferenceGraphDocument',
-      line: 63,
+      line: 81,
     });
   });
 

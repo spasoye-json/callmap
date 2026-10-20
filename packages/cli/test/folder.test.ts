@@ -1,5 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -18,6 +17,7 @@ import {
   settled,
 } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const VAT = 'src/tax/vat.ts';
 const RATE = 'src/tax/rate.ts';
@@ -27,7 +27,7 @@ const PERCENT = 'src/percent.ts';
 let html = '';
 
 beforeAll(() => {
-  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap([
     'review',
     featureBranchRepoWithUnchangedFiles(),

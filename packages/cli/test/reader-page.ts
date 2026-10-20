@@ -1,12 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { fireEvent, within } from '@testing-library/dom';
 import { JSDOM } from 'jsdom';
 import type { ReaderPageData, Sources } from '../page/data.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 
@@ -16,7 +16,7 @@ export interface Opener {
 }
 
 export const fakeOpener = (): Opener => {
-  const bin = mkdtempSync(join(tmpdir(), 'callmap-opener-'));
+  const bin = tempDir('callmap-opener-');
   const marker = join(bin, 'opened');
   for (const name of ['xdg-open', 'open']) {
     const path = join(bin, name);
@@ -29,7 +29,7 @@ export const fakeOpener = (): Opener => {
 export const runCallmap = (
   args: readonly string[],
   opener?: Opener,
-  cacheHome: string = mkdtempSync(join(tmpdir(), 'callmap-cache-')),
+  cacheHome: string = tempDir('callmap-cache-'),
 ) =>
   spawnSync(process.execPath, [CLI, ...args], {
     encoding: 'utf8',
@@ -43,7 +43,7 @@ export const runCallmap = (
   });
 
 export const reviewHtmlOf = (repo: string, ...flags: readonly string[]): string => {
-  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap(['review', repo, '--no-open', '--out', out, ...flags]);
   if (finished.status !== 0) throw new Error(finished.stderr);
   return readFileSync(out, 'utf8');

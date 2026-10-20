@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { commitFile, git } from './fixture-repo.ts';
 import { pageDataOf, runCallmap } from './reader-page.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const TOTAL = 'app/src/total.ts';
 const RECEIPT = 'app/src/receipt.ts';
@@ -11,7 +11,7 @@ const RECEIPT = 'app/src/receipt.ts';
 let repo = '';
 
 const appWithBaseUrlImports = (): string => {
-  const root = mkdtempSync(join(tmpdir(), 'callmap-review-'));
+  const root = tempDir('callmap-review-');
   git(root, 'init', '--quiet', '--initial-branch', 'main');
   mkdirSync(join(root, 'app/src'), { recursive: true });
   commitFile(root, 'app/tsconfig.json', '{ "compilerOptions": { "baseUrl": "./" } }\n');
@@ -31,7 +31,7 @@ const appWithBaseUrlImports = (): string => {
 };
 
 const pageOfReview = (...flags: readonly string[]) => {
-  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap(['review', repo, '--no-open', '--out', out, ...flags]);
   expect(finished.status, finished.stderr).toBe(0);
   return pageDataOf(readFileSync(out, 'utf8'));

@@ -4,5 +4,11 @@
  * against (ADR-0009).
  */
 
-export { extractGo, GO, GoExtractionError, goExtractorBinary } from './launch.ts';
+export {
+  extractGo,
+  GO,
+  GoExtractionError,
+  goExtractorBinary,
+  removeGoExtractorBinary,
+} from './launch.ts';
 export type { GoExtractOptions } from './launch.ts';

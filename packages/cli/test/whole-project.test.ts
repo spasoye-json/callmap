@@ -1,5 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -14,6 +13,7 @@ import {
   settled,
 } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const CART = 'src/cart.ts';
 const REPORT = 'src/report.ts';
@@ -25,7 +25,7 @@ const NOTIFY = 'src/notify.ts';
 let html = '';
 
 beforeAll(() => {
-  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap(['review', featureBranchRepo(), '--no-open', '--out', out]);
   expect(finished.status, finished.stderr).toBe(0);
   html = readFileSync(out, 'utf8');
