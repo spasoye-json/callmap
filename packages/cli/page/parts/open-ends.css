@@ -1,0 +1,98 @@
+.side-panel.left .side-body > .open-ends {
+  order: 1;
+}
+
+.open-ends .total {
+  padding: 0 6px;
+  border: 1px dashed var(--open);
+  border-radius: 8px;
+  color: var(--ink-2);
+  font: 600 11px/16px var(--font-code);
+}
+
+.open-ends .hint {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.open-ends button {
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.open-ends .file-head {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+.open-ends .chevron {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.open-ends .path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-family: var(--font-code);
+}
+
+.open-ends .count {
+  color: var(--ink-2);
+  font: 12px var(--font-code);
+  font-variant-numeric: tabular-nums;
+}
+
+.open-ends .open-end-rows[hidden] {
+  display: none;
+}
+
+.open-ends .open-end {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 5px 8px 5px 20px;
+  border-radius: 5px;
+}
+
+.open-ends .open-end:hover,
+.open-ends .open-end:focus-visible {
+  background: var(--selected);
+}
+
+.open-ends .expression {
+  color: var(--ink);
+  font: 12px var(--font-code);
+  overflow-wrap: anywhere;
+}
+
+.open-ends .where {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.open-ends .more {
+  height: 28px;
+  padding: 0 0 0 20px;
+  color: var(--focus);
+  font-size: 12px;
+}

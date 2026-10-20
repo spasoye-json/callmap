@@ -1,29 +1,43 @@
+.side-panel.left .side-body > .resolution-rate {
+  order: -3;
+}
+
+.resolution-rate .eyebrow {
+  margin-bottom: 8px;
+}
+
 .resolution-rate p {
   margin: 0;
+}
+
+.resolution-rate .rate {
   color: var(--muted);
+  font-size: 12px;
 }
 
 .resolution-rate .rate-value {
+  margin-right: 4px;
   color: var(--ink);
-  font-size: 22px;
-  font-weight: 600;
+  font: 600 26px/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
-.resolution-rate .open-ends-heading {
-  margin-top: 8px;
+.resolution-rate .rate-bar {
+  height: 4px;
+  margin: 10px 0 8px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--rule);
 }
 
-.resolution-rate .open-ends {
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-  color: var(--muted);
+.resolution-rate .rate-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--ink-2);
 }
 
-.resolution-rate .open-ends li {
-  overflow-wrap: anywhere;
-}
-
-.resolution-rate .open-ends code {
-  color: var(--removed);
+.resolution-rate .rate-calls {
+  color: var(--ink-2);
+  font-size: 12px;
 }

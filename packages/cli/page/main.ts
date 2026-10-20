@@ -33,7 +33,7 @@ export const startReaderPage = (parts: readonly PagePart[]): void => {
     name: 'left panel',
     body: page.panels,
     widthKey: 'callmap.left-panel.width',
-    defaultWidth: 320,
+    defaultWidth: 260,
     open: true,
     onChange: page.keepSelectionInView,
   });

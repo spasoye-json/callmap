@@ -21,6 +21,7 @@ export const choiceKeyOf = (choice: Choice): string => {
 export interface View {
   readonly name: string;
   readonly laidOutByCommand?: boolean;
+  readonly countOf?: (data: ReaderPageData) => { readonly count: number; readonly words: string };
   readonly firstChoice?: (data: ReaderPageData) => Choice;
   readonly sceneOf: (
     data: ReaderPageData,

@@ -1,3 +1,5 @@
+import { svgOf } from './svg.ts';
+
 export type Side = 'left' | 'right';
 
 export interface SidePanelOptions {
@@ -24,9 +26,11 @@ const ARROWS: Readonly<Record<Side, Readonly<Record<string, number>>>> = {
   left: { ArrowRight: KEY_STEP, ArrowLeft: -KEY_STEP },
   right: { ArrowLeft: KEY_STEP, ArrowRight: -KEY_STEP },
 };
-const TOGGLE_TEXT: Readonly<Record<Side, readonly [string, string]>> = {
-  left: ['‹', '›'],
-  right: ['›', '‹'],
+const POINTS_LEFT = 'M8 4L4 8l4 4M12 4L8 8l4 4';
+const POINTS_RIGHT = 'M4 4l4 4-4 4M8 4l4 4-4 4';
+const TOGGLE_ICON: Readonly<Record<Side, readonly [string, string]>> = {
+  left: [POINTS_LEFT, POINTS_RIGHT],
+  right: [POINTS_RIGHT, POINTS_LEFT],
 };
 
 const storedWidth = (key: string): number | undefined => {
@@ -55,6 +59,8 @@ export const sidePanelOf = (options: SidePanelOptions): SidePanel => {
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.className = 'side-toggle';
+  const toggleIcon = svgOf('path');
+  toggle.append(svgOf('svg', { viewBox: '0 0 16 16', 'aria-hidden': 'true' }, toggleIcon));
   const bar = document.createElement('div');
   bar.className = 'side-bar';
   bar.append(toggle);
@@ -88,7 +94,7 @@ export const sidePanelOf = (options: SidePanelOptions): SidePanel => {
     toggle.setAttribute('aria-label', `${action} the ${name}`);
     toggle.title = `${action} the ${name}`;
     toggle.setAttribute('aria-expanded', String(open));
-    toggle.textContent = TOGGLE_TEXT[side][open ? 0 : 1];
+    toggleIcon.setAttribute('d', TOGGLE_ICON[side][open ? 0 : 1]);
   };
   const open = (): void => {
     show(true);
