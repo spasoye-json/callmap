@@ -98,6 +98,14 @@ _Avoid_: external box, neighbour box, ghost
 A function that the Folder view draws but that the chosen folder does not hold: a caller or a callee one hop out of the folder, or a function that the search opened. The view draws it greyed. This is not a review mark, so an outside function is also a neighbour only when it is one hop from a changed function.
 _Avoid_: neighbour, external function
 
+**Reading floor**:
+The zoom where the smallest text of the graph is 11 px on the screen: 92%. A view or a level opens whole when it fits at the reading floor or above. A larger one opens at 100% on one part of it, so its text can be read. Below the reading floor, the zoom label says "Overview".
+_Avoid_: minimum zoom, readable zoom
+
+**Zoom band**:
+One range of zoom that decides what text the graph draws: Map below 60%, with boxes and chips only, Scan from 60% to the reading floor, with the names at 11 px on the screen, and Read from the reading floor up, with all the text. The lines, the count badges and the frame labels keep their screen size in every band.
+_Avoid_: zoom level, detail level, level of detail
+
 ### Review
 
 **Review**:
