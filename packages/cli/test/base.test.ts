@@ -1,8 +1,16 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fireEvent, within } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
 import { commitFile, featureBranchRepo, git } from './fixture-repo.ts';
-import { boxesOf, loadReaderPage, pageDataOf, runCallmap } from './reader-page.ts';
+import {
+  boxesOf,
+  loadReaderPage,
+  openTab,
+  pageDataOf,
+  runCallmap,
+  settled,
+} from './reader-page.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
 
 const MONEY = 'src/money.ts';
@@ -120,9 +128,21 @@ describe('a branch that changed no function', () => {
 
     const page = await loadReaderPage(readFileSync(out, 'utf8'));
     const { window } = page;
-    const message = window.document.querySelector('[role="status"]');
-    expect(message?.textContent).toBe('The branch changed no function against its base.');
+    const body = within(window.document.body);
+    const message = within(body.getByRole('status', { name: 'No changed functions' }));
+    expect(message.getByText('The branch changes no function against its base.')).toBeDefined();
     expect(window.document.getElementById('graph')?.hidden).toBe(true);
     expect(boxesOf(page)).toHaveLength(0);
+
+    fireEvent.click(message.getByRole('button', { name: 'Open Whole project' }));
+    await settled(page);
+    expect(body.getByRole('tab', { selected: true }).textContent).toBe('Whole project');
+    expect(window.document.getElementById('graph')?.hidden).toBe(false);
+    expect(body.queryByRole('status', { name: 'No changed functions' })).toBeNull();
+    expect(boxesOf(page).length).toBeGreaterThan(0);
+
+    await openTab(page, 'Diff');
+    expect(body.getByRole('status', { name: 'No changed functions' })).toBeDefined();
+    expect(window.document.getElementById('graph')?.hidden).toBe(true);
   }, 60_000);
 });

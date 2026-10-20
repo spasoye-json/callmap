@@ -142,6 +142,17 @@
   font-weight: 600;
 }
 
+.box.level > text.functions {
+  fill: var(--muted);
+  font: 11px var(--font-code);
+  text-anchor: end;
+}
+
+.box.level > text.no-changes {
+  fill: var(--muted);
+  font: 12px var(--font-ui);
+}
+
 .count > text {
   fill: var(--ink-2);
   font: 12px var(--font-code);
