@@ -10,8 +10,6 @@ const MARKS: readonly (readonly [FunctionMark, string])[] = [
   ['neighbour', 'Neighbour'],
 ];
 
-const HIDDEN_MARKS = 'data-hidden-marks';
-
 const countOf = (count: number): HTMLElement => {
   const element = document.createElement('span');
   element.className = 'count';
@@ -49,8 +47,7 @@ const headOf = (title: string, note: string): HTMLElement => {
   return head;
 };
 
-const marks: PagePart = ({ data, graph, panels }) => {
-  const hidden = new Set<FunctionMark>();
+const marks: PagePart = ({ data, panels, hiddenMarks, toggleMark }) => {
   const section = document.createElement('section');
   section.setAttribute('aria-label', 'Marks');
   section.className = 'marks';
@@ -63,10 +60,8 @@ const marks: PagePart = ({ data, graph, panels }) => {
     const count = data.review.functions.filter((marked) => marked.mark === mark).length;
     button.append(chipOf(mark), labelOf(name), ' ', countOf(count));
     button.addEventListener('click', () => {
-      if (hidden.has(mark)) hidden.delete(mark);
-      else hidden.add(mark);
-      button.setAttribute('aria-pressed', String(hidden.has(mark)));
-      graph.setAttribute(HIDDEN_MARKS, [...hidden].join(' '));
+      toggleMark(mark);
+      button.setAttribute('aria-pressed', String(hiddenMarks().has(mark)));
     });
     return button;
   });

@@ -83,6 +83,11 @@ export const hasChanges = ({ changed, added, removed }: LevelCounts): boolean =>
 
 export type SceneBox = FunctionBox | OpenEndBox | LevelBox;
 
+export const isHiddenBy = (hidden: ReadonlySet<FunctionMark>, box: SceneBox): boolean =>
+  box.kind === 'function' &&
+  box.pageFunction.mark !== undefined &&
+  hidden.has(box.pageFunction.mark);
+
 export const isLevelBox = <Box extends SceneBox>(box: Box): box is Extract<Box, LevelBox> =>
   box.kind === 'folder' || box.kind === 'file';
 

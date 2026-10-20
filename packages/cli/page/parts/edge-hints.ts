@@ -1,6 +1,7 @@
 import type { CameraView } from '../camera.ts';
 import type { LaidBox, Point, Rect } from '../layout.ts';
 import type { PagePart } from '../reader-page.ts';
+import { isHiddenBy } from '../scene.ts';
 import { svgOf } from '../svg.ts';
 
 type Edge = 'top' | 'right' | 'bottom' | 'left';
@@ -35,12 +36,6 @@ const coveredTopOf = (graph: HTMLElement): number =>
     ),
   );
 
-const hiddenMarksOf = (graph: HTMLElement): ReadonlySet<string> =>
-  new Set((graph.getAttribute('data-hidden-marks') ?? '').split(/\s+/));
-
-const isShown = (box: LaidBox, hidden: ReadonlySet<string>): boolean =>
-  box.kind !== 'function' || !hidden.has(box.pageFunction.mark ?? '');
-
 const centreOf = ({ x, y, width, height }: Rect): Point => [x + width / 2, y + height / 2];
 
 const hintOf = (edge: Edge): HTMLButtonElement => {
@@ -51,16 +46,16 @@ const hintOf = (edge: Edge): HTMLButtonElement => {
   return hint;
 };
 
-const edgeHints: PagePart = ({ graph, camera }) => {
+const edgeHints: PagePart = ({ graph, camera, hiddenMarks, onHiddenMarksChange }) => {
   const edges = Object.keys(EDGES) as Edge[];
   const hints = new Map(edges.map((edge) => [edge, hintOf(edge)]));
   const nearest = new Map<Edge, LaidBox>();
   graph.append(...hints.values());
 
   const show = ({ level, visible }: CameraView): void => {
-    const hidden = hiddenMarksOf(graph);
+    const hidden = hiddenMarks();
     hints.get('top')?.style.setProperty('top', `${String(coveredTopOf(graph) + EDGE_GAP)}px`);
-    const shown = visible.width > 0 ? level.boxes.filter((box) => isShown(box, hidden)) : [];
+    const shown = visible.width > 0 ? level.boxes.filter((box) => !isHiddenBy(hidden, box)) : [];
     for (const [edge, hint] of hints) {
       const past = shown
         .map((box) => ({ box, distance: distancePast(edge, box, visible) }))
@@ -100,9 +95,9 @@ const edgeHints: PagePart = ({ graph, camera }) => {
 
   show(camera.view());
   camera.onChange(show);
-  new MutationObserver(() => {
+  onHiddenMarksChange(() => {
     show(camera.view());
-  }).observe(graph, { attributeFilter: ['data-hidden-marks'] });
+  });
 };
 
 export default edgeHints;
