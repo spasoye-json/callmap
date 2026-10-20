@@ -20,7 +20,6 @@ const NOTIFY = 'src/notify';
 const CARRIERS = 'src/shipping/carriers';
 const API = 'src/orders/api';
 const SERVICE = 'src/orders/service';
-const SHIPPING = 'src/shipping';
 const TAX = 'src/tax';
 const RATE = `${TAX}/rate.ts`;
 
@@ -75,7 +74,7 @@ describe('a folder level', () => {
       [SERVICE]: 'service/',
       [MONEY]: 'src/money/',
       [NOTIFY]: 'src/notify/',
-      [SHIPPING]: 'src/shipping/',
+      [CARRIERS]: 'src/shipping/carriers/',
     });
     expect(framesAround(page, API).map(({ label }) => label)).toEqual(['src/orders/']);
     expect(framesAround(page, MONEY)).toEqual([]);
@@ -83,7 +82,7 @@ describe('a folder level', () => {
       boxesOf(page)
         .filter(({ classes }) => classes.includes('outside'))
         .map(({ id }) => id),
-    ).toEqual([MONEY, NOTIFY, SHIPPING]);
+    ).toEqual([MONEY, NOTIFY, CARRIERS]);
   });
 
   it('draws the lines between its boxes and the lines to the outside boxes', async () => {
@@ -94,7 +93,7 @@ describe('a folder level', () => {
       [`${NOTIFY} -> ${SERVICE}`]: '1',
       [`${SERVICE} -> ${MONEY}`]: '2',
       [`${SERVICE} -> ${NOTIFY}`]: '1',
-      [`${SERVICE} -> ${SHIPPING}`]: '1',
+      [`${SERVICE} -> ${CARRIERS}`]: '1',
     });
   });
 
@@ -139,13 +138,40 @@ describe('a folder level', () => {
       [`${MONEY}/format.ts`]: 'format.ts',
       [`${MONEY}/round.ts`]: 'round.ts',
       [ORDERS]: 'src/orders/',
-      [TAX]: 'src/tax/',
+      [RATE]: 'src/tax/rate.ts',
     });
     expect(
       breadcrumbOf(page)
         .getAllByRole('button')
         .map((crumb) => crumb.textContent),
     ).toEqual(['src/', 'money/']);
+  });
+
+  it('collapses an outside box like the box of that path at its parent level', async () => {
+    const page = await ordersPage();
+    const outsideOf = (shown: LoadedPage): readonly (readonly [string, string])[] =>
+      boxesOf(shown)
+        .filter(({ classes }) => classes.includes('outside'))
+        .map(({ id, label }) => [id, label] as const);
+    expect(outsideOf(page)).toEqual([
+      [MONEY, 'src/money/'],
+      [NOTIFY, 'src/notify/'],
+      [CARRIERS, 'src/shipping/carriers/'],
+    ]);
+    await clickBox(page, CARRIERS);
+    expect(Object.keys(boxLabelsOf(page))).toEqual([
+      `${CARRIERS}/courier.ts`,
+      `${CARRIERS}/post.ts`,
+      ORDERS,
+    ]);
+    await clickBox(page, ORDERS);
+    await clickBox(page, MONEY);
+    expect(outsideOf(page)).toEqual([
+      [ORDERS, 'src/orders/'],
+      [RATE, 'src/tax/rate.ts'],
+    ]);
+    await clickBox(page, RATE);
+    expect(Object.keys(boxLabelsOf(page))).toEqual([`${RATE}#taxOf`, MONEY]);
   });
 
   it('opens after Enter on a folder box', async () => {
@@ -404,13 +430,13 @@ describe('the file level', () => {
       [`${NOTIFY} -> ${SERVICE}/book.ts#book`]: '',
       [`${SERVICE}/book.ts#book -> ${MONEY}`]: '',
       [`${SERVICE}/book.ts#book -> ${NOTIFY}`]: '',
-      [`${SERVICE}/book.ts#book -> ${SHIPPING}`]: '',
+      [`${SERVICE}/book.ts#book -> ${CARRIERS}`]: '',
     });
     expect(
       boxesOf(page)
         .filter(({ classes }) => classes.includes('outside'))
         .map(({ id }) => id),
-    ).toEqual([MONEY, NOTIFY, API, SHIPPING]);
+    ).toEqual([MONEY, NOTIFY, API, CARRIERS]);
   });
 
   it('shows the file at the end of the breadcrumb', async () => {

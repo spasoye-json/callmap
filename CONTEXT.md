@@ -91,7 +91,7 @@ One folder of the scope, or one file, that the Whole project view shows at a tim
 _Avoid_: zoom level, depth, layer
 
 **Outside box**:
-A box of a level that stands for code that the open level does not hold, at the far end of a bundled line. It is the first folder or file on the path of that code that does not hold the open level. With `src/orders` open, a call to `src/money/format.ts` ends at the outside box `src/money`. A click on an outside box opens the level of that folder or file. An outside box is a folder or a file, and an outside function is a function.
+A box of a level that stands for code that the open level does not hold, at the far end of a bundled line. It is the first folder or file on the path of that code that does not hold the open level. With `src/orders` open, a call to `src/money/format.ts` ends at the outside box `src/money`. An outside box collapses like the box of that path at its parent level, so a call to `src/tax/rate.ts` ends at the box `src/tax/rate.ts` when `src/tax` holds only that file. A click on an outside box opens the level of that folder or file. An outside box is a folder or a file, and an outside function is a function.
 _Avoid_: external box, neighbour box, ghost
 
 **Outside function**:

@@ -20,6 +20,7 @@ The owner confirmed 2 rules of the levels on 2026-10-20, for spec 37.
 
 - A folder with only one file shows as the box of that file. This extends the rule that a chain of folders with one child each shows as one box. The reason is the same: a level never holds a single box.
 - A click on an outside box opens the level of that outside code. The outside box is the first folder or file on the path of that code that does not hold the open level, so the click opens that folder or file. The page already did this, and the README already said so.
+- An outside box collapses like the box of that path at its parent level, so a click on it opens a level with 2 or more boxes or a file level.
 
 ## Numbers
 
