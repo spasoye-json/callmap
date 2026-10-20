@@ -106,13 +106,12 @@ describe('the Whole project view of a scope with files at its top', () => {
   it('lists the calls of a line after Enter on it', async () => {
     const page = await projectPage();
     const body = bodyOf(page);
-    fireEvent.keyDown(body.getByRole('button', { name: `2 calls from ${CART} to ${MONEY}` }), {
-      key: 'Enter',
-    });
+    const name = `2 calls from ${CART} to ${MONEY}`;
+    fireEvent.keyDown(body.getByRole('button', { name }), { key: 'Enter' });
     expect(
-      within(body.getByRole('region', { name: 'Calls' }))
+      within(body.getByRole('dialog', { name }))
         .getAllByRole('button')
         .map((call) => call.textContent),
-    ).toEqual(['receipt calls format', 'subtotal calls round']);
+    ).toEqual(['Δreceipt → format:10', '·subtotal → round:4']);
   });
 });

@@ -1,28 +1,78 @@
-.bundled-calls h2 {
-  margin: 0 0 6px;
-  font-size: 15px;
+.bundled-calls {
+  position: absolute;
+  z-index: 4;
+  width: 340px;
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 56px);
+  overflow: auto;
+  border: 1px solid var(--rule-strong);
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.bundled-calls[hidden] {
+  display: none;
+}
+
+.bundled-calls-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule);
+  font: 600 12px/1.3 var(--font-code);
   overflow-wrap: anywhere;
 }
 
-.bundled-calls ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.bundled-calls-header .call-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-weight: 400;
+  white-space: nowrap;
 }
 
-.bundled-calls button {
+.bundled-call,
+.bundled-calls .show-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 4px 6px;
+  min-height: 30px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 4px;
   background: transparent;
   color: var(--ink);
-  font: inherit;
+  font: 12px var(--font-code);
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.bundled-calls button:hover,
-.bundled-calls button:focus-visible {
+.bundled-call:hover,
+.bundled-call:focus-visible,
+.bundled-calls .show-all:hover,
+.bundled-calls .show-all:focus-visible {
   background: var(--selected);
+}
+
+.bundled-call .arrow {
+  color: var(--muted);
+}
+
+.bundled-call .call-line {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bundled-call .chip-room {
+  flex: none;
+  width: 16px;
+}
+
+.bundled-calls .show-all {
+  color: var(--focus);
+  font-family: var(--font-ui);
 }
