@@ -86,7 +86,7 @@ The slow levels have many lines for their boxes. `src/chart` holds 39 boxes and 
 ## Other findings
 
 - **A long review on ECharts.** A first try compared the branch with a base 50 commits back, across the merge of apache/echarts#21621. That review holds 2,021 functions, and its Diff view holds 2,584 boxes and 6,356 lines. The command did not end in 10 minutes, and the check stopped it. The levels do not change the Diff view, which the command still lays out as one graph.
-- **TypeORM.** A first try on `typeorm/typeorm` stopped with "the one-of group holds calls from more than one call site". A chain of 2 calls through 2 interfaces, such as `a.b().c()`, gives 2 one-of groups with the same key. Its source holds 2,761 functions, so the check moved to ECharts.
+- **TypeORM.** A first try on `typeorm/typeorm` stopped with "the one-of group holds calls from more than one call site". A chain of 2 calls through 2 interfaces, such as `a.b().c()`, gives 2 one-of groups with the same key. Its source holds 2,761 functions, so the check moved to ECharts. The branch `fix/one-of-chained-calls` keys each group on the position of the method name, and the extractor then reads all of `packages/typeorm/src` in 3 seconds.
 
 ## The result
 
