@@ -87,11 +87,11 @@ One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder o
 _Avoid_: mode, screen, perspective
 
 **Level**:
-One folder of the scope, or one file, that the Whole project view shows at a time. The level of a folder shows its child folders and its files as boxes. The level of a file shows its functions as boxes. The top level is the deepest folder that holds every file in scope. A chain of folders with one child each shows as one box, so a level never holds a single box. A box counts the changed, added and removed functions inside it. A click on a box opens its level, and the breadcrumb leads back up.
+One folder of the scope, or one file, that the Whole project view shows at a time. The level of a folder shows its child folders and its files as boxes. The level of a file shows its functions as boxes. The top level is the deepest folder that holds every file in scope. A chain of folders with one child each shows as one box. A folder with only one file shows as the box of that file. So a level never holds a single box. A box counts the changed, added and removed functions inside it. A click on a box opens its level, and the breadcrumb leads back up.
 _Avoid_: zoom level, depth, layer
 
 **Outside box**:
-A box of a level that stands for code that the open level does not hold, at the far end of a bundled line. It is the first folder or file on the path of that code that does not hold the open level. With `src/orders` open, a call to `src/money/format.ts` ends at the outside box `src/money`. An outside box is a folder or a file, and an outside function is a function.
+A box of a level that stands for code that the open level does not hold, at the far end of a bundled line. It is the first folder or file on the path of that code that does not hold the open level. With `src/orders` open, a call to `src/money/format.ts` ends at the outside box `src/money`. A click on an outside box opens the level of that folder or file. An outside box is a folder or a file, and an outside function is a function.
 _Avoid_: external box, neighbour box, ghost
 
 **Outside function**:

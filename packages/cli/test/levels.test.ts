@@ -21,6 +21,8 @@ const CARRIERS = 'src/shipping/carriers';
 const API = 'src/orders/api';
 const SERVICE = 'src/orders/service';
 const SHIPPING = 'src/shipping';
+const TAX = 'src/tax';
+const RATE = `${TAX}/rate.ts`;
 
 let html = '';
 
@@ -50,6 +52,7 @@ describe('the top level of the Whole project view', () => {
       [NOTIFY]: 'notify/',
       [ORDERS]: 'orders/',
       [CARRIERS]: 'shipping/carriers/',
+      [RATE]: 'tax/rate.ts',
     });
     expect(bodyOf(page).getByRole('tab', { selected: true }).textContent).toBe('Whole project');
   });
@@ -116,6 +119,35 @@ describe('a folder level', () => {
     });
   });
 
+  it('shows a folder with one file as the box of that file', async () => {
+    const page = await projectPage();
+    expect(boxesOf(page).find(({ id }) => id === RATE)?.kind).toBe('file');
+    expect(boxesOf(page).some(({ id }) => id === TAX)).toBe(false);
+    await clickBox(page, RATE);
+    expect(boxLabelsOf(page)[`${RATE}#taxOf`]).toBe('taxOf');
+    expect(
+      breadcrumbOf(page)
+        .getAllByRole('button')
+        .map((crumb) => crumb.textContent),
+    ).toEqual(['src/', 'tax/rate.ts']);
+  });
+
+  it('opens the level of the outside code after a click on an outside box', async () => {
+    const page = await ordersPage();
+    await clickBox(page, MONEY);
+    expect(boxLabelsOf(page)).toEqual({
+      [`${MONEY}/format.ts`]: 'format.ts',
+      [`${MONEY}/round.ts`]: 'round.ts',
+      [ORDERS]: 'src/orders/',
+      [TAX]: 'src/tax/',
+    });
+    expect(
+      breadcrumbOf(page)
+        .getAllByRole('button')
+        .map((crumb) => crumb.textContent),
+    ).toEqual(['src/', 'money/']);
+  });
+
   it('opens after Enter on a folder box', async () => {
     const page = await projectPage();
     fireEvent.keyDown(bodyOf(page).getByRole('button', { name: /^orders\// }), { key: 'Enter' });
@@ -153,7 +185,7 @@ describe('the breadcrumb', () => {
     await clickBox(page, API);
     fireEvent.click(breadcrumbOf(page).getByRole('button', { name: 'src/' }));
     await settled(page);
-    expect(Object.keys(boxLabelsOf(page))).toEqual([MONEY, NOTIFY, ORDERS, CARRIERS]);
+    expect(Object.keys(boxLabelsOf(page))).toEqual([MONEY, NOTIFY, ORDERS, CARRIERS, RATE]);
     expect(
       breadcrumbOf(page)
         .getAllByRole('button')
@@ -170,6 +202,7 @@ describe('the lines of a level', () => {
       [`${ORDERS} -> ${MONEY}`]: '4',
       [`${ORDERS} -> ${NOTIFY}`]: '1',
       [`${ORDERS} -> ${CARRIERS}`]: '1',
+      [`${RATE} -> ${MONEY}`]: '1',
     });
   });
 
