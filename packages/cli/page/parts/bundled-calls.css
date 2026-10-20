@@ -54,7 +54,7 @@
 .bundled-call:focus-visible,
 .bundled-calls .show-all:hover,
 .bundled-calls .show-all:focus-visible {
-  background: var(--selected);
+  background: var(--hover);
 }
 
 .bundled-call .arrow {

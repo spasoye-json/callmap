@@ -1,9 +1,11 @@
 import type { FunctionId } from '@callmap/graph-document';
+import type { FunctionMark } from '@callmap/review';
 import type { ReaderPageData } from './data.ts';
 import { drawingOf } from './drawing.ts';
 import { laidOf, layoutOf } from './layout.ts';
 import type { Laid, Rect } from './layout.ts';
 import type { ReaderPage } from './reader-page.ts';
+import { isHiddenBy } from './scene.ts';
 import type { FunctionBox, Scene } from './scene.ts';
 import { tabBarOf } from './tabs.ts';
 import { choiceKeyOf } from './view.ts';
@@ -36,10 +38,13 @@ type LaidFunction = FunctionBox & Rect;
 
 const middleOf = ({ y, height }: Rect): number => y + height / 2;
 
+const HIDDEN_MARKS = 'data-hidden-marks';
+
 const nextAlongCalls = (
   { boxes, lines }: Laid,
   from: string,
   along: 'callers' | 'callees',
+  hidden: ReadonlySet<FunctionMark>,
 ): LaidFunction | undefined => {
   const start = boxes.find(({ id }) => id === from);
   if (start === undefined) return undefined;
@@ -51,7 +56,10 @@ const nextAlongCalls = (
   );
   const distanceOf = (box: Rect): number => Math.abs(middleOf(box) - middleOf(start));
   return boxes
-    .filter((box): box is LaidFunction => box.kind === 'function' && ends.has(box.id))
+    .filter(
+      (box): box is LaidFunction =>
+        box.kind === 'function' && ends.has(box.id) && !isHiddenBy(hidden, box),
+    )
     .sort((left, right) => distanceOf(left) - distanceOf(right) || left.x - right.x)[0];
 };
 
@@ -64,6 +72,8 @@ export const interactionOf = (
   const boxHandlers: ((box: FunctionBox) => void)[] = [];
   const viewHandlers: ((view: View) => void)[] = [];
   const choiceHandlers: ((view: View, choice: Choice) => void)[] = [];
+  const hiddenMarkHandlers: ((hidden: ReadonlySet<FunctionMark>) => void)[] = [];
+  const hiddenMarks = new Set<FunctionMark>();
   const states = views.map((view): ViewState => ({
     view,
     opened: new Set(),
@@ -169,7 +179,7 @@ export const interactionOf = (
   });
   const step = (along: 'callers' | 'callees'): void => {
     if (selected === undefined) return;
-    const next = nextAlongCalls(drawing.camera.view().level, selected, along);
+    const next = nextAlongCalls(drawing.camera.view().level, selected, along, hiddenMarks);
     if (next === undefined) return;
     select(next);
     drawing.keepInView(next.id);
@@ -193,6 +203,13 @@ export const interactionOf = (
     event.preventDefault();
     act();
   });
+
+  const toggleMark = (mark: FunctionMark): void => {
+    if (hiddenMarks.has(mark)) hiddenMarks.delete(mark);
+    else hiddenMarks.add(mark);
+    graph.setAttribute(HIDDEN_MARKS, [...hiddenMarks].join(' '));
+    for (const handler of hiddenMarkHandlers) handler(hiddenMarks);
+  };
 
   const show = (ids: readonly FunctionId[], anchor?: FunctionId): Promise<void> => {
     const fresh = ids.filter((id) => !current.opened.has(id) && functionBoxOf(id) === undefined);
@@ -254,6 +271,7 @@ export const interactionOf = (
       boxHandlers.push(handler);
     },
     onLineClick: drawing.onLineClick,
+    onHighlight: drawing.onHighlight,
     onViewChange: (handler) => {
       viewHandlers.push(handler);
     },
@@ -261,6 +279,11 @@ export const interactionOf = (
       choiceHandlers.push(handler);
     },
     currentView: () => current.view,
+    hiddenMarks: () => hiddenMarks,
+    toggleMark,
+    onHiddenMarksChange: (handler) => {
+      hiddenMarkHandlers.push(handler);
+    },
     show,
     open,
     keepSelectionInView: () => {

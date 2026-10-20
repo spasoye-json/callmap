@@ -1,3 +1,4 @@
+import { eyebrowOf } from '../panel-elements.ts';
 import type { PagePart } from '../reader-page.ts';
 
 const numberOf = (count: number): string => count.toLocaleString('en-US');
@@ -9,9 +10,6 @@ const resolutionRate: PagePart = ({ data, panels }) => {
   section.className = 'resolution-rate';
   section.title = 'Calls in the whole repo in scope. A one-of group counts as one call.';
 
-  const eyebrow = document.createElement('h2');
-  eyebrow.className = 'eyebrow';
-  eyebrow.textContent = 'Resolution';
   const value = document.createElement('p');
   value.className = 'rate';
   const percent = document.createElement('span');
@@ -27,7 +25,7 @@ const resolutionRate: PagePart = ({ data, panels }) => {
   calls.className = 'rate-calls';
   calls.textContent = `${numberOf(resolved)} of ${numberOf(resolved + open)} calls`;
 
-  section.append(eyebrow, value, bar, calls);
+  section.append(eyebrowOf('Resolution'), value, bar, calls);
   panels.prepend(section);
 };
 

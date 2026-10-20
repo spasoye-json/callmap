@@ -1,10 +1,13 @@
 import { byText } from '@callmap/review';
+import type { FunctionMark } from '@callmap/review';
 import { chipOf } from '../chips.ts';
 import type { ChipMark } from '../chips.ts';
-import { pageFunctionsOf } from '../functions.ts';
+import { isChangeMark, pageFunctionsOf } from '../functions.ts';
+import { moreButtonOf } from '../panel-elements.ts';
 import type { PagePart } from '../reader-page.ts';
 import { callKeyOf, frameIdOf } from '../scene.ts';
 import type { SceneLine } from '../scene.ts';
+import { countWordsOf } from '../words.ts';
 
 const ROWS_SHOWN = 5;
 const EDGE_ROOM = 8;
@@ -20,9 +23,9 @@ interface CallRow {
   readonly line: number | undefined;
 }
 
-const rankOf = (call: SceneLine, chip: ChipMark | undefined): number => {
+const rankOf = (call: SceneLine, callerMark: FunctionMark | undefined): number => {
   if (call.mark !== 'kept') return 0;
-  return chip === 'changed' || chip === 'added' || chip === 'removed' ? 1 : 2;
+  return isChangeMark(callerMark) ? 1 : 2;
 };
 
 const byRankThenLine = (left: CallRow, right: CallRow): number =>
@@ -41,11 +44,11 @@ const bundledCalls: PagePart = (page) => {
   }
 
   const rowOf = (call: SceneLine): CallRow => {
-    const chip = call.mark === 'kept' ? functions.get(call.from)?.mark : call.mark;
+    const callerMark = functions.get(call.from)?.mark;
     return {
       call,
-      chip,
-      rank: rankOf(call, chip),
+      chip: call.mark === 'kept' ? callerMark : call.mark,
+      rank: rankOf(call, callerMark),
       line:
         call.mark === 'removed'
           ? undefined
@@ -106,22 +109,19 @@ const bundledCalls: PagePart = (page) => {
     ends.textContent = `${endLabelOf(line.from)} → ${endLabelOf(line.to)}`;
     const count = document.createElement('span');
     count.className = 'call-count';
-    count.textContent = `${String(rows.length)} ${rows.length === 1 ? 'call' : 'calls'}`;
+    count.textContent = countWordsOf(rows.length, 'call', 'calls');
     header.append(ends, count);
     const shown = rows.slice(0, ROWS_SHOWN).map(buttonOf);
     const body = document.createElement('div');
     body.className = 'bundled-calls-rows';
     body.append(...shown);
     if (rows.length > ROWS_SHOWN) {
-      const more = document.createElement('button');
-      more.type = 'button';
-      more.className = 'show-all';
-      more.textContent = `Show all ${String(rows.length)}`;
-      more.addEventListener('click', () => {
-        body.replaceChildren(...rows.map(buttonOf));
-        place();
-      });
-      body.append(more);
+      body.append(
+        moreButtonOf('show-all', `Show all ${String(rows.length)}`, () => {
+          body.replaceChildren(...rows.map(buttonOf));
+          place();
+        }),
+      );
     }
     list.setAttribute('aria-label', line.title ?? '');
     list.replaceChildren(header, body);

@@ -25,6 +25,7 @@
   --open: #6b7385;
   --focus: #2356d1;
   --selected: #e6eeff;
+  --hover: #eef1f5;
   --focus-ring: rgb(35 86 209 / 0.18);
   --fade: 0.28;
   --diff-added-line: #e3f6e8;
@@ -63,6 +64,7 @@
     --open: #8d96a6;
     --focus: #7ea6ff;
     --selected: #1d2a47;
+    --hover: #242a35;
     --focus-ring: rgb(126 166 255 / 0.22);
     --fade: 0.26;
     --diff-added-line: #13301e;

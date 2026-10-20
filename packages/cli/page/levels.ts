@@ -6,6 +6,7 @@ import type { PageFunction } from './functions.ts';
 import { folderIdOf, foldersAbove } from './nested-scene.ts';
 import { arrowKeyOf, sceneOf as functionSceneOf } from './scene.ts';
 import type { LevelBox, LevelCounts, Scene, SceneFrame, SceneLine } from './scene.ts';
+import { countWordsOf } from './words.ts';
 
 export interface Crumb {
   readonly path: string;
@@ -28,9 +29,6 @@ const isInBox = (box: string, file: string): boolean => box === file || isInFold
 const relativeTo = (folder: string, path: string): string =>
   folder === ROOT ? path : path.slice(folder.length + 1);
 
-const counted = (count: number, one: string, many = one): readonly string[] =>
-  count === 0 ? [] : [`${String(count)} ${count === 1 ? one : many}`];
-
 const markOf = (calls: readonly SceneLine[]): CallMark =>
   (['added', 'removed'] as const).find((mark) => calls.some((call) => call.mark === mark)) ??
   'kept';
@@ -48,10 +46,11 @@ const bundledLineOf = (
   ...(oneOf === undefined ? {} : { oneOf }),
   calls,
   title: [
-    `${counted(calls.length, 'call', 'calls').join('')} from ${from} to ${to}`,
-    ...(['added', 'removed'] as const).flatMap((mark) =>
-      counted(calls.filter((call) => call.mark === mark).length, mark),
-    ),
+    `${countWordsOf(calls.length, 'call', 'calls')} from ${from} to ${to}`,
+    ...(['added', 'removed'] as const).flatMap((mark) => {
+      const count = calls.filter((call) => call.mark === mark).length;
+      return count === 0 ? [] : [countWordsOf(count, mark)];
+    }),
   ].join(', '),
 });
 

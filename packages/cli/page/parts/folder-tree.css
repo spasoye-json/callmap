@@ -32,7 +32,10 @@
 }
 
 .folder-tree button:hover,
-.folder-tree button:focus-visible,
+.folder-tree button:focus-visible {
+  background: var(--hover);
+}
+
 .folder-tree button[aria-current='true'] {
   background: var(--selected);
 }

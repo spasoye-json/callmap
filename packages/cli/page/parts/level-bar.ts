@@ -1,24 +1,16 @@
+import { arrowIconOf } from '../arrows.ts';
+import { coverTopOfGraph } from '../camera.ts';
 import { levelsOf } from '../levels.ts';
 import type { PagePart } from '../reader-page.ts';
-import { svgOf } from '../svg.ts';
 import { wholeProjectView } from '../views/whole-project.ts';
+import { countWordsOf } from '../words.ts';
 
-const countOf = (count: number, one: string, many: string): string =>
-  `${String(count)} ${count === 1 ? one : many}`;
-
-const upArrowOf = (): SVGSVGElement =>
-  svgOf(
-    'svg',
-    { class: 'up-arrow', width: 12, height: 12, viewBox: '0 0 16 16', 'aria-hidden': 'true' },
-    svgOf('path', { d: 'M8 13V3M4 7l4-4 4 4' }),
-  );
-
-const breadcrumb: PagePart = (page) => {
+const levelBar: PagePart = (page) => {
   const levels = levelsOf(page.data);
   const bar = document.createElement('section');
-  bar.setAttribute('aria-label', 'Level summary');
-  bar.className = 'crumb-bar';
-  bar.setAttribute('data-covers', 'top');
+  bar.setAttribute('aria-label', 'Level bar');
+  bar.className = 'level-bar';
+  coverTopOfGraph(bar);
   bar.hidden = true;
   const nav = document.createElement('nav');
   nav.setAttribute('aria-label', 'Level');
@@ -30,7 +22,7 @@ const breadcrumb: PagePart = (page) => {
   const up = document.createElement('button');
   up.type = 'button';
   up.className = 'up-level';
-  up.append(upArrowOf(), 'Up one level');
+  up.append(arrowIconOf('up', 'up-arrow'), 'Up one level');
   bar.append(nav, summary, up);
   page.graph.append(bar);
 
@@ -56,7 +48,7 @@ const breadcrumb: PagePart = (page) => {
       }),
     );
     const { boxes, lines } = levels.sceneOf(level);
-    summary.textContent = `${countOf(boxes.length, 'box', 'boxes')} · ${countOf(lines.length, 'line', 'lines')}`;
+    summary.textContent = `${countWordsOf(boxes.length, 'box', 'boxes')} · ${countWordsOf(lines.length, 'line', 'lines')}`;
     parent = crumbs.at(-2)?.path;
     up.disabled = parent === undefined;
   };
@@ -70,4 +62,4 @@ const breadcrumb: PagePart = (page) => {
   });
 };
 
-export default breadcrumb;
+export default levelBar;

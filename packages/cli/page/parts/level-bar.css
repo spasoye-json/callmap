@@ -1,4 +1,4 @@
-.crumb-bar {
+.level-bar {
   position: absolute;
   top: 0;
   right: 0;
@@ -13,7 +13,7 @@
   background: var(--paper);
 }
 
-.crumb-bar[hidden] {
+.level-bar[hidden] {
   display: none;
 }
 
@@ -51,7 +51,7 @@
 
 .breadcrumb button:hover,
 .breadcrumb button:focus-visible {
-  background: var(--selected);
+  background: var(--hover);
 }
 
 .breadcrumb button[aria-current='location'] {

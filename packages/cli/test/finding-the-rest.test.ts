@@ -300,6 +300,17 @@ describe('the keys of the graph', () => {
     press(page, 'ArrowLeft');
     expect(openName(page)).toBe('checkout');
   });
+
+  it('skips the boxes of a hidden mark with an arrow', async () => {
+    const page = await loadReaderPage(html, undefined, undefined, DENSE);
+    const marks = within(bodyOf(page).getByRole('region', { name: 'Marks' }));
+    fireEvent.click(marks.getByRole('button', { name: /^Changed \d+$/ }));
+    await clickBox(page, `src/checkout.ts#checkout`);
+    focusBox(page, `src/checkout.ts#checkout`);
+    press(page, 'ArrowRight');
+    expect(openName(page)).toBe('checkout');
+    expect(graphBoxOf(page, RECEIPT).classList).not.toContain('selected');
+  });
 });
 
 describe('the search', () => {

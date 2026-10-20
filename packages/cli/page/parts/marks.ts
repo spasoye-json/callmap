@@ -1,5 +1,6 @@
 import type { FunctionMark } from '@callmap/review';
 import { chipOf } from '../chips.ts';
+import { sectionHeadOf, spanOf } from '../panel-elements.ts';
 import type { PagePart } from '../reader-page.ts';
 import { svgOf } from '../svg.ts';
 
@@ -10,21 +11,8 @@ const MARKS: readonly (readonly [FunctionMark, string])[] = [
   ['neighbour', 'Neighbour'],
 ];
 
-const HIDDEN_MARKS = 'data-hidden-marks';
-
-const countOf = (count: number): HTMLElement => {
-  const element = document.createElement('span');
-  element.className = 'count';
-  element.textContent = count.toLocaleString('en-US');
-  return element;
-};
-
-const labelOf = (text: string): HTMLElement => {
-  const element = document.createElement('span');
-  element.className = 'label';
-  element.textContent = text;
-  return element;
-};
+const countSpanOf = (count: number): HTMLSpanElement =>
+  spanOf('count', count.toLocaleString('en-US'));
 
 const callSampleOf = (kind: string): SVGSVGElement => {
   const sample = svgOf(
@@ -36,21 +24,7 @@ const callSampleOf = (kind: string): SVGSVGElement => {
   return sample;
 };
 
-const headOf = (title: string, note: string): HTMLElement => {
-  const head = document.createElement('div');
-  head.className = 'section-head';
-  const eyebrow = document.createElement('h2');
-  eyebrow.className = 'eyebrow';
-  eyebrow.textContent = title;
-  const hint = document.createElement('span');
-  hint.className = 'hint';
-  hint.textContent = note;
-  head.append(eyebrow, hint);
-  return head;
-};
-
-const marks: PagePart = ({ data, graph, panels }) => {
-  const hidden = new Set<FunctionMark>();
+const marks: PagePart = ({ data, panels, hiddenMarks, toggleMark }) => {
   const section = document.createElement('section');
   section.setAttribute('aria-label', 'Marks');
   section.className = 'marks';
@@ -61,12 +35,10 @@ const marks: PagePart = ({ data, graph, panels }) => {
     button.className = 'legend-row';
     button.setAttribute('aria-pressed', 'false');
     const count = data.review.functions.filter((marked) => marked.mark === mark).length;
-    button.append(chipOf(mark), labelOf(name), ' ', countOf(count));
+    button.append(chipOf(mark), spanOf('label', name), ' ', countSpanOf(count));
     button.addEventListener('click', () => {
-      if (hidden.has(mark)) hidden.delete(mark);
-      else hidden.add(mark);
-      button.setAttribute('aria-pressed', String(hidden.has(mark)));
-      graph.setAttribute(HIDDEN_MARKS, [...hidden].join(' '));
+      toggleMark(mark);
+      button.setAttribute('aria-pressed', String(hiddenMarks().has(mark)));
     });
     return button;
   });
@@ -85,11 +57,16 @@ const marks: PagePart = ({ data, graph, panels }) => {
   ).map(([kind, name, count]) => {
     const row = document.createElement('div');
     row.className = 'legend-row';
-    row.append(callSampleOf(kind), labelOf(name), ' ', countOf(count));
+    row.append(callSampleOf(kind), spanOf('label', name), ' ', countSpanOf(count));
     return row;
   });
 
-  section.append(headOf('Marks', 'Click to hide'), ...markRows, callsHead, ...callRows);
+  section.append(
+    sectionHeadOf('Marks', spanOf('hint', 'Click to hide')),
+    ...markRows,
+    callsHead,
+    ...callRows,
+  );
   panels.append(section);
 };
 

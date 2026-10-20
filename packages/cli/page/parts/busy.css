@@ -19,10 +19,6 @@
   background: var(--focus);
 }
 
-.crumb-bar:not([hidden]) ~ .busy .busy-progress {
-  top: 40px;
-}
-
 .busy-text {
   position: absolute;
   right: 0;

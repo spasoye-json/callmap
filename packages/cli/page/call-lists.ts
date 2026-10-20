@@ -5,7 +5,8 @@ import { chipOf } from './chips.ts';
 import type { ReaderPageData } from './data.ts';
 import { markedCallsOf, pageFunctionsOf } from './functions.ts';
 import type { PageFunction } from './functions.ts';
-import { callKeyOf, oneOfLabelsOf, openEndsByCallerOf } from './scene.ts';
+import { eyebrowOf, spanOf } from './panel-elements.ts';
+import { byLine, callKeyOf, oneOfLabelsOf, openEndsByCallerOf } from './scene.ts';
 
 const CALL_NOTES: Readonly<Record<CallMark, string | undefined>> = {
   added: 'added call',
@@ -19,13 +20,6 @@ interface CallRow {
 }
 
 export type CallListsOf = (id: FunctionId, select: (id: FunctionId) => void) => HTMLElement;
-
-const spanOf = (className: string, text: string): HTMLSpanElement => {
-  const span = document.createElement('span');
-  span.className = className;
-  span.textContent = text;
-  return span;
-};
 
 const notesOf = (notes: readonly string[]): readonly (HTMLSpanElement | string)[] =>
   notes.flatMap((note) => [' ', spanOf('note', note)]);
@@ -49,10 +43,8 @@ const functionRowOf = (row: CallRow, select: (id: FunctionId) => void): HTMLLIEl
 const listOf = (title: string, rows: readonly HTMLLIElement[]): HTMLElement => {
   const block = document.createElement('div');
   block.className = 'call-list';
-  const heading = document.createElement('p');
-  heading.className = 'eyebrow';
+  const heading = eyebrowOf(`${title} · ${String(rows.length)}`, 'p');
   heading.id = `call-list-${title.replaceAll(' ', '-').toLowerCase()}`;
-  heading.textContent = `${title} · ${String(rows.length)}`;
   const list = document.createElement('ul');
   list.setAttribute('aria-labelledby', heading.id);
   list.append(...rows);
@@ -88,17 +80,15 @@ export const callListsOf = (data: ReaderPageData): CallListsOf => {
       .filter(({ caller }) => caller === id)
       .flatMap((call) => rowOf(call, call.callee))
       .sort(byName);
-    const openEndRows = [...(openEnds.get(id) ?? [])]
-      .sort((left, right) => left.line - right.line)
-      .map(({ expression, line }) => {
-        const item = document.createElement('li');
-        const row = document.createElement('div');
-        row.className = 'call-row';
-        row.title = `line ${String(line)}`;
-        row.append(chipOf('open-end'), spanOf('name', expression), ...notesOf(['open end']));
-        item.append(row);
-        return item;
-      });
+    const openEndRows = [...(openEnds.get(id) ?? [])].sort(byLine).map(({ expression, line }) => {
+      const item = document.createElement('li');
+      const row = document.createElement('div');
+      row.className = 'call-row';
+      row.title = `line ${String(line)}`;
+      row.append(chipOf('open-end'), spanOf('name', expression), ...notesOf(['open end']));
+      item.append(row);
+      return item;
+    });
     const lists = document.createElement('div');
     lists.className = 'call-lists';
     lists.append(

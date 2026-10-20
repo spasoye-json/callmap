@@ -81,7 +81,7 @@
 
 .search button:hover,
 .search button:focus-visible {
-  background: var(--selected);
+  background: var(--hover);
 }
 
 .result-name {

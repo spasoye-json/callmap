@@ -56,21 +56,21 @@ describe('the function count of a level box', () => {
   });
 });
 
-const crumbBarOf = (page: LoadedPage) =>
-  within(bodyOf(page).getByRole('region', { name: 'Level summary' }));
+const levelBarOf = (page: LoadedPage) =>
+  within(bodyOf(page).getByRole('region', { name: 'Level bar' }));
 
 const crumbsOf = (page: LoadedPage): readonly string[] =>
-  within(crumbBarOf(page).getByRole('navigation', { name: 'Level' }))
+  within(levelBarOf(page).getByRole('navigation', { name: 'Level' }))
     .getAllByRole('button')
     .map((crumb) => crumb.textContent);
 
-describe('the level summary', () => {
+describe('the level bar', () => {
   it('shows the count of the boxes and the lines of the open level', async () => {
     const page = await projectPage();
-    expect(crumbBarOf(page).getByText(/boxes/).textContent).toBe('5 boxes · 5 lines');
+    expect(levelBarOf(page).getByText(/boxes/).textContent).toBe('5 boxes · 5 lines');
     await clickBox(page, NOTIFY);
     await clickBox(page, `${NOTIFY}/sms.ts`);
-    expect(crumbBarOf(page).getByText(/boxes/).textContent).toBe('4 boxes · 2 lines');
+    expect(levelBarOf(page).getByText(/boxes/).textContent).toBe('4 boxes · 2 lines');
   });
 
   it('opens the parent level with "Up one level"', async () => {
@@ -78,7 +78,7 @@ describe('the level summary', () => {
     await clickBox(page, ORDERS);
     await clickBox(page, `${ORDERS}/api`);
     expect(crumbsOf(page)).toEqual(['src/', 'orders/', 'api/']);
-    fireEvent.click(crumbBarOf(page).getByRole('button', { name: 'Up one level' }));
+    fireEvent.click(levelBarOf(page).getByRole('button', { name: 'Up one level' }));
     await settled(page);
     expect(crumbsOf(page)).toEqual(['src/', 'orders/']);
     expect(boxElementOf(page, `${ORDERS}/api`)).toBeDefined();
@@ -86,7 +86,7 @@ describe('the level summary', () => {
 
   it('turns "Up one level" off on the top level', async () => {
     const page = await projectPage();
-    const up = crumbBarOf(page).getByRole('button', { name: 'Up one level' });
+    const up = levelBarOf(page).getByRole('button', { name: 'Up one level' });
     expect(up.hasAttribute('disabled')).toBe(true);
   });
 });

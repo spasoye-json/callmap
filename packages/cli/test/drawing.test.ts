@@ -179,6 +179,70 @@ describe('the lines of the drawing', () => {
   }, 30_000);
 });
 
+const SHORTEST_PART_FOR_A_BADGE = 32;
+const NEXT_TO_THE_CALLER = 24;
+
+const lengthOf = ([[x1, y1], [x2, y2]]: Segment): number => Math.abs(x2 - x1) + Math.abs(y2 - y1);
+
+const middleOf = ([[x1, y1], [x2, y2]]: Segment): Point => [(x1 + x2) / 2, (y1 + y2) / 2];
+
+const isOn = ([x, y]: Point, [[x1, y1], [x2, y2]]: Segment): boolean =>
+  Math.min(x1, x2) <= x && x <= Math.max(x1, x2) && Math.min(y1, y2) <= y && y <= Math.max(y1, y2);
+
+interface DrawnBadge {
+  readonly line: DrawnLine;
+  readonly centre: Point;
+}
+
+const badgesOf = ({ window }: LoadedPage): readonly DrawnBadge[] =>
+  [...window.document.querySelectorAll('#graph [data-from]')].flatMap((element) => {
+    const badge = element.querySelector(':scope > .label.badge');
+    if (badge === null) return [];
+    const [x = '', y = ''] = (badge.getAttribute('data-keep-size') ?? '').split(',');
+    const path = element.querySelector('path')?.getAttribute('d') ?? '';
+    const points = [...path.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map(([, px, py]): Point => [
+      Number(px),
+      Number(py),
+    ]);
+    const line: DrawnLine = {
+      from: element.getAttribute('data-from') ?? '',
+      to: element.getAttribute('data-to') ?? '',
+      classes: [...element.classList],
+      label: badge.textContent,
+      points,
+    };
+    return [{ line, centre: [Number(x), Number(y)] }];
+  });
+
+describe('the count badges of the lines', () => {
+  it('puts each count badge at the middle of the longest straight part of its line, or next to the caller when no part is 32 px long', async () => {
+    let checked = 0;
+    for (const [name, page] of await pagesWithLevelsToCheck()) {
+      for (const { line, centre } of badgesOf(page)) {
+        checked += 1;
+        const segments = segmentsOf(line);
+        const longest = Math.max(...segments.map(lengthOf));
+        const where = `${name}: ${line.from} -> ${line.to}`;
+        if (longest >= SHORTEST_PART_FOR_A_BADGE) {
+          const middles = segments.filter((part) => lengthOf(part) === longest).map(middleOf);
+          expect(
+            middles.some(([x, y]) => x === centre[0] && y === centre[1]),
+            `${where} has its badge at ${centre.join(',')}`,
+          ).toBe(true);
+        } else {
+          const [first] = segments;
+          const [start] = line.points;
+          expect(first !== undefined && isOn(centre, first), where).toBe(true);
+          expect(lengthOf([start ?? centre, centre]), where).toBeLessThanOrEqual(
+            NEXT_TO_THE_CALLER,
+          );
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+  }, 30_000);
+});
+
 const transformOf = ({ window }: LoadedPage): string =>
   window.document.querySelector('#graph svg > g')?.getAttribute('transform') ?? '';
 

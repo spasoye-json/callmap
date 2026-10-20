@@ -4,6 +4,7 @@ import type { CallMark, FunctionMark, MarkedCall } from '@callmap/review';
 import type { ReaderPageData } from './data.ts';
 import type { PageFunction } from './functions.ts';
 import type { Choice } from './view.ts';
+import { countWordsOf } from './words.ts';
 
 export interface SceneFrame {
   readonly kind: 'file' | 'folder';
@@ -58,9 +59,6 @@ export interface MarkCount {
   readonly words: string;
 }
 
-const wordsOf = (count: number, one: string, many = one): string =>
-  `${String(count)} ${count === 1 ? one : many}`;
-
 export const markCountsOf = ({
   changed,
   added,
@@ -68,13 +66,13 @@ export const markCountsOf = ({
   openEnds,
 }: LevelCounts): readonly MarkCount[] =>
   [
-    { mark: 'changed' as const, count: changed, words: wordsOf(changed, 'changed') },
-    { mark: 'added' as const, count: added, words: wordsOf(added, 'added') },
-    { mark: 'removed' as const, count: removed, words: wordsOf(removed, 'removed') },
+    { mark: 'changed' as const, count: changed, words: countWordsOf(changed, 'changed') },
+    { mark: 'added' as const, count: added, words: countWordsOf(added, 'added') },
+    { mark: 'removed' as const, count: removed, words: countWordsOf(removed, 'removed') },
     {
       mark: 'open-end' as const,
       count: openEnds,
-      words: wordsOf(openEnds, 'open end', 'open ends'),
+      words: countWordsOf(openEnds, 'open end', 'open ends'),
     },
   ].filter(({ count }) => count > 0);
 
@@ -82,6 +80,11 @@ export const hasChanges = ({ changed, added, removed }: LevelCounts): boolean =>
   changed + added + removed > 0;
 
 export type SceneBox = FunctionBox | OpenEndBox | LevelBox;
+
+export const isHiddenBy = (hidden: ReadonlySet<FunctionMark>, box: SceneBox): boolean =>
+  box.kind === 'function' &&
+  box.pageFunction.mark !== undefined &&
+  hidden.has(box.pageFunction.mark);
 
 export const isLevelBox = <Box extends SceneBox>(box: Box): box is Extract<Box, LevelBox> =>
   box.kind === 'folder' || box.kind === 'file';
@@ -118,6 +121,8 @@ export const arrowKeyOf = (from: string, to: string): string => `${from} -> ${to
 
 export const callKeyOf = ({ caller, callee }: Pick<Call, 'caller' | 'callee'>): string =>
   arrowKeyOf(caller, callee);
+
+export const byLine = (left: OpenEnd, right: OpenEnd): number => left.line - right.line;
 
 export const openEndsByCallerOf = (
   { review, branchGraph }: ReaderPageData,

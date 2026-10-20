@@ -216,6 +216,12 @@ describe('the zoom bands', () => {
     );
   });
 
+  it('sets the count that stays in the Scan band to 11 px on the screen', async () => {
+    const page = await projectPageAt(1);
+    const count = elementOf(page, `[data-box="${ORDERS}"] .count[data-mark="changed"] > text`);
+    expect(page.window.getComputedStyle(count).fontSize).toBe('calc(11px / var(--zoom))');
+  });
+
   it('shows no names, no counts and no badges in the Map band, below 60%', async () => {
     const page = await projectPageAt(3);
     expect(bandOf(page)).toBe('map');
@@ -292,7 +298,7 @@ describe('the text that keeps its screen size', () => {
   });
 });
 
-describe('the level summary bar over the graph', () => {
+describe('the level bar over the graph', () => {
   const FLAT: GraphSize = { width: 2000, height: 130 };
 
   const topsOnScreen = (page: LoadedPage): readonly number[] => {

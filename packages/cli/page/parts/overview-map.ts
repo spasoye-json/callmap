@@ -1,11 +1,11 @@
 import type { CameraView } from '../camera.ts';
+import type { SelectedPath } from '../highlight.ts';
 import type { Laid, LaidBox, Point, Rect } from '../layout.ts';
 import type { PagePart } from '../reader-page.ts';
 
 const MAP_WIDTH = 200;
 const MAP_HEIGHT = 136;
 const MAP_PADDING = 8;
-const PATH_STATES = ['selected', 'connected'] as const;
 
 interface MapScale {
   readonly scale: number;
@@ -41,7 +41,7 @@ const place = (element: HTMLElement, { x, y, width, height }: Rect, at: MapScale
 
 const isOutside = (box: LaidBox): boolean => box.kind !== 'open-end' && box.outside;
 
-const overviewMap: PagePart = ({ graph, camera }) => {
+const overviewMap: PagePart = ({ graph, camera, onHighlight }) => {
   const map = document.createElement('div');
   map.className = 'overview-map';
   map.setAttribute('role', 'img');
@@ -53,28 +53,28 @@ const overviewMap: PagePart = ({ graph, camera }) => {
 
   let level: Laid | undefined;
   let at: MapScale = { scale: 1, left: 0, top: 0 };
-  let marks = new Map<string, HTMLElement>();
+  let mapBoxes = new Map<string, HTMLElement>();
+  let path: SelectedPath = { selected: undefined, connected: new Set() };
 
   const drawBoxes = (next: Laid): void => {
     level = next;
     at = mapScaleOf(next);
-    marks = new Map(
+    mapBoxes = new Map(
       next.boxes.map((box) => {
-        const mark = document.createElement('span');
-        mark.setAttribute('data-map-box', box.id);
-        mark.classList.toggle('outside', isOutside(box));
-        place(mark, box, at);
-        return [box.id, mark];
+        const mapBox = document.createElement('span');
+        mapBox.setAttribute('data-map-box', box.id);
+        mapBox.classList.toggle('outside', isOutside(box));
+        place(mapBox, box, at);
+        return [box.id, mapBox];
       }),
     );
-    map.replaceChildren(...marks.values(), rectangle);
+    map.replaceChildren(...mapBoxes.values(), rectangle);
   };
 
   const showPath = (): void => {
-    for (const [id, mark] of marks) {
-      const drawn = graph.querySelector(`[data-box="${CSS.escape(id)}"]`);
-      for (const state of PATH_STATES)
-        mark.classList.toggle(state, drawn?.classList.contains(state) === true);
+    for (const [id, mapBox] of mapBoxes) {
+      mapBox.classList.toggle('selected', id === path.selected);
+      mapBox.classList.toggle('connected', path.connected.has(id));
     }
   };
 
@@ -90,9 +90,9 @@ const overviewMap: PagePart = ({ graph, camera }) => {
     place(rectangle, view.visible, at);
   };
 
-  new MutationObserver(showPath).observe(graph.querySelector(':scope > svg') ?? graph, {
-    subtree: true,
-    attributeFilter: ['class'],
+  onHighlight((next) => {
+    path = next;
+    showPath();
   });
 
   const pointAt = (event: PointerEvent): Point => {
