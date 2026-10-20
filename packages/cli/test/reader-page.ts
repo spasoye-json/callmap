@@ -151,9 +151,18 @@ export interface GraphSize {
   readonly height: number;
 }
 
+export const COVER_HEIGHT = 40;
+
+const sizeOf = (element: HTMLElement, graph: GraphSize): GraphSize => {
+  if (element.id === 'graph') return graph;
+  if (element.matches('[data-covers="top"]:not([hidden])'))
+    return { width: graph.width, height: COVER_HEIGHT };
+  return { width: 0, height: 0 };
+};
+
 const giveGraphSize = (window: JSDOM['window'], size: GraphSize): void => {
   window.HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement): DOMRect {
-    const { width, height } = this.id === 'graph' ? size : { width: 0, height: 0 };
+    const { width, height } = sizeOf(this, size);
     const box = { x: 0, y: 0, top: 0, left: 0, right: width, bottom: height, width, height };
     return { ...box, toJSON: () => box };
   };

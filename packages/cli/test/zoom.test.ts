@@ -2,6 +2,7 @@ import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { featureBranchRepo, levelsRepo } from './fixture-repo.ts';
 import {
+  COVER_HEIGHT,
   boxesOf,
   clickBox,
   framesOf,
@@ -288,5 +289,29 @@ describe('the text that keeps its screen size', () => {
     expect(framesOf(page).find(({ id }) => id === 'frame:src/checkout.ts')?.label).toBe(
       'src/checkout.ts',
     );
+  });
+});
+
+describe('the level summary bar over the graph', () => {
+  const FLAT: GraphSize = { width: 2000, height: 130 };
+
+  const topsOnScreen = (page: LoadedPage): readonly number[] => {
+    const { y, scale } = cameraOf(page);
+    return boxesOf(page).map((box) => y + scale * box.y);
+  };
+
+  it('leaves the bar out when a level opens and when the reader fits it', async () => {
+    const page = await loadReaderPage(levelsHtml, undefined, undefined, FLAT);
+    await openTab(page, 'Whole project');
+    expect(Math.min(...topsOnScreen(page))).toBeGreaterThanOrEqual(COVER_HEIGHT);
+    press(page, 'Fit');
+    expect(Math.min(...topsOnScreen(page))).toBeGreaterThanOrEqual(COVER_HEIGHT);
+    expect(
+      Math.max(
+        ...boxesOf(page).map(
+          (box) => cameraOf(page).y + cameraOf(page).scale * (box.y + box.height),
+        ),
+      ),
+    ).toBeLessThanOrEqual(FLAT.height);
   });
 });

@@ -84,17 +84,26 @@ export const cameraOf = (
   let sizedAt: number | undefined;
   const handlers: ((view: CameraView) => void)[] = [];
 
-  const sizeOf = (): { readonly width: number; readonly height: number } => {
+  const sizeOf = (): { readonly width: number; readonly height: number; readonly top: number } => {
     const { width, height } = container.getBoundingClientRect();
-    return { width, height };
+    const top = [...container.querySelectorAll(':scope > [data-covers="top"]')].reduce(
+      (covered, cover) => Math.max(covered, cover.getBoundingClientRect().height),
+      0,
+    );
+    return { width, height: Math.max(0, height - top), top };
   };
 
   const view = (): CameraView => {
-    const { width, height } = sizeOf();
+    const { width, height, top } = sizeOf();
     return {
       scale,
       band: bandOf(scale),
-      visible: { x: -x / scale, y: -y / scale, width: width / scale, height: height / scale },
+      visible: {
+        x: -x / scale,
+        y: (top - y) / scale,
+        width: width / scale,
+        height: height / scale,
+      },
       level,
     };
   };
@@ -127,9 +136,9 @@ export const cameraOf = (
   };
 
   const centreLevel = (): void => {
-    const { width, height } = sizeOf();
+    const { width, height, top } = sizeOf();
     x = (width - level.width * scale) / 2;
-    y = (height - level.height * scale) / 2;
+    y = top + (height - level.height * scale) / 2;
   };
 
   const fit = (): void => {
@@ -147,12 +156,12 @@ export const cameraOf = (
     centreLevel();
     const anchor = anchorOf(level.boxes, selected);
     if (anchor !== undefined) {
-      const { width, height } = sizeOf();
+      const { width, height, top } = sizeOf();
       const [anchorX, anchorY] = centreOf(anchor);
       if (!fitsOnAxis(width, level.width)) x = width * ANCHOR_SHARE - anchorX * scale;
       if (!fitsOnAxis(height, level.height)) {
         const lowest = height - level.height * scale - VIEW_MARGIN;
-        y = Math.max(lowest, Math.min(VIEW_MARGIN, height / 2 - anchorY * scale));
+        y = top + Math.max(lowest, Math.min(VIEW_MARGIN, height / 2 - anchorY * scale));
       }
     }
     apply();
@@ -167,15 +176,15 @@ export const cameraOf = (
   };
 
   const zoomFromCentre = (factor: number): void => {
-    const { width, height } = sizeOf();
-    zoomAround(scale * factor, [width / 2, height / 2]);
+    const { width, height, top } = sizeOf();
+    zoomAround(scale * factor, [width / 2, top + height / 2]);
   };
 
   const centreOn = ([atX, atY]: Point): void => {
-    const { width, height } = sizeOf();
+    const { width, height, top } = sizeOf();
     if (width === 0) return;
     x = width / 2 - atX * scale;
-    y = height / 2 - atY * scale;
+    y = top + height / 2 - atY * scale;
     apply();
   };
 
@@ -186,7 +195,7 @@ export const cameraOf = (
 
   const keepInView = (id: string): void => {
     const box = boxOfId(id);
-    const { width, height } = sizeOf();
+    const { width, height, top } = sizeOf();
     if (box === undefined || width === 0 || height === 0) return;
     const shift = (start: number, size: number, room: number): number => {
       const end = start + size;
@@ -194,7 +203,7 @@ export const cameraOf = (
       return end > room - VIEW_MARGIN ? room - VIEW_MARGIN - end : 0;
     };
     const dx = shift(x + box.x * scale, box.width * scale, width);
-    const dy = shift(y + box.y * scale, box.height * scale, height);
+    const dy = shift(y - top + box.y * scale, box.height * scale, height);
     if (dx === 0 && dy === 0) return;
     x += dx;
     y += dy;
