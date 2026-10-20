@@ -248,7 +248,7 @@ const labelOf = (line: LaidLine): readonly SVGElement[] => {
       'g',
       {
         class: `label ${line.oneOf === undefined ? 'badge' : 'pill'}`,
-        ...keptSizeAt(label.x + label.width / 2, label.y + label.height / 2),
+        ...keptSizeAt(...label.centre),
       },
       svgOf('rect', {
         x: -label.width / 2,

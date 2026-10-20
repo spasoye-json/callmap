@@ -21,8 +21,11 @@ export interface Rect {
 
 export type Point = readonly [number, number];
 
-export interface LineLabel extends Rect {
+export interface LineLabel {
   readonly text: string;
+  readonly centre: Point;
+  readonly width: number;
+  readonly height: number;
 }
 
 export type LaidBox = SceneBox & Rect;
@@ -231,18 +234,61 @@ export const placementOf = async (scene: Scene): Promise<Placement> => {
 
 const rectOf = ([x, y, width, height]: Place = NOWHERE): Rect => ({ x, y, width, height });
 
+const SHORTEST_PART_FOR_A_BADGE = 32;
+const BADGE_GAP_FROM_CALLER = 16;
+
+type Part = readonly [Point, Point];
+
+const partsOf = (points: readonly Point[]): readonly Part[] =>
+  points.slice(1).map((point, index): Part => [points[index] ?? point, point]);
+
+const lengthOf = ([[x1, y1], [x2, y2]]: Part): number => Math.abs(x2 - x1) + Math.abs(y2 - y1);
+
+const badgeCentreOf = (points: readonly Point[]): Point => {
+  const parts = partsOf(points);
+  const longest = parts.reduce<Part | undefined>(
+    (best, part) => (best === undefined || lengthOf(part) > lengthOf(best) ? part : best),
+    undefined,
+  );
+  if (longest === undefined) return points[0] ?? [0, 0];
+  if (lengthOf(longest) >= SHORTEST_PART_FOR_A_BADGE) {
+    const [[x1, y1], [x2, y2]] = longest;
+    return [(x1 + x2) / 2, (y1 + y2) / 2];
+  }
+  const [first = longest] = parts;
+  const [[x1, y1], [x2, y2]] = first;
+  const share = Math.min(1, BADGE_GAP_FROM_CALLER / Math.max(1, lengthOf(first)));
+  return [x1 + (x2 - x1) * share, y1 + (y2 - y1) * share];
+};
+
+const lineLabelFor = (
+  { oneOf }: SceneLine,
+  text: string,
+  points: readonly Point[],
+  placed: Place,
+): LineLabel => {
+  const { x, y, width, height } = rectOf(placed);
+  return {
+    text,
+    centre: oneOf === undefined ? badgeCentreOf(points) : [x + width / 2, y + height / 2],
+    width,
+    height,
+  };
+};
+
 export const laidOf = (scene: Scene, placement: Placement): Laid => ({
   frames: scene.frames.map((frame, index) => ({ ...frame, ...rectOf(placement.frames[index]) })),
   boxes: scene.boxes.map((box, index) => ({ ...box, ...rectOf(placement.boxes[index]) })),
   lines: scene.lines.map((line, index) => {
     const placed = placement.lines[index];
+    const points = placed?.points ?? [];
     const text = lineLabelOf(line);
     return {
       ...line,
-      points: placed?.points ?? [],
+      points,
       ...(placed?.label === undefined || text === undefined
         ? {}
-        : { label: { ...rectOf(placed.label), text } }),
+        : { label: lineLabelFor(line, text, points, placed.label) }),
     };
   }),
   width: placement.width,
