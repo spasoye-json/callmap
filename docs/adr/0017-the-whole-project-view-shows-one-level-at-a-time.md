@@ -14,6 +14,14 @@ The owner chose one level at a time on 2026-10-19, after the profile of issue 35
 
 The same spec also caches the graph document of the base, so a second review of the same base reads only the branch, and stores the file texts as one gzip block in the page.
 
+## Two rules of a level
+
+The owner confirmed 2 rules of the levels on 2026-10-20, for spec 37.
+
+- A folder with only one file shows as the box of that file. This extends the rule that a chain of folders with one child each shows as one box. The reason is the same: a level never holds a single box.
+- A click on an outside box opens the level of that outside code. The outside box is the first folder or file on the path of that code that does not hold the open level, so the click opens that folder or file. The page already did this, and the README already said so.
+- An outside box collapses like the box of that path at its parent level, so a click on it opens a level with 2 or more boxes or a file level.
+
 ## Numbers
 
 The check of `docs/research/2026-10-19-levels-on-a-large-codebase/` ran on 2026-10-19. "Before" is commit `ee2e994`, the end of issue 35. "After" is spec 37 with tickets 38 to 41. Each number is the median of 3 runs. The review of the private app holds 375 functions in scope. The Apache ECharts review holds 3,933 functions in scope.

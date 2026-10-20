@@ -125,7 +125,9 @@ const levelsFor = (data: ReaderPageData): Levels => {
 
   const outsidePathOf = (level: string, file: string): string => {
     const around = new Set([ROOT, level, ...foldersAbove(level)]);
-    return [...foldersAbove(file).toReversed(), file].find((path) => !around.has(path)) ?? file;
+    return collapsed(
+      [...foldersAbove(file).toReversed(), file].find((path) => !around.has(path)) ?? file,
+    );
   };
 
   const boxPathOf = (level: string, inside: readonly string[], file: string): string =>

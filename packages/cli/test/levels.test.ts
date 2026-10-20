@@ -20,7 +20,8 @@ const NOTIFY = 'src/notify';
 const CARRIERS = 'src/shipping/carriers';
 const API = 'src/orders/api';
 const SERVICE = 'src/orders/service';
-const SHIPPING = 'src/shipping';
+const TAX = 'src/tax';
+const RATE = `${TAX}/rate.ts`;
 
 let html = '';
 
@@ -50,6 +51,7 @@ describe('the top level of the Whole project view', () => {
       [NOTIFY]: 'notify/',
       [ORDERS]: 'orders/',
       [CARRIERS]: 'shipping/carriers/',
+      [RATE]: 'tax/rate.ts',
     });
     expect(bodyOf(page).getByRole('tab', { selected: true }).textContent).toBe('Whole project');
   });
@@ -72,7 +74,7 @@ describe('a folder level', () => {
       [SERVICE]: 'service/',
       [MONEY]: 'src/money/',
       [NOTIFY]: 'src/notify/',
-      [SHIPPING]: 'src/shipping/',
+      [CARRIERS]: 'src/shipping/carriers/',
     });
     expect(framesAround(page, API).map(({ label }) => label)).toEqual(['src/orders/']);
     expect(framesAround(page, MONEY)).toEqual([]);
@@ -80,7 +82,7 @@ describe('a folder level', () => {
       boxesOf(page)
         .filter(({ classes }) => classes.includes('outside'))
         .map(({ id }) => id),
-    ).toEqual([MONEY, NOTIFY, SHIPPING]);
+    ).toEqual([MONEY, NOTIFY, CARRIERS]);
   });
 
   it('draws the lines between its boxes and the lines to the outside boxes', async () => {
@@ -91,7 +93,7 @@ describe('a folder level', () => {
       [`${NOTIFY} -> ${SERVICE}`]: '1',
       [`${SERVICE} -> ${MONEY}`]: '2',
       [`${SERVICE} -> ${NOTIFY}`]: '1',
-      [`${SERVICE} -> ${SHIPPING}`]: '1',
+      [`${SERVICE} -> ${CARRIERS}`]: '1',
     });
   });
 
@@ -114,6 +116,62 @@ describe('a folder level', () => {
       [`${CARRIERS}/post.ts`]: 'post.ts',
       [ORDERS]: 'src/orders/',
     });
+  });
+
+  it('shows a folder with one file as the box of that file', async () => {
+    const page = await projectPage();
+    expect(boxesOf(page).find(({ id }) => id === RATE)?.kind).toBe('file');
+    expect(boxesOf(page).some(({ id }) => id === TAX)).toBe(false);
+    await clickBox(page, RATE);
+    expect(boxLabelsOf(page)[`${RATE}#taxOf`]).toBe('taxOf');
+    expect(
+      breadcrumbOf(page)
+        .getAllByRole('button')
+        .map((crumb) => crumb.textContent),
+    ).toEqual(['src/', 'tax/rate.ts']);
+  });
+
+  it('opens the level of the outside code after a click on an outside box', async () => {
+    const page = await ordersPage();
+    await clickBox(page, MONEY);
+    expect(boxLabelsOf(page)).toEqual({
+      [`${MONEY}/format.ts`]: 'format.ts',
+      [`${MONEY}/round.ts`]: 'round.ts',
+      [ORDERS]: 'src/orders/',
+      [RATE]: 'src/tax/rate.ts',
+    });
+    expect(
+      breadcrumbOf(page)
+        .getAllByRole('button')
+        .map((crumb) => crumb.textContent),
+    ).toEqual(['src/', 'money/']);
+  });
+
+  it('collapses an outside box like the box of that path at its parent level', async () => {
+    const page = await ordersPage();
+    const outsideOf = (shown: LoadedPage): readonly (readonly [string, string])[] =>
+      boxesOf(shown)
+        .filter(({ classes }) => classes.includes('outside'))
+        .map(({ id, label }) => [id, label] as const);
+    expect(outsideOf(page)).toEqual([
+      [MONEY, 'src/money/'],
+      [NOTIFY, 'src/notify/'],
+      [CARRIERS, 'src/shipping/carriers/'],
+    ]);
+    await clickBox(page, CARRIERS);
+    expect(Object.keys(boxLabelsOf(page))).toEqual([
+      `${CARRIERS}/courier.ts`,
+      `${CARRIERS}/post.ts`,
+      ORDERS,
+    ]);
+    await clickBox(page, ORDERS);
+    await clickBox(page, MONEY);
+    expect(outsideOf(page)).toEqual([
+      [ORDERS, 'src/orders/'],
+      [RATE, 'src/tax/rate.ts'],
+    ]);
+    await clickBox(page, RATE);
+    expect(Object.keys(boxLabelsOf(page))).toEqual([`${RATE}#taxOf`, MONEY]);
   });
 
   it('opens after Enter on a folder box', async () => {
@@ -153,7 +211,7 @@ describe('the breadcrumb', () => {
     await clickBox(page, API);
     fireEvent.click(breadcrumbOf(page).getByRole('button', { name: 'src/' }));
     await settled(page);
-    expect(Object.keys(boxLabelsOf(page))).toEqual([MONEY, NOTIFY, ORDERS, CARRIERS]);
+    expect(Object.keys(boxLabelsOf(page))).toEqual([MONEY, NOTIFY, ORDERS, CARRIERS, RATE]);
     expect(
       breadcrumbOf(page)
         .getAllByRole('button')
@@ -170,6 +228,7 @@ describe('the lines of a level', () => {
       [`${ORDERS} -> ${MONEY}`]: '4',
       [`${ORDERS} -> ${NOTIFY}`]: '1',
       [`${ORDERS} -> ${CARRIERS}`]: '1',
+      [`${RATE} -> ${MONEY}`]: '1',
     });
   });
 
@@ -371,13 +430,13 @@ describe('the file level', () => {
       [`${NOTIFY} -> ${SERVICE}/book.ts#book`]: '',
       [`${SERVICE}/book.ts#book -> ${MONEY}`]: '',
       [`${SERVICE}/book.ts#book -> ${NOTIFY}`]: '',
-      [`${SERVICE}/book.ts#book -> ${SHIPPING}`]: '',
+      [`${SERVICE}/book.ts#book -> ${CARRIERS}`]: '',
     });
     expect(
       boxesOf(page)
         .filter(({ classes }) => classes.includes('outside'))
         .map(({ id }) => id),
-    ).toEqual([MONEY, NOTIFY, API, SHIPPING]);
+    ).toEqual([MONEY, NOTIFY, API, CARRIERS]);
   });
 
   it('shows the file at the end of the breadcrumb', async () => {
