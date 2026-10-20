@@ -24,6 +24,7 @@ export interface Drawing {
   readonly onLevelBoxClick: (handler: (box: LaidLevelBox) => void) => void;
   readonly onLineClick: (handler: (line: LaidLine) => void) => void;
   readonly onEmptyClick: (handler: () => void) => void;
+  readonly onBoxHover: (handler: (id: string | undefined) => void) => void;
 }
 
 const svgOf = <Name extends keyof SVGElementTagNameMap>(
@@ -191,6 +192,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   const levelHandlers: ((box: LaidLevelBox) => void)[] = [];
   const lineHandlers: ((line: LaidLine) => void)[] = [];
   const emptyHandlers: (() => void)[] = [];
+  const hoverHandlers: ((id: string | undefined) => void)[] = [];
 
   const apply = (): void => {
     viewport.setAttribute(
@@ -378,6 +380,16 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     if (activate(event.target)) return;
     for (const handler of emptyHandlers) handler();
   });
+  const point = (target: EventTarget | null): void => {
+    const id = boxAt(target)?.id;
+    for (const handler of hoverHandlers) handler(id);
+  };
+  svg.addEventListener('pointerover', (event) => {
+    point(event.target);
+  });
+  svg.addEventListener('pointerout', (event) => {
+    point(event.relatedTarget);
+  });
   svg.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     if (activate(event.target)) event.preventDefault();
@@ -402,6 +414,9 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     },
     onEmptyClick: (handler) => {
       emptyHandlers.push(handler);
+    },
+    onBoxHover: (handler) => {
+      hoverHandlers.push(handler);
     },
   };
 };

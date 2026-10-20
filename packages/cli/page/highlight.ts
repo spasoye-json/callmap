@@ -12,7 +12,7 @@ export const highlightOf = (laid: Laid, selected: string): Highlight | undefined
   const boxes = new Set<string>();
   const lines = new Set<number>();
   laid.lines.forEach((line, index) => {
-    const touching = (line.calls ?? [line]).filter(
+    const touching = [line, ...(line.calls ?? [])].filter(
       ({ from, to }) => from === selected || to === selected,
     );
     if (touching.length === 0) return;

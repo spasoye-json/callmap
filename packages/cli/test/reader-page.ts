@@ -292,3 +292,19 @@ export const pickFolder = async (page: LoadedPage, folder: string): Promise<void
   fireEvent.click(within(tree).getByRole('button', { name: folder }));
   await settled(page);
 };
+
+const shapeOfBox = (page: LoadedPage, id: string): Element => {
+  const box = boxElementOf(page, id);
+  if (box === undefined) throw new Error(`the drawing holds no box ${id}`);
+  return box.querySelector(':scope > rect') ?? box;
+};
+
+export const hoverBox = (page: LoadedPage, id: string): void => {
+  fireEvent.pointerOver(shapeOfBox(page, id));
+};
+
+export const leaveBox = (page: LoadedPage, id: string): void => {
+  fireEvent.pointerOut(shapeOfBox(page, id), {
+    relatedTarget: page.window.document.querySelector('#graph svg'),
+  });
+};
