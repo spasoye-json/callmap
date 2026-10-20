@@ -18,6 +18,7 @@ const breadcrumb: PagePart = (page) => {
   const bar = document.createElement('section');
   bar.setAttribute('aria-label', 'Level summary');
   bar.className = 'crumb-bar';
+  bar.setAttribute('data-covers', 'top');
   bar.hidden = true;
   const nav = document.createElement('nav');
   nav.setAttribute('aria-label', 'Level');

@@ -1,0 +1,68 @@
+.zoom-controls {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  overflow: hidden;
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.zoom-controls button {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: 12px var(--font-ui);
+  cursor: pointer;
+}
+
+.zoom-controls button:hover,
+.zoom-controls button:focus-visible {
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.zoom-controls svg path {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.zoom-controls .zoom-level {
+  min-width: 52px;
+  border-right: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
+  color: var(--ink);
+  font: 12px/30px var(--font-code);
+  text-align: center;
+}
+
+.zoom-controls .zoom-fit {
+  border-left: 1px solid var(--rule);
+}
+
+.drawing[data-band='scan'] .box > text {
+  font-size: calc(11px / var(--zoom));
+}
+
+.drawing[data-band='scan'] .count:not(.biggest),
+.drawing[data-band='scan'] .line:not(.connected) > .badge {
+  display: none;
+}
+
+.drawing[data-band='map'] .box > text,
+.drawing[data-band='map'] .counts,
+.drawing[data-band='map'] .badge {
+  display: none;
+}

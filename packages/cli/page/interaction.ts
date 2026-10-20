@@ -72,7 +72,7 @@ export const interactionOf = (
     drawing.draw(laid, anchor);
     hovered = undefined;
     drawing.highlight(selected, hovered);
-    if (drawn !== target) drawing.fit();
+    if (drawn !== target) drawing.open(selected);
     drawn = target;
   };
 
@@ -199,6 +199,7 @@ export const interactionOf = (
   const page: Omit<ReaderPage, 'sources'> = {
     data,
     graph,
+    camera: drawing.camera,
     panels,
     onBoxClick: (handler) => {
       boxHandlers.push(handler);

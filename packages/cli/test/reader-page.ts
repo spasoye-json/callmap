@@ -146,14 +146,38 @@ const recordLayouts = (window: JSDOM['window'], layouts: string[]): void => {
   });
 };
 
+export interface GraphSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+export const COVER_HEIGHT = 40;
+
+const sizeOf = (element: HTMLElement, graph: GraphSize): GraphSize => {
+  if (element.id === 'graph') return graph;
+  if (element.matches('[data-covers="top"]:not([hidden])'))
+    return { width: graph.width, height: COVER_HEIGHT };
+  return { width: 0, height: 0 };
+};
+
+const giveGraphSize = (window: JSDOM['window'], size: GraphSize): void => {
+  window.HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement): DOMRect {
+    const { width, height } = sizeOf(this, size);
+    const box = { x: 0, y: 0, top: 0, left: 0, right: width, bottom: height, width, height };
+    return { ...box, toJSON: () => box };
+  };
+};
+
 const withBrowserApis = (
   layouts: string[],
   stored: StoredItems | undefined,
   textsHeldUntil?: Promise<void>,
+  graphSize?: GraphSize,
 ) => ({
   ...(stored === undefined ? {} : { url: 'http://localhost/' }),
   beforeParse: (window: JSDOM['window']) => {
     recordLayouts(window, layouts);
+    if (graphSize !== undefined) giveGraphSize(window, graphSize);
     Object.assign(window, {
       DecompressionStream:
         textsHeldUntil === undefined ? DecompressionStream : decompressionHeldUntil(textsHeldUntil),
@@ -175,12 +199,13 @@ export const loadReaderPage = async (
   html: string,
   stored?: StoredItems,
   textsHeldUntil?: Promise<void>,
+  graphSize?: GraphSize,
 ): Promise<LoadedPage> => {
   const layouts: string[] = [];
   const dom = new JSDOM(html, {
     runScripts: 'dangerously',
     pretendToBeVisual: true,
-    ...withBrowserApis(layouts, stored, textsHeldUntil),
+    ...withBrowserApis(layouts, stored, textsHeldUntil, graphSize),
   });
   const page = { window: dom.window, layouts };
   await settled(page);

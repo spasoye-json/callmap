@@ -1,22 +1,20 @@
 import { highlightOf } from './highlight.ts';
-import type { Laid, LaidBox, LaidLine, Point, Rect } from './layout.ts';
+import { cameraOf } from './camera.ts';
+import type { Camera } from './camera.ts';
+import type { Laid, LaidBox, LaidLine, Rect } from './layout.ts';
 import { isLevelBox } from './scene.ts';
 import type { FunctionBox, LevelBox } from './scene.ts';
 import { arrowsOf, boxOf, endMarksOf, frameOf, lineOf } from './shapes.ts';
+import { keepScreenSize } from './screen-size.ts';
 import { svgOf } from './svg.ts';
 
 type LaidFunction = FunctionBox & Rect;
 type LaidLevelBox = LevelBox & Rect;
 
-const FIT_MARGIN = 40;
-const MIN_SCALE = 0.05;
-const MAX_SCALE = 3;
-const DRAG_THRESHOLD = 4;
-const VIEW_MARGIN = 24;
-
 export interface Drawing {
+  readonly camera: Camera;
   readonly draw: (laid: Laid, anchor?: string) => void;
-  readonly fit: () => void;
+  readonly open: (selected?: string) => void;
   readonly highlight: (selected: string | undefined, hovered?: string) => void;
   readonly focus: (id: string) => void;
   readonly keepInView: (id: string) => void;
@@ -27,18 +25,26 @@ export interface Drawing {
   readonly onBoxHover: (handler: (id: string | undefined) => void) => void;
 }
 
-interface Camera {
-  scale: number;
-  x: number;
-  y: number;
-}
+const countOf = (entry: Element): number => Number(entry.getAttribute('data-count'));
+
+const markBiggestCounts = (root: Element): void => {
+  for (const counts of root.querySelectorAll('.counts')) {
+    const biggest = [...counts.querySelectorAll(':scope > .count')].reduce<Element | undefined>(
+      (best, entry) => (best === undefined || countOf(entry) > countOf(best) ? entry : best),
+      undefined,
+    );
+    biggest?.classList.add('biggest');
+  }
+};
 
 export const drawingOf = (container: HTMLElement): Drawing => {
   const viewport = svgOf('g', { class: 'viewport' });
   const svg = svgOf('svg', { class: 'drawing' }, arrowsOf(), viewport);
   container.append(svg);
 
-  const camera: Camera = { scale: 1, x: 0, y: 0 };
+  const camera = cameraOf(container, svg, viewport, (scale) => {
+    keepScreenSize(viewport, scale);
+  });
   let laid: Laid = { frames: [], boxes: [], lines: [], width: 0, height: 0 };
   const handlers: ((box: LaidFunction) => void)[] = [];
   const levelHandlers: ((box: LaidLevelBox) => void)[] = [];
@@ -46,61 +52,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   const emptyHandlers: (() => void)[] = [];
   const hoverHandlers: ((id: string | undefined) => void)[] = [];
 
-  const apply = (): void => {
-    viewport.setAttribute(
-      'transform',
-      `translate(${String(camera.x)},${String(camera.y)}) scale(${String(camera.scale)})`,
-    );
-  };
-
-  const sizeOf = (): { readonly width: number; readonly height: number } => {
-    const { width, height } = container.getBoundingClientRect();
-    return { width, height };
-  };
-
   const boxOfId = (id: string): LaidBox | undefined => laid.boxes.find((box) => box.id === id);
-
-  const fit = (): void => {
-    const { width, height } = sizeOf();
-    if (width === 0 || height === 0 || laid.width === 0 || laid.height === 0) return;
-    camera.scale = Math.min(
-      (width - FIT_MARGIN) / laid.width,
-      (height - FIT_MARGIN) / laid.height,
-      1.5,
-    );
-    camera.x = (width - laid.width * camera.scale) / 2;
-    camera.y = (height - laid.height * camera.scale) / 2;
-    apply();
-  };
-
-  const centreOf = (box: Rect): Point => [box.x + box.width / 2, box.y + box.height / 2];
-
-  const focus = (id: string): void => {
-    const box = boxOfId(id);
-    const { width, height } = sizeOf();
-    if (box === undefined || width === 0) return;
-    const [x, y] = centreOf(box);
-    camera.x = width / 2 - x * camera.scale;
-    camera.y = height / 2 - y * camera.scale;
-    apply();
-  };
-
-  const keepInView = (id: string): void => {
-    const box = boxOfId(id);
-    const { width, height } = sizeOf();
-    if (box === undefined || width === 0 || height === 0) return;
-    const shift = (start: number, size: number, room: number): number => {
-      const end = start + size;
-      if (size > room - 2 * VIEW_MARGIN || start < VIEW_MARGIN) return VIEW_MARGIN - start;
-      return end > room - VIEW_MARGIN ? room - VIEW_MARGIN - end : 0;
-    };
-    const dx = shift(camera.x + box.x * camera.scale, box.width * camera.scale, width);
-    const dy = shift(camera.y + box.y * camera.scale, box.height * camera.scale, height);
-    if (dx === 0 && dy === 0) return;
-    camera.x += dx;
-    camera.y += dy;
-    apply();
-  };
 
   const highlight = (selected: string | undefined, hovered?: string): void => {
     const centre = hovered ?? selected;
@@ -118,7 +70,6 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   };
 
   const draw = (next: Laid, anchor?: string): void => {
-    const before = anchor === undefined ? undefined : boxOfId(anchor);
     laid = next;
     const endMarkOf = endMarksOf(next.boxes);
     const linesOf = (bundled: boolean): SVGGElement[] =>
@@ -131,14 +82,8 @@ export const drawingOf = (container: HTMLElement): Drawing => {
       svgOf('g', { class: 'lines' }, ...linesOf(false)),
       svgOf('g', { class: 'boxes' }, ...next.boxes.map(boxOf)),
     );
-    const after = anchor === undefined ? undefined : boxOfId(anchor);
-    if (before !== undefined && after !== undefined) {
-      const [beforeX, beforeY] = centreOf(before);
-      const [afterX, afterY] = centreOf(after);
-      camera.x += (beforeX - afterX) * camera.scale;
-      camera.y += (beforeY - afterY) * camera.scale;
-      apply();
-    }
+    markBiggestCounts(viewport);
+    camera.showLevel(next, anchor);
   };
 
   const clickedLine = (target: EventTarget | null): LaidLine | undefined => {
@@ -161,54 +106,6 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     return box !== undefined && isLevelBox(box) ? box : undefined;
   };
 
-  let drag: { readonly x: number; readonly y: number; moved: boolean } | undefined;
-  let dragged = false;
-
-  svg.addEventListener('pointerdown', (event) => {
-    drag = { x: event.clientX - camera.x, y: event.clientY - camera.y, moved: false };
-    dragged = false;
-  });
-  svg.addEventListener('pointermove', (event) => {
-    if (drag === undefined) return;
-    const x = event.clientX - drag.x;
-    const y = event.clientY - drag.y;
-    if (!drag.moved && Math.hypot(x - camera.x, y - camera.y) < DRAG_THRESHOLD) return;
-    if (!drag.moved) {
-      drag.moved = true;
-      if ('setPointerCapture' in svg) svg.setPointerCapture(event.pointerId);
-      svg.classList.add('panning');
-    }
-    camera.x = x;
-    camera.y = y;
-    apply();
-  });
-  const endDrag = (): void => {
-    dragged = drag?.moved ?? false;
-    drag = undefined;
-    svg.classList.remove('panning');
-  };
-  svg.addEventListener('pointerup', endDrag);
-  svg.addEventListener('pointercancel', endDrag);
-
-  svg.addEventListener(
-    'wheel',
-    (event) => {
-      event.preventDefault();
-      const bounds = svg.getBoundingClientRect();
-      const x = event.clientX - bounds.left;
-      const y = event.clientY - bounds.top;
-      const scale = Math.min(
-        MAX_SCALE,
-        Math.max(MIN_SCALE, camera.scale * Math.exp(-event.deltaY * 0.0015)),
-      );
-      camera.x = x - ((x - camera.x) * scale) / camera.scale;
-      camera.y = y - ((y - camera.y) * scale) / camera.scale;
-      camera.scale = scale;
-      apply();
-    },
-    { passive: false },
-  );
-
   const fireBoxClick = (box: LaidFunction): void => {
     for (const handler of handlers) handler(box);
   };
@@ -228,10 +125,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     return box !== undefined || opener !== undefined || line !== undefined;
   };
   svg.addEventListener('click', (event) => {
-    if (dragged) {
-      dragged = false;
-      return;
-    }
+    if (camera.takeDrag()) return;
     if (activate(event.target)) return;
     for (const handler of emptyHandlers) handler();
   });
@@ -250,14 +144,13 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     if (activate(event.target)) event.preventDefault();
   });
 
-  apply();
-
   return {
+    camera,
     draw,
-    fit,
+    open: camera.open,
     highlight,
-    focus,
-    keepInView,
+    focus: camera.focus,
+    keepInView: camera.keepInView,
     onBoxClick: (handler) => {
       handlers.push(handler);
     },
