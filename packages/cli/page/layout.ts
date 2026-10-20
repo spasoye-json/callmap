@@ -1,7 +1,14 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import type { ElkExtendedEdge, ElkLabel, ElkNode } from 'elkjs/lib/elk-api.js';
 import { appendTo, byText } from '@callmap/review';
-import { COUNTS_GAP, ICON_ROOM, LEVEL_PADDING, countWidthOf } from './box-sizes.ts';
+import {
+  COUNTS_GAP,
+  ICON_ROOM,
+  LEVEL_BOX_HEIGHT,
+  LEVEL_PADDING,
+  countWidthOf,
+  functionCountWidthOf,
+} from './box-sizes.ts';
 import { arrowKeyOf, chipMarkOf, lineLabelOf, markCountsOf } from './scene.ts';
 import type { LevelBox, Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 
@@ -61,7 +68,6 @@ const CYCLE_BREAKING: Readonly<Record<string, string>> = {
 const FRAME_PADDING = '[top=30,left=12,bottom=12,right=12]';
 const BOX_HEIGHT = 30;
 const OPEN_END_HEIGHT = 22;
-const COUNTED_BOX_HEIGHT = 46;
 const LABEL_HEIGHT = 16;
 const CHIP_ROOM = 24;
 
@@ -93,10 +99,11 @@ const boxNodeOf = (box: SceneBox): ElkNode => {
         id: box.id,
         width: Math.max(
           96,
-          widthOf(box.label, 7, 2 * LEVEL_PADDING + ICON_ROOM),
+          widthOf(box.label, 7, 2 * LEVEL_PADDING + ICON_ROOM) +
+            (box.outside ? 0 : functionCountWidthOf(box.counts.functions)),
           countsWidthOf(box),
         ),
-        height: markCountsOf(box.counts).length === 0 ? BOX_HEIGHT : COUNTED_BOX_HEIGHT,
+        height: LEVEL_BOX_HEIGHT,
       };
   }
 };

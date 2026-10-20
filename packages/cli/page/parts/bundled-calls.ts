@@ -1,51 +1,158 @@
 import { byText } from '@callmap/review';
+import { chipOf } from '../chips.ts';
+import type { ChipMark } from '../chips.ts';
 import { pageFunctionsOf } from '../functions.ts';
 import type { PagePart } from '../reader-page.ts';
+import { callKeyOf, frameIdOf } from '../scene.ts';
 import type { SceneLine } from '../scene.ts';
+
+const ROWS_SHOWN = 5;
+const EDGE_ROOM = 8;
+const FRAME_PREFIX = frameIdOf('');
+
+const endLabelOf = (id: string): string =>
+  id.startsWith(FRAME_PREFIX) ? id.slice(FRAME_PREFIX.length) : id;
+
+interface CallRow {
+  readonly call: SceneLine;
+  readonly chip: ChipMark | undefined;
+  readonly rank: number;
+  readonly line: number | undefined;
+}
+
+const rankOf = (call: SceneLine, chip: ChipMark | undefined): number => {
+  if (call.mark !== 'kept') return 0;
+  return chip === 'changed' || chip === 'added' || chip === 'removed' ? 1 : 2;
+};
+
+const byRankThenLine = (left: CallRow, right: CallRow): number =>
+  left.rank - right.rank ||
+  (left.line ?? 0) - (right.line ?? 0) ||
+  byText(left.call.from, right.call.from) ||
+  byText(left.call.to, right.call.to);
 
 const bundledCalls: PagePart = (page) => {
   const functions = pageFunctionsOf(page.data);
   const nameOf = (id: string): string => functions.get(id)?.name ?? id;
-  const textOf = ({ from, to, oneOf, mark }: SceneLine): string =>
-    [
-      `${nameOf(from)} calls ${nameOf(to)}`,
-      ...(oneOf === undefined ? [] : [oneOf]),
-      ...(mark === 'kept' ? [] : [mark]),
-    ].join(', ');
+  const lines = new Map<string, number>();
+  for (const call of page.data.branchGraph.calls) {
+    const key = callKeyOf(call);
+    lines.set(key, Math.min(call.line, lines.get(key) ?? call.line));
+  }
 
-  const section = document.createElement('section');
-  section.setAttribute('aria-label', 'Calls');
-  section.className = 'bundled-calls';
-  section.hidden = true;
-  page.panels.append(section);
-
-  const itemOf = (call: SceneLine): HTMLElement => {
-    const item = document.createElement('li');
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = textOf(call);
-    button.addEventListener('click', () => {
-      void page.open(call.from);
-    });
-    item.append(button);
-    return item;
+  const rowOf = (call: SceneLine): CallRow => {
+    const chip = call.mark === 'kept' ? functions.get(call.from)?.mark : call.mark;
+    return {
+      call,
+      chip,
+      rank: rankOf(call, chip),
+      line:
+        call.mark === 'removed'
+          ? undefined
+          : lines.get(callKeyOf({ caller: call.from, callee: call.to })),
+    };
   };
 
+  const list = document.createElement('div');
+  list.setAttribute('role', 'dialog');
+  list.className = 'bundled-calls';
+  list.hidden = true;
+  page.graph.append(list);
+
+  let point: { readonly x: number; readonly y: number } | undefined;
+  const close = (): void => {
+    list.hidden = true;
+    list.replaceChildren();
+  };
+
+  const buttonOf = ({ call, chip, line }: CallRow): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'bundled-call';
+    const arrow = document.createElement('span');
+    arrow.className = 'arrow';
+    arrow.textContent = '→';
+    const where = document.createElement('span');
+    where.className = 'call-line';
+    where.textContent = line === undefined ? '' : `:${String(line)}`;
+    if (chip === undefined) {
+      const room = document.createElement('span');
+      room.className = 'chip-room';
+      button.append(room);
+    } else {
+      button.append(chipOf(chip));
+    }
+    button.append(`${nameOf(call.from)} `, arrow, ` ${nameOf(call.to)}`, where);
+    button.addEventListener('click', () => {
+      close();
+      void page.open(call.from);
+    });
+    return button;
+  };
+
+  const place = (): void => {
+    const width = page.graph.clientWidth;
+    const height = page.graph.clientHeight;
+    const { x, y } = point ?? { x: width, y: 0 };
+    list.style.left = `${String(Math.max(EDGE_ROOM, Math.min(x + EDGE_ROOM, width - list.offsetWidth - EDGE_ROOM)))}px`;
+    list.style.top = `${String(Math.max(EDGE_ROOM, Math.min(y + EDGE_ROOM, height - list.offsetHeight - EDGE_ROOM)))}px`;
+  };
+
+  const show = (line: SceneLine, calls: readonly SceneLine[]): void => {
+    const rows = calls.map(rowOf).sort(byRankThenLine);
+    const header = document.createElement('div');
+    header.className = 'bundled-calls-header';
+    const ends = document.createElement('span');
+    ends.textContent = `${endLabelOf(line.from)} → ${endLabelOf(line.to)}`;
+    const count = document.createElement('span');
+    count.className = 'call-count';
+    count.textContent = `${String(rows.length)} ${rows.length === 1 ? 'call' : 'calls'}`;
+    header.append(ends, count);
+    const shown = rows.slice(0, ROWS_SHOWN).map(buttonOf);
+    const body = document.createElement('div');
+    body.className = 'bundled-calls-rows';
+    body.append(...shown);
+    if (rows.length > ROWS_SHOWN) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'show-all';
+      more.textContent = `Show all ${String(rows.length)}`;
+      more.addEventListener('click', () => {
+        body.replaceChildren(...rows.map(buttonOf));
+        place();
+      });
+      body.append(more);
+    }
+    list.setAttribute('aria-label', line.title ?? '');
+    list.replaceChildren(header, body);
+    list.hidden = false;
+    place();
+  };
+
+  page.graph.addEventListener(
+    'click',
+    (event) => {
+      const bounds = page.graph.getBoundingClientRect();
+      point = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+      if (!(event.target instanceof Node && list.contains(event.target))) close();
+    },
+    { capture: true },
+  );
+  page.graph.addEventListener(
+    'keydown',
+    () => {
+      point = undefined;
+    },
+    { capture: true },
+  );
+  page.graph.ownerDocument.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') close();
+  });
   page.onLineClick((line) => {
-    if (line.calls === undefined) return;
-    const heading = document.createElement('h2');
-    heading.textContent = line.title ?? '';
-    const list = document.createElement('ul');
-    list.append(
-      ...[...line.calls].sort((left, right) => byText(textOf(left), textOf(right))).map(itemOf),
-    );
-    section.replaceChildren(heading, list);
-    section.hidden = false;
+    if (line.calls !== undefined) show(line, line.calls);
   });
-  page.onViewChange(() => {
-    section.hidden = true;
-    section.replaceChildren();
-  });
+  page.onViewChange(close);
+  page.onChoiceChange(close);
 };
 
 export default bundledCalls;
