@@ -234,7 +234,7 @@ export const linesOf = (page: LoadedPage): readonly DrawnLine[] =>
     from: element.getAttribute('data-from') ?? '',
     to: element.getAttribute('data-to') ?? '',
     classes: [...element.classList],
-    label: textOf(element, 'text'),
+    label: textOf(element, ':scope > .label > text'),
     points: pointsOf(element.querySelector('path')?.getAttribute('d') ?? ''),
   }));
 

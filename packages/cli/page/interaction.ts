@@ -71,7 +71,7 @@ export const interactionOf = (
     if (target !== current) return;
     drawing.draw(laid, anchor);
     hovered = undefined;
-    drawing.highlight(selected);
+    drawing.highlight(selected, hovered);
     if (drawn !== target) drawing.fit();
     drawn = target;
   };
@@ -121,13 +121,13 @@ export const interactionOf = (
 
   const highlight = (id: FunctionId | undefined): void => {
     selected = id;
-    drawing.highlight(hovered ?? selected);
+    drawing.highlight(selected, hovered);
   };
 
   drawing.onBoxHover((id) => {
     if (id === hovered) return;
     hovered = id;
-    drawing.highlight(hovered ?? selected);
+    drawing.highlight(selected, hovered);
   });
 
   const select = (box: FunctionBox): void => {

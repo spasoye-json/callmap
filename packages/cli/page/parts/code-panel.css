@@ -97,12 +97,12 @@
 .code-panel .cm-editor .cm-changedLine .cm-changedText,
 .code-panel .cm-editor .cm-deletedChunk .cm-deletedText {
   border-radius: 2px;
-  background: var(--diff-added-text);
+  background: var(--diff-added-word);
   font-weight: 700;
 }
 
 .code-panel .cm-editor .cm-deletedChunk .cm-deletedText {
-  background: var(--diff-removed-text);
+  background: var(--diff-removed-word);
 }
 
 .code-panel .cm-editor .cm-changedLine.added-only .cm-changedText,
@@ -118,13 +118,13 @@
 .code-panel .cm-editor .cm-gutterElement.added-number,
 .code-panel .cm-editor .removed-number,
 .code-panel .cm-editor .cm-gutterElement.removed-number {
-  background: color-mix(in srgb, var(--diff-added-line) 55%, var(--diff-added-text));
+  background: color-mix(in srgb, var(--diff-added-line) 55%, var(--diff-added-word));
   color: var(--ink);
 }
 
 .code-panel .cm-editor .removed-number,
 .code-panel .cm-editor .cm-gutterElement.removed-number {
-  background: color-mix(in srgb, var(--diff-removed-line) 55%, var(--diff-removed-text));
+  background: color-mix(in srgb, var(--diff-removed-line) 55%, var(--diff-removed-word));
 }
 
 .code-panel .cm-editor .removed-number {
@@ -132,30 +132,30 @@
 }
 
 .syntax-keyword {
-  color: var(--syntax-keyword);
+  color: var(--syn-keyword);
 }
 
 .syntax-string {
-  color: var(--syntax-string);
+  color: var(--syn-string);
 }
 
 .syntax-literal {
-  color: var(--syntax-literal);
+  color: var(--syn-string);
 }
 
 .syntax-comment {
-  color: var(--muted);
+  color: var(--syn-comment);
   font-style: italic;
 }
 
 .syntax-type {
-  color: var(--syntax-type);
+  color: var(--syn-type);
 }
 
 .syntax-function {
-  color: var(--syntax-function);
+  color: var(--syn-function);
 }
 
 .syntax-definition {
-  color: var(--syntax-definition);
+  color: var(--ink);
 }
