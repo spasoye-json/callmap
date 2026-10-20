@@ -15,7 +15,7 @@ const VIEW_MARGIN = 24;
 const ANCHOR_SHARE = 1 / 3;
 const DRAG_THRESHOLD = 4;
 
-const bandOf = (scale: number): ZoomBand => {
+export const bandOf = (scale: number): ZoomBand => {
   if (scale < SCAN_FLOOR) return 'map';
   return scale < READING_FLOOR ? 'scan' : 'read';
 };

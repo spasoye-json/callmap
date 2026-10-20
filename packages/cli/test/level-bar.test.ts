@@ -48,6 +48,26 @@ describe('the function count of a level box', () => {
     ]);
   });
 
+  it('leaves room for the whole name before the function count, in the 13 px code font', async () => {
+    const page = await projectPage();
+    const nameCharacter = 13 * 0.6;
+    const countCharacter = 11 * 0.6;
+    for (const level of [undefined, ORDERS]) {
+      if (level !== undefined) await clickBox(page, level);
+      const boxes = page.window.document.querySelectorAll('#graph .box.level:not(.outside)');
+      expect(boxes.length).toBeGreaterThan(0);
+      for (const box of boxes) {
+        const name = box.querySelector(':scope > text.name');
+        const count = box.querySelector(':scope > text.functions');
+        const nameEnd =
+          Number(name?.getAttribute('x')) + (name?.textContent.length ?? 0) * nameCharacter;
+        const countStart =
+          Number(count?.getAttribute('x')) - (count?.textContent.length ?? 0) * countCharacter;
+        expect(nameEnd, name?.textContent).toBeLessThanOrEqual(countStart - 4);
+      }
+    }
+  });
+
   it('leaves the function count out of an outside box', async () => {
     const page = await projectPage();
     await clickBox(page, ORDERS);

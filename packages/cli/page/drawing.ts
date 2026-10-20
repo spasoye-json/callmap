@@ -1,12 +1,12 @@
 import { highlightOf } from './highlight.ts';
 import type { SelectedPath } from './highlight.ts';
-import { cameraOf } from './camera.ts';
+import { bandOf, cameraOf } from './camera.ts';
 import type { Camera } from './camera.ts';
 import type { Laid, LaidBox, LaidLine, Rect } from './layout.ts';
 import { isLevelBox } from './scene.ts';
 import type { FunctionBox, LevelBox } from './scene.ts';
 import { arrowsOf, boxOf, endMarksOf, frameOf, lineOf } from './shapes.ts';
-import { keepScreenSize } from './screen-size.ts';
+import { fitNames, keepScreenSize } from './screen-size.ts';
 import { svgOf } from './svg.ts';
 
 type LaidFunction = FunctionBox & Rect;
@@ -47,6 +47,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
 
   const camera = cameraOf(container, svg, viewport, (scale) => {
     keepScreenSize(viewport, scale);
+    fitNames(viewport, scale, bandOf(scale) === 'scan');
   });
   let laid: Laid = { frames: [], boxes: [], lines: [], width: 0, height: 0 };
   const handlers: ((box: LaidFunction) => void)[] = [];

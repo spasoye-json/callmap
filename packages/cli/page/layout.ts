@@ -3,8 +3,10 @@ import type { ElkExtendedEdge, ElkLabel, ElkNode } from 'elkjs/lib/elk-api.js';
 import { appendTo, byText } from '@callmap/review';
 import {
   COUNTS_GAP,
+  FRAME_HEADER_HEIGHT,
   ICON_ROOM,
   LEVEL_BOX_HEIGHT,
+  LEVEL_NAME_CHARACTER_WIDTH,
   LEVEL_PADDING,
   countWidthOf,
   functionCountWidthOf,
@@ -68,7 +70,7 @@ const CYCLE_BREAKING: Readonly<Record<string, string>> = {
   'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
 };
 
-const FRAME_PADDING = '[top=30,left=12,bottom=12,right=12]';
+const FRAME_PADDING = `[top=${String(FRAME_HEADER_HEIGHT)},left=12,bottom=12,right=12]`;
 const BOX_HEIGHT = 30;
 const OPEN_END_HEIGHT = 22;
 const LABEL_HEIGHT = 16;
@@ -102,7 +104,7 @@ const boxNodeOf = (box: SceneBox): ElkNode => {
         id: box.id,
         width: Math.max(
           96,
-          widthOf(box.label, 7, 2 * LEVEL_PADDING + ICON_ROOM) +
+          widthOf(box.label, LEVEL_NAME_CHARACTER_WIDTH, 2 * LEVEL_PADDING + ICON_ROOM) +
             (box.outside ? 0 : functionCountWidthOf(box.counts.functions)),
           countsWidthOf(box),
         ),

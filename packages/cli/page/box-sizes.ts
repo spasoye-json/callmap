@@ -1,6 +1,7 @@
 import { COUNT_CHIP_SIZE } from './chips.ts';
 
 export const LEVEL_PADDING = 12;
+export const FRAME_HEADER_HEIGHT = 30;
 export const ICON_SIZE = 14;
 export const ICON_ROOM = ICON_SIZE + 7;
 export const COUNT_GAP = 4;
@@ -14,6 +15,7 @@ export const LEVEL_BOX_HEIGHT = 64;
 export const LEVEL_ROW_OFFSET = 11;
 export const FUNCTION_COUNT_GAP = 8;
 export const SMALL_CHARACTER_WIDTH = 6.6;
+export const LEVEL_NAME_CHARACTER_WIDTH = 7.8;
 
 export const functionCountOf = (functions: number): string => `${String(functions)} fn`;
 

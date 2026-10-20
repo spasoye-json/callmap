@@ -13,7 +13,7 @@ import {
 import type { LaidBox, LaidFrame, LaidLine, Point, Rect } from './layout.ts';
 import { chipMarkOf, hasChanges, isLevelBox, markCountsOf } from './scene.ts';
 import type { FunctionBox, LevelBox, LevelCounts } from './scene.ts';
-import { keptSizeAt, pathLabelAttributes } from './screen-size.ts';
+import { keptInHeaderAt, keptSizeAt, nameAttributes, pathLabelAttributes } from './screen-size.ts';
 import { svgOf } from './svg.ts';
 
 const ARROWS = ['kept', 'added', 'removed', 'focus'] as const;
@@ -89,7 +89,7 @@ export const frameOf = (frame: LaidFrame): SVGGElement =>
     svgOf(
       'text',
       {
-        ...keptSizeAt(frame.x, frame.y),
+        ...keptInHeaderAt(frame.x, frame.y),
         ...pathLabelAttributes(frame.label, frame.width),
         x: frame.kind === 'folder' ? FOLDER_LABEL_LEFT : FILE_LABEL_LEFT,
         y: 19,
@@ -97,7 +97,7 @@ export const frameOf = (frame: LaidFrame): SVGGElement =>
       frame.label,
     ),
     ...(frame.kind === 'folder'
-      ? [svgOf('g', keptSizeAt(frame.x, frame.y), iconOf('folder', 10, 9, 12))]
+      ? [svgOf('g', keptInHeaderAt(frame.x, frame.y), iconOf('folder', 10, 9, 12))]
       : []),
   );
 
@@ -144,7 +144,20 @@ const levelBoxOf = (box: LevelBox & Rect): SVGGElement => {
       'aria-label': [box.label, ...words].join(', '),
     },
     rectOf(box, 8),
-    svgOf('text', { class: 'name', x: left + ICON_ROOM, y: nameMiddle }, box.label),
+    svgOf(
+      'text',
+      {
+        class: 'name',
+        x: left + ICON_ROOM,
+        y: nameMiddle,
+        ...nameAttributes(
+          box.label,
+          box.x + box.width - LEVEL_PADDING - (left + ICON_ROOM),
+          box.outside ? '' : functionCountOf(box.counts.functions),
+        ),
+      },
+      box.label,
+    ),
     iconOf(box.kind, left, nameMiddle - ICON_SIZE / 2, ICON_SIZE),
     ...(box.outside
       ? []
@@ -169,6 +182,7 @@ const functionBoxOf = (box: FunctionBox & Rect): SVGGElement => {
   const chip = chipMarkOf(box);
   const middle = box.y + box.height / 2;
   const left = box.x + BOX_PADDING;
+  const nameLeft = chip === undefined ? left : left + CHIP_SIZE + CHIP_GAP;
   return svgOf(
     'g',
     {
@@ -182,7 +196,12 @@ const functionBoxOf = (box: FunctionBox & Rect): SVGGElement => {
     rectOf(box, 6),
     svgOf(
       'text',
-      { class: 'name', x: chip === undefined ? left : left + CHIP_SIZE + CHIP_GAP, y: middle },
+      {
+        class: 'name',
+        x: nameLeft,
+        y: middle,
+        ...nameAttributes(box.label, box.x + box.width - BOX_PADDING - nameLeft),
+      },
       box.label,
     ),
     ...(chip === undefined ? [] : [svgChipOf(chip, left, middle - CHIP_SIZE / 2)]),

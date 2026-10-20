@@ -1,4 +1,8 @@
+import { FRAME_HEADER_HEIGHT } from './box-sizes.ts';
+
 const KEEP_SIZE = 'data-keep-size';
+const IN_HEADER = 'data-in-header';
+const HEADER_TEXT_HEIGHT = 24;
 const PATH = 'data-path';
 const ROOM = 'data-room';
 const PATH_CHARACTER_WIDTH = 6.6;
@@ -7,6 +11,14 @@ export const keptSizeAt = (x: number, y: number): Readonly<Record<string, string
   const at = `${String(x)},${String(y)}`;
   return { [KEEP_SIZE]: at, transform: `translate(${at})` };
 };
+
+export const keptInHeaderAt = (x: number, y: number): Readonly<Record<string, string>> => ({
+  ...keptSizeAt(x, y),
+  [IN_HEADER]: '',
+});
+
+const headerFitOf = (scale: number): number =>
+  Math.min(1, (scale * FRAME_HEADER_HEIGHT) / HEADER_TEXT_HEIGHT);
 
 export const pathLabelAttributes = (
   path: string,
@@ -21,13 +33,52 @@ export const pathLabelOf = (path: string, room: number): string => {
   return cuts.find(fits) ?? cuts.at(-1) ?? path;
 };
 
+const NAME = 'data-name';
+const NAME_ROOM = 'data-name-room';
+const BESIDE = 'data-beside';
+const BESIDE_GAP = 8;
+
+export const nameAttributes = (
+  name: string,
+  room: number,
+  beside = '',
+): Readonly<Record<string, string>> => ({
+  [NAME]: name,
+  [NAME_ROOM]: String(room),
+  [BESIDE]: String(beside.length),
+});
+
+export const nameThatFits = (name: string, room: number): string => {
+  const cut = pathLabelOf(name, room);
+  if (cut.length * PATH_CHARACTER_WIDTH <= room) return cut;
+  const characters = Math.max(1, Math.floor(room / PATH_CHARACTER_WIDTH) - 1);
+  return `…${cut.slice(-characters)}`;
+};
+
+export const fitNames = (root: Element, scale: number, scan: boolean): void => {
+  for (const name of root.querySelectorAll(`[${NAME}]`)) {
+    const full = name.getAttribute(NAME) ?? '';
+    const beside = Number(name.getAttribute(BESIDE));
+    const room =
+      Number(name.getAttribute(NAME_ROOM)) * scale -
+      (beside === 0 ? 0 : beside * PATH_CHARACTER_WIDTH + BESIDE_GAP);
+    name.textContent = scan ? nameThatFits(full, room) : full;
+  }
+};
+
+const sizeOf = (element: Element, scale: number): number =>
+  element.hasAttribute(IN_HEADER) ? headerFitOf(scale) : 1;
+
 export const keepScreenSize = (root: Element, scale: number): void => {
   for (const element of root.querySelectorAll(`[${KEEP_SIZE}]`)) {
     const at = element.getAttribute(KEEP_SIZE) ?? '0,0';
-    element.setAttribute('transform', `translate(${at}) scale(${String(1 / scale)})`);
+    const size = sizeOf(element, scale);
+    element.setAttribute('transform', `translate(${at}) scale(${String(size / scale)})`);
   }
   for (const label of root.querySelectorAll(`[${PATH}]`)) {
-    const room = Number(label.getAttribute(ROOM)) * scale - Number(label.getAttribute('x'));
-    label.textContent = pathLabelOf(label.getAttribute(PATH) ?? '', room);
+    const room =
+      (Number(label.getAttribute(ROOM)) * scale) / sizeOf(label, scale) -
+      Number(label.getAttribute('x'));
+    label.textContent = nameThatFits(label.getAttribute(PATH) ?? '', room);
   }
 };
