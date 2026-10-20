@@ -44,6 +44,7 @@ const busy: PagePart = (page) => {
     name.textContent = laidOut;
     text.replaceChildren('Laying out ', name, ' …');
     state.setAttribute('aria-label', `Laying out ${laidOut}`);
+    progress.style.top = `${String(page.camera.view().coveredTop)}px`;
     state.hidden = false;
   };
   const update = (): void => {

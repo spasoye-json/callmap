@@ -19,10 +19,6 @@
   background: var(--focus);
 }
 
-#graph:has(> .level-bar:not([hidden])) .busy-progress {
-  top: 40px;
-}
-
 .busy-text {
   position: absolute;
   right: 0;
