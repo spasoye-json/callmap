@@ -77,6 +77,7 @@ describe('an open end', () => {
 const CHANNELS = 'src/channels.ts';
 const SHAPES = 'src/shapes.ts';
 const LIMITS = 'src/limits.ts';
+const PRINTERS = 'src/printers.ts';
 
 describe('a one-of call', () => {
   it('ties a call through an interface to each class that implements it, in one group', () => {
@@ -85,13 +86,13 @@ describe('a one-of call', () => {
         caller: `${CHANNELS}#broadcast`,
         callee: `${CHANNELS}#Mail.send`,
         line: 21,
-        group: `${CHANNELS}:21:70`,
+        group: `${CHANNELS}:21:78`,
       },
       {
         caller: `${CHANNELS}#broadcast`,
         callee: `${CHANNELS}#Sms.send`,
         line: 21,
-        group: `${CHANNELS}:21:70`,
+        group: `${CHANNELS}:21:78`,
       },
     ]);
   });
@@ -109,7 +110,7 @@ describe('a one-of call', () => {
         caller: `${SHAPES}#Shape.describe`,
         callee: `${SHAPES}#Square.area`,
         line: 5,
-        group: `${SHAPES}:5:15`,
+        group: `${SHAPES}:5:20`,
       },
     ]);
     expect(openEndsIn(SHAPES)).toEqual([]);
@@ -121,14 +122,34 @@ describe('a one-of call', () => {
         caller: `${LIMITS}#Limits.allows`,
         callee: `${LIMITS}#Limits.smallRule.allows`,
         line: 15,
-        group: `${LIMITS}:15:12`,
+        group: `${LIMITS}:15:29`,
       },
       {
         caller: `${LIMITS}#Limits.allows`,
         callee: `${LIMITS}#Limits.largeRule.allows`,
         line: 15,
-        group: `${LIMITS}:15:12`,
+        group: `${LIMITS}:15:29`,
       },
+    ]);
+  });
+
+  it('gives each call of a chain through 2 interfaces its own group', () => {
+    const caller = `${PRINTERS}#colourOf`;
+    expect(callsFrom(caller)).toEqual([
+      { caller, callee: `${PRINTERS}#BlackInk.colour`, line: 33, group: `${PRINTERS}:33:69` },
+      { caller, callee: `${PRINTERS}#RedInk.colour`, line: 33, group: `${PRINTERS}:33:69` },
+      { caller, callee: `${PRINTERS}#Laser.ink`, line: 33, group: `${PRINTERS}:33:63` },
+      { caller, callee: `${PRINTERS}#Jet.ink`, line: 33, group: `${PRINTERS}:33:63` },
+    ]);
+  });
+
+  it('gives each call of a chain over several lines its own group', () => {
+    const caller = `${PRINTERS}#titleColourOf`;
+    expect(callsFrom(caller)).toEqual([
+      { caller, callee: `${PRINTERS}#BlackInk.colour`, line: 38, group: `${PRINTERS}:38:6` },
+      { caller, callee: `${PRINTERS}#RedInk.colour`, line: 38, group: `${PRINTERS}:38:6` },
+      { caller, callee: `${PRINTERS}#Laser.ink`, line: 37, group: `${PRINTERS}:37:6` },
+      { caller, callee: `${PRINTERS}#Jet.ink`, line: 37, group: `${PRINTERS}:37:6` },
     ]);
   });
 });
