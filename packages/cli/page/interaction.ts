@@ -2,7 +2,7 @@ import type { FunctionId } from '@callmap/graph-document';
 import type { ReaderPageData } from './data.ts';
 import { drawingOf } from './drawing.ts';
 import { laidOf, layoutOf } from './layout.ts';
-import type { Laid } from './layout.ts';
+import type { Laid, Rect } from './layout.ts';
 import type { ReaderPage } from './reader-page.ts';
 import type { FunctionBox, Scene } from './scene.ts';
 import { tabBarOf } from './tabs.ts';
@@ -31,6 +31,29 @@ interface ViewState {
 
 const keyOf = (choice: Choice | undefined): string =>
   choice === undefined ? '' : choiceKeyOf(choice);
+
+type LaidFunction = FunctionBox & Rect;
+
+const middleOf = ({ y, height }: Rect): number => y + height / 2;
+
+const nextAlongCalls = (
+  { boxes, lines }: Laid,
+  from: string,
+  along: 'callers' | 'callees',
+): LaidFunction | undefined => {
+  const start = boxes.find(({ id }) => id === from);
+  if (start === undefined) return undefined;
+  const ends = new Set(
+    lines.flatMap((line) => {
+      if (along === 'callees') return line.from === from ? [line.to] : [];
+      return line.to === from ? [line.from] : [];
+    }),
+  );
+  const distanceOf = (box: Rect): number => Math.abs(middleOf(box) - middleOf(start));
+  return boxes
+    .filter((box): box is LaidFunction => box.kind === 'function' && ends.has(box.id))
+    .sort((left, right) => distanceOf(left) - distanceOf(right) || left.x - right.x)[0];
+};
 
 export const interactionOf = (
   data: ReaderPageData,
@@ -143,6 +166,32 @@ export const interactionOf = (
   });
   graph.ownerDocument.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') highlight(undefined);
+  });
+  const step = (along: 'callers' | 'callees'): void => {
+    if (selected === undefined) return;
+    const next = nextAlongCalls(drawing.camera.view().level, selected, along);
+    if (next === undefined) return;
+    select(next);
+    drawing.keepInView(next.id);
+    graph.querySelector<SVGElement>(`[data-box="${CSS.escape(next.id)}"]`)?.focus();
+  };
+  const graphKeys: Readonly<Record<string, () => void>> = {
+    f: drawing.camera.fit,
+    F: drawing.camera.fit,
+    0: drawing.camera.reset,
+    ArrowLeft: () => {
+      step('callers');
+    },
+    ArrowRight: () => {
+      step('callees');
+    },
+  };
+  graph.addEventListener('keydown', (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    const act = graphKeys[event.key];
+    if (act === undefined) return;
+    event.preventDefault();
+    act();
   });
 
   const show = (ids: readonly FunctionId[], anchor?: FunctionId): Promise<void> => {

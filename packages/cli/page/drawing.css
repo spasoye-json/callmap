@@ -12,6 +12,10 @@
   user-select: none;
 }
 
+.drawing:focus {
+  outline: none;
+}
+
 .drawing.panning {
   cursor: grabbing;
 }
@@ -65,10 +69,19 @@
   outline: none;
 }
 
-.box.function:focus-visible > rect,
-.box.opens:focus-visible > rect {
+.focus-ring {
+  display: none;
+}
+
+.focus-ring > rect {
+  fill: none;
   stroke: var(--focus);
   stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.box:focus-visible > .focus-ring {
+  display: inline;
 }
 
 .chip > rect {

@@ -39,7 +39,7 @@ const markBiggestCounts = (root: Element): void => {
 
 export const drawingOf = (container: HTMLElement): Drawing => {
   const viewport = svgOf('g', { class: 'viewport' });
-  const svg = svgOf('svg', { class: 'drawing' }, arrowsOf(), viewport);
+  const svg = svgOf('svg', { class: 'drawing', tabindex: -1 }, arrowsOf(), viewport);
   container.append(svg);
 
   const camera = cameraOf(container, svg, viewport, (scale) => {
