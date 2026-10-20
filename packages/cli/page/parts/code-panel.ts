@@ -1,5 +1,7 @@
 import { EDITORS, editorUrl } from '@callmap/editor-link';
 import type { EditorView } from '@codemirror/view';
+import { callListsOf } from '../call-lists.ts';
+import { chipOf } from '../chips.ts';
 import { codeEditorOf } from '../code-editor.ts';
 import { functionCodeOf, pageFunctionsOf } from '../functions.ts';
 import type { PageFunction } from '../functions.ts';
@@ -17,14 +19,30 @@ const editorLinkOf = ({ data }: ReaderPage, { file, firstLine }: PageFunction): 
 const placeOf = (page: ReaderPage, shown: PageFunction): HTMLElement => {
   const place = document.createElement('p');
   place.className = 'code-place';
-  const where = `${shown.file}:${String(shown.firstLine)}`;
-  place.textContent = shown.mark === undefined ? where : `${where}, ${shown.mark}`;
+  place.textContent = `${shown.file}:${String(shown.firstLine)}`;
   if (shown.mark !== 'removed') place.append(' ', editorLinkOf(page, shown));
   return place;
 };
 
+const headOf = (shown: PageFunction): HTMLElement => {
+  const head = document.createElement('div');
+  head.className = 'code-head';
+  if (shown.mark !== undefined) {
+    const chip = chipOf(shown.mark);
+    chip.removeAttribute('aria-hidden');
+    chip.setAttribute('role', 'img');
+    chip.setAttribute('aria-label', shown.mark);
+    head.append(chip);
+  }
+  const heading = document.createElement('h2');
+  heading.textContent = shown.name;
+  head.append(heading);
+  return head;
+};
+
 const codePanel: PagePart = (page) => {
   const functions = pageFunctionsOf(page.data);
+  const listsOf = callListsOf(page.data);
   const section = document.createElement('section');
   section.setAttribute('aria-label', 'Code');
   section.className = 'code-panel';
@@ -38,7 +56,7 @@ const codePanel: PagePart = (page) => {
     name: 'code panel',
     body: section,
     widthKey: 'callmap.code-panel.width',
-    defaultWidth: 520,
+    defaultWidth: 392,
     open: false,
     onChange: page.keepSelectionInView,
   });
@@ -48,17 +66,18 @@ const codePanel: PagePart = (page) => {
 
   const show = async (shown: PageFunction): Promise<void> => {
     latest = shown;
-    const heading = document.createElement('h2');
-    heading.textContent = shown.name;
     editor?.destroy();
     editor = undefined;
-    section.replaceChildren(heading, placeOf(page, shown));
+    const lists = listsOf(shown.id, (id) => {
+      void page.open(id);
+    });
+    section.replaceChildren(headOf(shown), placeOf(page, shown), lists);
     section.setAttribute('aria-busy', 'true');
     panel.open();
     const sources = await page.sources;
     if (latest !== shown) return;
     editor = codeEditorOf(shown.file, functionCodeOf(page.data, sources, shown));
-    section.append(editor.dom);
+    lists.before(editor.dom);
     section.setAttribute('aria-busy', 'false');
   };
 

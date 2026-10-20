@@ -5,6 +5,10 @@ import type { View } from '../view.ts';
 export const diffView: View = {
   name: 'Diff',
   laidOutByCommand: true,
+  countOf: ({ review }) => {
+    const count = review.functions.filter(({ mark }) => mark !== 'neighbour').length;
+    return { count, words: `${String(count)} changed ${count === 1 ? 'function' : 'functions'}` };
+  },
   sceneOf: (data, opened) => {
     const functions = pageFunctionsOf(data);
     const shown = new Set([...data.review.functions.map(({ id }) => id), ...opened]);

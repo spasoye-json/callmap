@@ -119,7 +119,7 @@ export const arrowKeyOf = (from: string, to: string): string => `${from} -> ${to
 export const callKeyOf = ({ caller, callee }: Pick<Call, 'caller' | 'callee'>): string =>
   arrowKeyOf(caller, callee);
 
-const openEndsByCallerOf = (
+export const openEndsByCallerOf = (
   { review, branchGraph }: ReaderPageData,
   reviewed: ReadonlySet<FunctionId>,
 ): ReadonlyMap<FunctionId, readonly OpenEnd[]> => {
@@ -135,7 +135,7 @@ const openEndsByCallerOf = (
 
 type GroupCall = Pick<Call, 'caller' | 'callee'> & { readonly group: string };
 
-const oneOfLabelsOf = (
+export const oneOfLabelsOf = (
   { review, branchGraph }: ReaderPageData,
   reviewed: ReadonlySet<FunctionId>,
 ): ReadonlyMap<string, string> => {
