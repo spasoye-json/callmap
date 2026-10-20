@@ -11,6 +11,7 @@ import {
 import type { LaidBox, LaidFrame, LaidLine, Point, Rect } from './layout.ts';
 import { chipMarkOf, hasChanges, isLevelBox, markCountsOf } from './scene.ts';
 import type { FunctionBox, LevelBox, LevelCounts } from './scene.ts';
+import { keptSizeAt, pathLabelAttributes } from './screen-size.ts';
 import { svgOf } from './svg.ts';
 
 const ARROWS = ['kept', 'added', 'removed', 'focus'] as const;
@@ -59,6 +60,9 @@ const iconOf = (kind: 'folder' | 'file', x: number, y: number, size: number): SV
     svgOf('path', { d: ICON_PATHS[kind] }),
   );
 
+const FOLDER_LABEL_LEFT = 27;
+const FILE_LABEL_LEFT = 10;
+
 export const frameOf = (frame: LaidFrame): SVGGElement =>
   svgOf(
     'g',
@@ -66,10 +70,17 @@ export const frameOf = (frame: LaidFrame): SVGGElement =>
     rectOf(frame, 8),
     svgOf(
       'text',
-      { x: frame.x + (frame.kind === 'folder' ? 27 : 10), y: frame.y + 19 },
+      {
+        ...keptSizeAt(frame.x, frame.y),
+        ...pathLabelAttributes(frame.label, frame.width),
+        x: frame.kind === 'folder' ? FOLDER_LABEL_LEFT : FILE_LABEL_LEFT,
+        y: 19,
+      },
       frame.label,
     ),
-    ...(frame.kind === 'folder' ? [iconOf('folder', frame.x + 10, frame.y + 9, 12)] : []),
+    ...(frame.kind === 'folder'
+      ? [svgOf('g', keptSizeAt(frame.x, frame.y), iconOf('folder', 10, 9, 12))]
+      : []),
   );
 
 const countsRowOf = (counts: LevelCounts, x: number, middle: number): SVGGElement => {
@@ -141,6 +152,7 @@ const functionBoxOf = (box: FunctionBox & Rect): SVGGElement => {
       box.label,
     ),
     ...(chip === undefined ? [] : [svgChipOf(chip, left, middle - CHIP_SIZE / 2)]),
+    svgOf('title', {}, box.label),
   );
 };
 
@@ -201,7 +213,7 @@ const labelOf = (line: LaidLine): readonly SVGElement[] => {
       'g',
       {
         class: `label ${line.oneOf === undefined ? 'badge' : 'pill'}`,
-        transform: `translate(${String(label.x + label.width / 2)},${String(label.y + label.height / 2)})`,
+        ...keptSizeAt(label.x + label.width / 2, label.y + label.height / 2),
       },
       svgOf('rect', {
         x: -label.width / 2,
