@@ -109,9 +109,8 @@ const lineOf = (file: ts.SourceFile, position: number): number =>
 const isCallSite = (node: ts.Node): node is CallSite =>
   ts.isCallExpression(node) || ts.isNewExpression(node);
 
-const lineOfCallSite = (file: ts.SourceFile, site: CallSite): number =>
-  lineOf(
-    file,
+const calleeStartOf = (file: ts.SourceFile, site: CallSite): ts.LineAndCharacter =>
+  file.getLineAndCharacterOfPosition(
     (ts.isPropertyAccessExpression(site.expression) ? site.expression.name : site).getStart(file),
   );
 
@@ -144,11 +143,11 @@ export const extractGraphDocument = (options: ExtractOptions): GraphDocument => 
 
     const visit = (node: ts.Node, qualifier: readonly string[], holder?: FunctionId): void => {
       if (holder !== undefined && isCallSite(node)) {
-        const start = file.getLineAndCharacterOfPosition(node.getStart(file));
+        const start = calleeStartOf(file, node);
         sites.push({
           caller: holder,
           site: node,
-          line: lineOfCallSite(file, node),
+          line: start.line + 1,
           group: `${path}:${start.line + 1}:${start.character + 1}`,
         });
       }

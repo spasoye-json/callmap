@@ -65,7 +65,7 @@ describe('the open ends, one-of groups and resolution rate of callmap review', (
   it('lists the one-of calls through an interface with two implementations as one group', () => {
     expect(pageDataOf(html).review.oneOfGroups).toEqual([
       {
-        id: `${ALERTS}:5:27`,
+        id: `${ALERTS}:5:35`,
         caller: `${ALERTS}#alert`,
         line: 5,
         callees: [`${NOTIFY}#Mail.send`, `${NOTIFY}#Sms.send`],
