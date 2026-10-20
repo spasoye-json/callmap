@@ -41,11 +41,11 @@ The box around the functions of one file.
 _Avoid_: group, cluster, module
 
 **Folder frame**:
-The box around the file frames and the folder frames of one folder.
+The box around the file frames and the folder frames of one folder. On a level of the Whole project view, the folder frame holds the boxes of the open folder.
 _Avoid_: package, directory box
 
 **Bundled line**:
-One line between two file frames that stands for 2 or more kept calls between the two files, with their count. A click on it lists its calls. A call that the branch added or removed keeps its own line, so its mark shows.
+One line between 2 boxes of a level that stands for every call from the code in one box to the code in the other box, with their count. It points from the caller box to the callee box, so 2 boxes that call each other get 2 bundled lines. A call inside one box makes no line at that level. The line shows the added or the removed mark when it holds a call that the branch added or removed. A click on it lists its calls with their marks. On the file level, each call between 2 functions of the file keeps its own line, and only the calls between one function and one outside box share a bundled line.
 _Avoid_: aggregate edge, merged call
 
 **Entry point**:
@@ -83,8 +83,16 @@ The link on a function that opens its file and line in the reader's editor. A re
 _Avoid_: deep link, jump link
 
 **View**:
-One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data to boxes, frames and lines. The Diff view opens first. The marks, the open ends, the one-of groups, the selection and the code panel work in every view.
+One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data and the choice of the reader, such as the open level, to boxes, frames and lines. The Diff view opens first. The marks, the open ends, the one-of groups, the selection and the code panel work in every view.
 _Avoid_: mode, screen, perspective
+
+**Level**:
+One folder of the scope, or one file, that the Whole project view shows at a time. The level of a folder shows its child folders and its files as boxes. The level of a file shows its functions as boxes. The top level is the deepest folder that holds every file in scope. A chain of folders with one child each shows as one box. A folder with only one file shows as the box of that file. So a level never holds a single box. A box counts the changed, added and removed functions inside it. A click on a box opens its level, and the breadcrumb leads back up.
+_Avoid_: zoom level, depth, layer
+
+**Outside box**:
+A box of a level that stands for code that the open level does not hold, at the far end of a bundled line. It is the first folder or file on the path of that code that does not hold the open level. With `src/orders` open, a call to `src/money/format.ts` ends at the outside box `src/money`. An outside box collapses like the box of that path at its parent level, so a call to `src/tax/rate.ts` ends at the box `src/tax/rate.ts` when `src/tax` holds only that file. A click on an outside box opens the level of that folder or file. An outside box is a folder or a file, and an outside function is a function.
+_Avoid_: external box, neighbour box, ghost
 
 **Outside function**:
 A function that the Folder view draws but that the chosen folder does not hold: a caller or a callee one hop out of the folder, or a function that the search opened. The view draws it greyed. This is not a review mark, so an outside function is also a neighbour only when it is one hop from a changed function.
@@ -102,7 +110,7 @@ _Avoid_: touched function, dirty function
 
 **Hop**:
 One call away from a function, in either direction. A caller and a callee are each one hop away.
-_Avoid_: level, step, depth
+_Avoid_: step, depth
 
 **Neighbour**:
 A function one hop from a changed function that the branch did not change. Every view shows it greyed. In the Diff view, a click opens its own next hop. A function further from the change gets no mark. The hop counts in the base graph and in the branch graph, so the far end of a call that the branch removed is a neighbour too, and the page shows that call.

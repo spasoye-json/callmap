@@ -1,16 +1,17 @@
-import { markedCallsOf, pageFunctionsOf } from '../functions.ts';
-import { nestedSceneOf } from '../nested-scene.ts';
+import { pageFunctionsOf } from '../functions.ts';
+import { levelsOf } from '../levels.ts';
 import type { View } from '../view.ts';
 
 export const wholeProjectView: View = {
   name: 'Whole project',
-  zoomLevels: true,
   laidOutByCommand: true,
-  sceneOf: (data) => {
-    const functions = pageFunctionsOf(data);
-    const calls = markedCallsOf(data).filter(
-      ({ caller, callee }) => functions.has(caller) && functions.has(callee),
-    );
-    return nestedSceneOf(data, [...functions.values()], calls);
+  firstChoice: (data) => ({ kind: 'level', path: levelsOf(data).top }),
+  sceneOf: (data, _opened, choice) => {
+    const levels = levelsOf(data);
+    return levels.sceneOf(choice?.kind === 'level' ? choice.path : levels.top);
+  },
+  choiceShowing: (data, id) => {
+    const file = pageFunctionsOf(data).get(id)?.file;
+    return { kind: 'level', path: file ?? levelsOf(data).top };
   },
 };

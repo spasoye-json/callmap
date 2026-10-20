@@ -1,6 +1,6 @@
 import type { FunctionId, GraphFunction } from '@callmap/graph-document';
 import type { FunctionMark, MarkedCall } from '@callmap/review';
-import type { LineSpan, ReaderPageData, SourceTexts } from './data.ts';
+import type { LineSpan, ReaderPageData, SourceTexts, Sources } from './data.ts';
 import { callKeyOf } from './scene.ts';
 
 export type PageFunction = GraphFunction & { readonly mark?: FunctionMark };
@@ -46,8 +46,11 @@ const textOf = (
     .join('\n'),
 });
 
-export const functionCodeOf = (data: ReaderPageData, shown: PageFunction): FunctionCode => {
-  const { base, branch } = data.sources;
+export const functionCodeOf = (
+  data: ReaderPageData,
+  { base, branch }: Sources,
+  shown: PageFunction,
+): FunctionCode => {
   if (shown.mark === 'removed') return { kind: 'removed', code: textOf(base, shown.file, shown) };
   const code = textOf(branch, shown.file, shown);
   if (shown.mark === 'added') return { kind: 'added', code };

@@ -1,18 +1,20 @@
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { featureBranchRepo, fixtureText, git } from './fixture-repo.ts';
 import {
   boxesOf,
   callsOf,
+  dataBlockOf,
   fakeOpener,
   frameAround,
   framesOf,
   loadReaderPage,
   pageDataOf,
   runCallmap,
+  sourcesOf,
 } from './reader-page.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const CART = 'src/cart.ts';
 const MONEY = 'src/money.ts';
@@ -33,7 +35,7 @@ beforeAll(() => {
   repo = featureBranchRepo();
   branchBefore = git(repo, 'rev-parse', '--abbrev-ref', 'HEAD');
   statusBefore = git(repo, 'status', '--porcelain');
-  out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap(['review', repo, '--no-open', '--out', out]);
   expect(finished.status, finished.stderr).toBe(0);
   stdout = finished.stdout;
@@ -85,8 +87,23 @@ describe('callmap review on a feature branch', () => {
     expect(branchGraph.functions.map(({ id }) => id)).toContain(`${MONEY}#round`);
   });
 
+  it('holds no plain file text in the data block', () => {
+    const block = dataBlockOf(html);
+    const lines = [ALERTS, CART, CHECKOUT, MONEY, NOTIFY, REPORT, RATE]
+      .flatMap((file) => [
+        ...fixtureText('branch', file).split('\n'),
+        ...(file === ALERTS || file === CART ? fixtureText('base', file).split('\n') : []),
+      ])
+      .filter((line) => line.trim().length >= 20);
+    expect(lines.length).toBeGreaterThan(10);
+    for (const line of lines) {
+      expect(block).not.toContain(line);
+      expect(block).not.toContain(JSON.stringify(line).slice(1, -1));
+    }
+  });
+
   it('holds the branch text of every file that the review or the search shows, and the base text of every file with a removed or changed function', () => {
-    const { sources } = pageDataOf(html);
+    const sources = sourcesOf(html);
     expect(sources.branch).toEqual({
       [ALERTS]: fixtureText('branch', ALERTS),
       [CART]: fixtureText('branch', CART),
@@ -181,7 +198,7 @@ describe('the reader page', () => {
 describe('opening the page', () => {
   it('opens the page in the browser when the run ends', async () => {
     const opener = fakeOpener();
-    const target = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'opened.html');
+    const target = join(tempDir('callmap-out-'), 'opened.html');
     const finished = runCallmap(['review', repo, '--out', target], opener);
     expect(finished.status, finished.stderr).toBe(0);
     await expect.poll(() => existsSync(opener.marker), { timeout: 5_000 }).toBe(true);
@@ -190,7 +207,7 @@ describe('opening the page', () => {
 
   it('opens no browser with --no-open, and still writes the page', async () => {
     const opener = fakeOpener();
-    const target = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'closed.html');
+    const target = join(tempDir('callmap-out-'), 'closed.html');
     const finished = runCallmap(['review', repo, '--no-open', '--out', target], opener);
     expect(finished.status, finished.stderr).toBe(0);
     expect(existsSync(target)).toBe(true);

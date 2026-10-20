@@ -6,10 +6,11 @@ import type { Laid } from './layout.ts';
 import type { ReaderPage } from './reader-page.ts';
 import type { FunctionBox, Scene } from './scene.ts';
 import { tabBarOf } from './tabs.ts';
+import { choiceKeyOf } from './view.ts';
 import type { Choice, View } from './view.ts';
 
 export interface Interaction {
-  readonly page: ReaderPage;
+  readonly page: Omit<ReaderPage, 'sources'>;
   readonly render: () => Promise<void>;
 }
 
@@ -25,7 +26,11 @@ interface ViewState {
   choice: Choice | undefined;
   scene: Scene | undefined;
   laid: Promise<Laid> | undefined;
+  readonly kept: Map<string, Promise<Laid>>;
 }
+
+const keyOf = (choice: Choice | undefined): string =>
+  choice === undefined ? '' : choiceKeyOf(choice);
 
 export const interactionOf = (
   data: ReaderPageData,
@@ -39,12 +44,14 @@ export const interactionOf = (
   const states = views.map((view): ViewState => ({
     view,
     opened: new Set(),
-    choice: undefined,
+    choice: view.firstChoice?.(data),
     scene: undefined,
     laid: undefined,
+    kept: new Map(),
   })) as [ViewState, ...ViewState[]];
   let current = states[0];
   let selected: FunctionId | undefined;
+  let hovered: string | undefined;
   let drawn: ViewState | undefined;
   let queue = Promise.resolve();
   let pending = 0;
@@ -62,7 +69,8 @@ export const interactionOf = (
 
   const paint = (target: ViewState, laid: Laid, anchor?: FunctionId): void => {
     if (target !== current) return;
-    drawing.draw(laid, { anchor, zoomLevels: target.view.zoomLevels === true });
+    drawing.draw(laid, anchor);
+    hovered = undefined;
     drawing.highlight(selected);
     if (drawn !== target) drawing.fit();
     drawn = target;
@@ -78,31 +86,58 @@ export const interactionOf = (
       (box): box is FunctionBox => box.kind === 'function' && box.id === id,
     );
 
-  const placementOf = ({ view, opened, choice }: ViewState) =>
-    opened.size === 0 && choice === undefined ? data.placements[view.name] : undefined;
+  const laidOutInPage = async ({ view, choice }: ViewState, scene: Scene): Promise<Laid> => {
+    const start = performance.now();
+    const laid = await layoutOf(scene);
+    performance.measure(`callmap layout: ${view.name} ${keyOf(choice)}`.trim(), { start });
+    return laid;
+  };
+
+  const layoutFor = (target: ViewState, scene: Scene): Promise<Laid> => {
+    if (target.opened.size > 0) return laidOutInPage(target, scene);
+    const key = keyOf(target.choice);
+    const kept = target.kept.get(key);
+    if (kept !== undefined) return kept;
+    const placement =
+      key === keyOf(target.view.firstChoice?.(data))
+        ? data.placements[target.view.name]
+        : undefined;
+    const layout =
+      placement === undefined
+        ? laidOutInPage(target, scene)
+        : Promise.resolve(laidOf(scene, placement));
+    target.kept.set(key, layout);
+    return layout;
+  };
 
   const render = (target: ViewState, anchor?: FunctionId): Promise<void> => {
     target.scene = undefined;
-    const scene = sceneOf(target);
-    const placement = placementOf(target);
-    const laying =
-      placement === undefined ? layoutOf(scene) : Promise.resolve(laidOf(scene, placement));
-    target.laid = laying;
+    const layout = layoutFor(target, sceneOf(target));
+    target.laid = layout;
     return queued(async () => {
-      paint(target, await laying, anchor);
+      paint(target, await layout, anchor);
     });
   };
 
   const highlight = (id: FunctionId | undefined): void => {
     selected = id;
-    drawing.highlight(selected);
+    drawing.highlight(hovered ?? selected);
   };
+
+  drawing.onBoxHover((id) => {
+    if (id === hovered) return;
+    hovered = id;
+    drawing.highlight(hovered ?? selected);
+  });
 
   const select = (box: FunctionBox): void => {
     highlight(box.id);
     for (const handler of boxHandlers) handler(box);
   };
   drawing.onBoxClick(select);
+  drawing.onLevelBoxClick(({ opens }) => {
+    void choose(opens);
+  });
   drawing.onEmptyClick(() => {
     highlight(undefined);
   });
@@ -161,7 +196,7 @@ export const interactionOf = (
     },
   );
 
-  const page: ReaderPage = {
+  const page: Omit<ReaderPage, 'sources'> = {
     data,
     graph,
     panels,

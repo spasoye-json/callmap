@@ -3,6 +3,7 @@ import { appendTo, byText } from '@callmap/review';
 import type { CallMark, MarkedCall } from '@callmap/review';
 import type { ReaderPageData } from './data.ts';
 import type { PageFunction } from './functions.ts';
+import type { Choice } from './view.ts';
 
 export interface SceneFrame {
   readonly kind: 'file' | 'folder';
@@ -28,7 +29,23 @@ export interface OpenEndBox {
   readonly caller: FunctionId;
 }
 
-export type SceneBox = FunctionBox | OpenEndBox;
+export interface LevelBox {
+  readonly kind: 'folder' | 'file';
+  readonly id: string;
+  readonly label: string;
+  readonly frame: string;
+  readonly outside: boolean;
+  readonly changed: boolean;
+  readonly counts: readonly string[];
+  readonly opens: Choice;
+}
+
+export const countsTextOf = ({ counts }: LevelBox): string => counts.join(', ');
+
+export type SceneBox = FunctionBox | OpenEndBox | LevelBox;
+
+export const isLevelBox = <Box extends SceneBox>(box: Box): box is Extract<Box, LevelBox> =>
+  box.kind === 'folder' || box.kind === 'file';
 
 export interface SceneLine {
   readonly kind: 'call' | 'open-end' | 'bundled';
@@ -41,7 +58,7 @@ export interface SceneLine {
 }
 
 export const lineLabelOf = ({ oneOf, calls }: SceneLine): string | undefined =>
-  calls === undefined ? oneOf : String(calls.length);
+  oneOf ?? (calls === undefined ? undefined : String(calls.length));
 
 export interface Scene {
   readonly frames: readonly SceneFrame[];

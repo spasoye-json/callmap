@@ -1,7 +1,15 @@
 import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { commitFile, featureBranchRepo, fixtureText } from './fixture-repo.ts';
-import { boxesOf, clickBox, loadReaderPage, reviewHtmlOf, storedItemsOf } from './reader-page.ts';
+import {
+  boxesOf,
+  clickBox,
+  loadReaderPage,
+  pressBox,
+  reviewHtmlOf,
+  settled,
+  storedItemsOf,
+} from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
 
 const CART = 'src/cart.ts';
@@ -158,6 +166,27 @@ describe('the diff in the code panel', () => {
     const textbox = codePanelOf(await readFunction(`${CART}#receipt`)).getByRole('textbox');
     expect(textbox.getAttribute('aria-readonly')).toBe('true');
     expect(textbox.getAttribute('contenteditable')).toBe('false');
+  });
+});
+
+describe('the file texts of the page', () => {
+  it('shows the code of a box that the reader clicks before the texts are ready, when they are ready', async () => {
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const page = await loadReaderPage(html, undefined, held);
+    pressBox(page, `${CART}#receipt`);
+    expect(codePanelOf(page).getByRole('heading', { name: 'receipt' })).toBeDefined();
+    expect(codePanelOf(page).queryByRole('textbox')).toBeNull();
+
+    release();
+    await settled(page);
+
+    expect(textsOf(codePanelOf(page).getAllByRole('insertion'))).toEqual([
+      '  const total = taxed(prices);',
+      '  return format(total);',
+    ]);
   });
 });
 

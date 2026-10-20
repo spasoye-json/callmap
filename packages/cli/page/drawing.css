@@ -58,16 +58,37 @@
   text-anchor: middle;
 }
 
-.box.function {
+.box.function,
+.box.opens {
   cursor: pointer;
 }
 
-.box.function:focus {
+.box.function:focus,
+.box.opens:focus {
   outline: none;
 }
 
-.box.function:focus-visible > rect {
+.box.function:focus-visible > rect,
+.box.opens:focus-visible > rect {
   stroke-width: 4;
+}
+
+.box.level:not(.changed) > rect {
+  stroke: var(--rule);
+  stroke-width: 1.5;
+}
+
+.box.level.folder > text:not(.counts) {
+  font-weight: 600;
+}
+
+.box.level > text.counts {
+  fill: var(--changed);
+  font-size: 11px;
+}
+
+.box.level:not(.changed) > text.counts {
+  fill: var(--muted);
 }
 
 .box.added > rect {

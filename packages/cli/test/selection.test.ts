@@ -96,9 +96,10 @@ describe('the selection in the graph', () => {
     expectEveryOtherBoxAndLineFaded(page);
   });
 
-  it('highlights a bundled line that holds a call of the selected function in the Whole project view', async () => {
+  it('highlights a bundled line that holds a call of the selected function', async () => {
     const page = await loadReaderPage(html);
-    await openTab(page, 'Whole project');
+    await openTab(page, 'Folder');
+    await pickFolder(page, 'src/');
     await clickBox(page, RECEIPT);
     expect(linesWith(page, 'connected')).toContain(`frame:${CART} -> frame:${MONEY}`);
     expect(boxesWith(page, 'connected')).toContain(`${MONEY}#format`);
@@ -125,7 +126,8 @@ describe('the selection in the graph', () => {
   it('keeps the selection when the reader changes the view', async () => {
     const page = await loadReaderPage(html);
     await clickBox(page, RECEIPT);
-    await openTab(page, 'Whole project');
+    await openTab(page, 'Folder');
+    await pickFolder(page, 'src/');
     expectHighlightAround(page, RECEIPT);
   });
 

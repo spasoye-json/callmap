@@ -2,9 +2,10 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
+import { gzipSync } from 'node:zlib';
 import { rolldown } from 'rolldown';
 import { DATA_BLOCK_ID } from '../page/data.ts';
-import type { ReaderPageData } from '../page/data.ts';
+import type { ReaderPageData, Sources } from '../page/data.ts';
 import type { Placement } from '../page/layout.ts';
 import { READER_VIEWS } from '../page/reader-views.ts';
 import type { Scene } from '../page/scene.ts';
@@ -95,14 +96,25 @@ const placementsOf = async (data: ReaderPageData): Promise<Readonly<Record<strin
       READER_VIEWS.filter(({ laidOutByCommand }) => laidOutByCommand === true).map(
         async (view): Promise<[string, Placement]> => [
           view.name,
-          await placementInWorkerOf(view.sceneOf(data, new Set(), undefined)),
+          await placementInWorkerOf(view.sceneOf(data, new Set(), view.firstChoice?.(data))),
         ],
       ),
     ),
   );
 
-export const readerPageOf = async (review: Omit<ReaderPageData, 'placements'>): Promise<string> => {
-  const data: ReaderPageData = { ...review, placements: {} };
+type PageReview = Omit<ReaderPageData, 'packedSources' | 'placements'> & {
+  readonly sources: Sources;
+};
+
+const packedSourcesOf = (sources: Sources): string =>
+  gzipSync(JSON.stringify(sources), { level: 9 }).toString('base64');
+
+export const readerPageOf = async ({ sources, ...review }: PageReview): Promise<string> => {
+  const data: ReaderPageData = {
+    ...review,
+    packedSources: packedSourcesOf(sources),
+    placements: {},
+  };
   const [script, placements] = await Promise.all([pageScript(), placementsOf(data)]);
   return pageOf({ ...data, placements }, script);
 };

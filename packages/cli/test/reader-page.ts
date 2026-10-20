@@ -1,11 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 import { fireEvent, within } from '@testing-library/dom';
 import { JSDOM } from 'jsdom';
-import type { ReaderPageData } from '../page/data.ts';
+import type { ReaderPageData, Sources } from '../page/data.ts';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 
@@ -15,7 +16,7 @@ export interface Opener {
 }
 
 export const fakeOpener = (): Opener => {
-  const bin = mkdtempSync(join(tmpdir(), 'callmap-opener-'));
+  const bin = tempDir('callmap-opener-');
   const marker = join(bin, 'opened');
   for (const name of ['xdg-open', 'open']) {
     const path = join(bin, name);
@@ -25,29 +26,44 @@ export const fakeOpener = (): Opener => {
   return { bin, marker };
 };
 
-export const runCallmap = (args: readonly string[], opener?: Opener) =>
+export const runCallmap = (
+  args: readonly string[],
+  opener?: Opener,
+  cacheHome: string = tempDir('callmap-cache-'),
+) =>
   spawnSync(process.execPath, [CLI, ...args], {
     encoding: 'utf8',
-    env:
-      opener === undefined
-        ? process.env
-        : { ...process.env, PATH: `${opener.bin}${delimiter}${process.env['PATH'] ?? ''}` },
+    env: {
+      ...process.env,
+      XDG_CACHE_HOME: cacheHome,
+      ...(opener === undefined
+        ? {}
+        : { PATH: `${opener.bin}${delimiter}${process.env['PATH'] ?? ''}` }),
+    },
   });
 
 export const reviewHtmlOf = (repo: string, ...flags: readonly string[]): string => {
-  const out = join(mkdtempSync(join(tmpdir(), 'callmap-out-')), 'review.html');
+  const out = join(tempDir('callmap-out-'), 'review.html');
   const finished = runCallmap(['review', repo, '--no-open', '--out', out, ...flags]);
   if (finished.status !== 0) throw new Error(finished.stderr);
   return readFileSync(out, 'utf8');
 };
 
-export const pageDataOf = (html: string): ReaderPageData => {
+export const dataBlockOf = (html: string): string => {
   const block = /<script type="application\/json" id="reader-page-data">([^<]*)<\/script>/.exec(
     html,
   );
   if (block?.[1] === undefined) throw new Error('the page holds no data block');
-  return JSON.parse(block[1]) as ReaderPageData;
+  return block[1];
 };
+
+export const pageDataOf = (html: string): ReaderPageData =>
+  JSON.parse(dataBlockOf(html)) as ReaderPageData;
+
+export const sourcesOf = (html: string): Sources =>
+  JSON.parse(
+    gunzipSync(Buffer.from(pageDataOf(html).packedSources, 'base64')).toString('utf8'),
+  ) as Sources;
 
 export const withPageData = (html: string, data: ReaderPageData): string =>
   html.replace(
@@ -88,14 +104,18 @@ export interface DrawnLine {
 
 export interface LoadedPage {
   readonly window: JSDOM['window'];
+  readonly layouts: readonly string[];
 }
 
 const LAYOUT_TIMEOUT = 10_000;
 
 export const settled = async ({ window }: LoadedPage): Promise<void> => {
-  const graph = window.document.getElementById('graph');
+  const { document } = window;
+  const busy = (): boolean =>
+    document.getElementById('graph')?.getAttribute('aria-busy') !== 'false' ||
+    document.querySelector('[aria-busy="true"]') !== null;
   const started = Date.now();
-  while (graph?.getAttribute('aria-busy') !== 'false') {
+  while (busy()) {
     if (Date.now() - started > LAYOUT_TIMEOUT) throw new Error('the drawing did not settle');
     await new Promise((settle) => setTimeout(settle, 5));
   }
@@ -103,16 +123,45 @@ export const settled = async ({ window }: LoadedPage): Promise<void> => {
 
 export type StoredItems = Readonly<Record<string, string>>;
 
-const withStorage = (stored: StoredItems | undefined) =>
-  stored === undefined
-    ? {}
-    : {
-        url: 'http://localhost/',
-        beforeParse: (window: JSDOM['window']) => {
-          for (const [key, value] of Object.entries(stored))
-            window.localStorage.setItem(key, value);
-        },
-      };
+const decompressionHeldUntil = (held: Promise<void>) =>
+  class {
+    readonly writable: WritableStream<BufferSource>;
+    readonly readable: ReadableStream<Uint8Array>;
+
+    constructor(format: CompressionFormat) {
+      const decompression = new DecompressionStream(format);
+      this.writable = decompression.writable;
+      this.readable = decompression.readable.pipeThrough(
+        new TransformStream<Uint8Array, Uint8Array>({ start: () => held }),
+      );
+    }
+  };
+
+const recordLayouts = (window: JSDOM['window'], layouts: string[]): void => {
+  // jsdom has no User Timing API, so the test records the layouts that the page measures.
+  Object.assign(window.performance, {
+    measure: (name: string) => {
+      layouts.push(name);
+    },
+  });
+};
+
+const withBrowserApis = (
+  layouts: string[],
+  stored: StoredItems | undefined,
+  textsHeldUntil?: Promise<void>,
+) => ({
+  ...(stored === undefined ? {} : { url: 'http://localhost/' }),
+  beforeParse: (window: JSDOM['window']) => {
+    recordLayouts(window, layouts);
+    Object.assign(window, {
+      DecompressionStream:
+        textsHeldUntil === undefined ? DecompressionStream : decompressionHeldUntil(textsHeldUntil),
+    });
+    for (const [key, value] of Object.entries(stored ?? {}))
+      window.localStorage.setItem(key, value);
+  },
+});
 
 export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
   Object.fromEntries(
@@ -122,13 +171,18 @@ export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
     }),
   );
 
-export const loadReaderPage = async (html: string, stored?: StoredItems): Promise<LoadedPage> => {
+export const loadReaderPage = async (
+  html: string,
+  stored?: StoredItems,
+  textsHeldUntil?: Promise<void>,
+): Promise<LoadedPage> => {
+  const layouts: string[] = [];
   const dom = new JSDOM(html, {
     runScripts: 'dangerously',
     pretendToBeVisual: true,
-    ...withStorage(stored),
+    ...withBrowserApis(layouts, stored, textsHeldUntil),
   });
-  const page = { window: dom.window };
+  const page = { window: dom.window, layouts };
   await settled(page);
   return page;
 };
@@ -209,10 +263,14 @@ export const framesAround = (page: LoadedPage, id: string): readonly DrawnFrame[
 export const callsOf = (page: LoadedPage): readonly DrawnLine[] =>
   linesOf(page).filter(({ classes }) => classes.includes('call'));
 
-export const clickBox = async (page: LoadedPage, id: string): Promise<void> => {
+export const pressBox = (page: LoadedPage, id: string): void => {
   const box = boxElementOf(page, id);
   if (box === undefined) throw new Error(`the drawing holds no box ${id}`);
   box.dispatchEvent(new page.window.MouseEvent('click', { bubbles: true }));
+};
+
+export const clickBox = async (page: LoadedPage, id: string): Promise<void> => {
+  pressBox(page, id);
   await settled(page);
 };
 
@@ -233,4 +291,20 @@ export const pickFolder = async (page: LoadedPage, folder: string): Promise<void
   const tree = within(page.window.document.body).getByRole('navigation', { name: 'Folders' });
   fireEvent.click(within(tree).getByRole('button', { name: folder }));
   await settled(page);
+};
+
+const shapeOfBox = (page: LoadedPage, id: string): Element => {
+  const box = boxElementOf(page, id);
+  if (box === undefined) throw new Error(`the drawing holds no box ${id}`);
+  return box.querySelector(':scope > rect') ?? box;
+};
+
+export const hoverBox = (page: LoadedPage, id: string): void => {
+  fireEvent.pointerOver(shapeOfBox(page, id));
+};
+
+export const leaveBox = (page: LoadedPage, id: string): void => {
+  fireEvent.pointerOut(shapeOfBox(page, id), {
+    relatedTarget: page.window.document.querySelector('#graph svg'),
+  });
 };

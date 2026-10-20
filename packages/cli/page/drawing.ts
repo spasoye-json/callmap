@@ -1,8 +1,10 @@
 import { highlightOf } from './highlight.ts';
 import type { Laid, LaidBox, LaidFrame, LaidLine, Point, Rect } from './layout.ts';
-import type { FunctionBox } from './scene.ts';
+import { countsTextOf, isLevelBox } from './scene.ts';
+import type { FunctionBox, LevelBox } from './scene.ts';
 
 type LaidFunction = FunctionBox & Rect;
+type LaidLevelBox = LevelBox & Rect;
 
 const SVG = 'http://www.w3.org/2000/svg';
 const ARROWS = ['kept', 'added', 'removed', 'open-end'] as const;
@@ -10,24 +12,19 @@ const FIT_MARGIN = 40;
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 3;
 const DRAG_THRESHOLD = 4;
-const FAR_SCALE = 0.5;
-const NEAR_SCALE = 1;
 const VIEW_MARGIN = 24;
 
-export interface DrawOptions {
-  readonly anchor?: string | undefined;
-  readonly zoomLevels?: boolean;
-}
-
 export interface Drawing {
-  readonly draw: (laid: Laid, options?: DrawOptions) => void;
+  readonly draw: (laid: Laid, anchor?: string) => void;
   readonly fit: () => void;
   readonly highlight: (selected: string | undefined) => void;
   readonly focus: (id: string) => void;
   readonly keepInView: (id: string) => void;
   readonly onBoxClick: (handler: (box: LaidFunction) => void) => void;
+  readonly onLevelBoxClick: (handler: (box: LaidLevelBox) => void) => void;
   readonly onLineClick: (handler: (line: LaidLine) => void) => void;
   readonly onEmptyClick: (handler: () => void) => void;
+  readonly onBoxHover: (handler: (id: string | undefined) => void) => void;
 }
 
 const svgOf = <Name extends keyof SVGElementTagNameMap>(
@@ -77,7 +74,39 @@ const frameOf = (frame: LaidFrame): SVGGElement =>
     svgOf('text', { x: frame.x + 10, y: frame.y + 19 }, frame.label),
   );
 
+const levelBoxOf = (box: LaidLevelBox): SVGGElement => {
+  const x = box.x + box.width / 2;
+  const texts =
+    box.counts.length === 0
+      ? [svgOf('text', { x, y: box.y + box.height / 2 }, box.label)]
+      : [
+          svgOf('text', { x, y: box.y + 16 }, box.label),
+          svgOf('text', { x, y: box.y + 32, class: 'counts' }, countsTextOf(box)),
+        ];
+  return svgOf(
+    'g',
+    {
+      class: [
+        'box',
+        'level',
+        box.kind,
+        ...(box.changed ? ['changed'] : []),
+        ...(box.outside ? ['outside'] : []),
+        'opens',
+      ].join(' '),
+      'data-box': box.id,
+      'data-kind': box.kind,
+      role: 'button',
+      tabindex: 0,
+      'aria-label': [box.label, ...box.counts].join(', '),
+    },
+    rectOf(box, 5),
+    ...texts,
+  );
+};
+
 const boxOf = (box: LaidBox): SVGGElement => {
+  if (isLevelBox(box)) return levelBoxOf(box);
   const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   const text = svgOf('text', { x: centre.x, y: centre.y }, box.label);
   if (box.kind === 'open-end') {
@@ -110,7 +139,8 @@ const pathOf = (points: readonly Point[]): string =>
 
 const lineOf = (line: LaidLine, index: number): SVGGElement => {
   const arrow = line.kind === 'open-end' ? 'open-end' : line.mark;
-  const classes = ['line', line.kind, ...(line.kind === 'open-end' ? [] : [line.mark])];
+  const marks = new Set([line.mark, ...(line.calls ?? []).map(({ mark }) => mark)]);
+  const classes = ['line', line.kind, ...(line.kind === 'open-end' ? [] : marks)];
   if (line.oneOf !== undefined) classes.push('one-of');
   const label =
     line.label === undefined
@@ -158,20 +188,13 @@ export const drawingOf = (container: HTMLElement): Drawing => {
 
   const camera: Camera = { scale: 1, x: 0, y: 0 };
   let laid: Laid = { frames: [], boxes: [], lines: [], width: 0, height: 0 };
-  let zoomLevels = false;
-  let details = svgOf('g', { class: 'details' });
   const handlers: ((box: LaidFunction) => void)[] = [];
+  const levelHandlers: ((box: LaidLevelBox) => void)[] = [];
   const lineHandlers: ((line: LaidLine) => void)[] = [];
   const emptyHandlers: (() => void)[] = [];
-
-  const showDetails = (): void => {
-    const far = zoomLevels && camera.scale < FAR_SCALE;
-    if (far) details.remove();
-    else if (details.parentNode === null) viewport.append(details);
-  };
+  const hoverHandlers: ((id: string | undefined) => void)[] = [];
 
   const apply = (): void => {
-    showDetails();
     viewport.setAttribute(
       'transform',
       `translate(${String(camera.x)},${String(camera.y)}) scale(${String(camera.scale)})`,
@@ -204,7 +227,6 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     const box = boxOfId(id);
     const { width, height } = sizeOf();
     if (box === undefined || width === 0) return;
-    if (zoomLevels) camera.scale = Math.max(camera.scale, NEAR_SCALE);
     const [x, y] = centreOf(box);
     camera.x = width / 2 - x * camera.scale;
     camera.y = height / 2 - y * camera.scale;
@@ -230,10 +252,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
 
   const highlight = (selected: string | undefined): void => {
     const lit = selected === undefined ? undefined : highlightOf(laid, selected);
-    const drawn = [viewport, ...(details.parentNode === null ? [details] : [])].flatMap((group) => [
-      ...group.querySelectorAll('[data-box], [data-line]'),
-    ]);
-    for (const element of drawn) {
+    for (const element of viewport.querySelectorAll('[data-box], [data-line]')) {
       const box = element.getAttribute('data-box');
       const line = Number(element.getAttribute('data-line'));
       const isSelected = box !== null && box === lit?.selected;
@@ -244,25 +263,19 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     }
   };
 
-  const draw = (next: Laid, { anchor, zoomLevels: levels = false }: DrawOptions = {}): void => {
+  const draw = (next: Laid, anchor?: string): void => {
     const before = anchor === undefined ? undefined : boxOfId(anchor);
     laid = next;
-    zoomLevels = levels;
     const linesOf = (bundled: boolean): SVGGElement[] =>
       next.lines.flatMap((line, index) =>
         (line.kind === 'bundled') === bundled ? [lineOf(line, index)] : [],
       );
-    details = svgOf(
-      'g',
-      { class: 'details' },
-      svgOf('g', { class: 'lines' }, ...linesOf(false)),
-      svgOf('g', { class: 'boxes' }, ...next.boxes.map(boxOf)),
-    );
     viewport.replaceChildren(
       svgOf('g', { class: 'frames' }, ...next.frames.map(frameOf)),
       svgOf('g', { class: 'lines' }, ...linesOf(true)),
+      svgOf('g', { class: 'lines' }, ...linesOf(false)),
+      svgOf('g', { class: 'boxes' }, ...next.boxes.map(boxOf)),
     );
-    showDetails();
     const after = anchor === undefined ? undefined : boxOfId(anchor);
     if (before !== undefined && after !== undefined) {
       const [beforeX, beforeY] = centreOf(before);
@@ -278,10 +291,19 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     return element === null ? undefined : laid.lines[Number(element.getAttribute('data-line'))];
   };
 
-  const clickedBox = (target: EventTarget | null): LaidFunction | undefined => {
+  const boxAt = (target: EventTarget | null): LaidBox | undefined => {
     const element = target instanceof Element ? target.closest('[data-box]') : null;
-    const box = boxOfId(element?.getAttribute('data-box') ?? '');
+    return boxOfId(element?.getAttribute('data-box') ?? '');
+  };
+
+  const clickedBox = (target: EventTarget | null): LaidFunction | undefined => {
+    const box = boxAt(target);
     return box?.kind === 'function' ? box : undefined;
+  };
+
+  const clickedOpener = (target: EventTarget | null): LaidLevelBox | undefined => {
+    const box = boxAt(target);
+    return box !== undefined && isLevelBox(box) ? box : undefined;
   };
 
   let drag: { readonly x: number; readonly y: number; moved: boolean } | undefined;
@@ -338,27 +360,39 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   const fireLineClick = (line: LaidLine): void => {
     for (const handler of lineHandlers) handler(line);
   };
+  const fireLevelBoxClick = (box: LaidLevelBox): void => {
+    for (const handler of levelHandlers) handler(box);
+  };
+  const activate = (target: EventTarget | null): boolean => {
+    const box = clickedBox(target);
+    const opener = clickedOpener(target);
+    const line = clickedLine(target);
+    if (box !== undefined) fireBoxClick(box);
+    if (opener !== undefined) fireLevelBoxClick(opener);
+    if (line !== undefined) fireLineClick(line);
+    return box !== undefined || opener !== undefined || line !== undefined;
+  };
   svg.addEventListener('click', (event) => {
     if (dragged) {
       dragged = false;
       return;
     }
-    const box = clickedBox(event.target);
-    if (box !== undefined) fireBoxClick(box);
-    const line = clickedLine(event.target);
-    if (line !== undefined) fireLineClick(line);
-    if (box === undefined && line === undefined) {
-      for (const handler of emptyHandlers) handler();
-    }
+    if (activate(event.target)) return;
+    for (const handler of emptyHandlers) handler();
+  });
+  const point = (target: EventTarget | null): void => {
+    const id = boxAt(target)?.id;
+    for (const handler of hoverHandlers) handler(id);
+  };
+  svg.addEventListener('pointerover', (event) => {
+    point(event.target);
+  });
+  svg.addEventListener('pointerout', (event) => {
+    point(event.relatedTarget);
   });
   svg.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
-    const box = clickedBox(event.target);
-    const line = clickedLine(event.target);
-    if (box === undefined && line?.calls === undefined) return;
-    event.preventDefault();
-    if (box !== undefined) fireBoxClick(box);
-    if (line !== undefined) fireLineClick(line);
+    if (activate(event.target)) event.preventDefault();
   });
 
   apply();
@@ -372,11 +406,17 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     onBoxClick: (handler) => {
       handlers.push(handler);
     },
+    onLevelBoxClick: (handler) => {
+      levelHandlers.push(handler);
+    },
     onLineClick: (handler) => {
       lineHandlers.push(handler);
     },
     onEmptyClick: (handler) => {
       emptyHandlers.push(handler);
+    },
+    onBoxHover: (handler) => {
+      hoverHandlers.push(handler);
     },
   };
 };
