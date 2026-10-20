@@ -189,7 +189,7 @@ export const interactionOf = (
 
   const tabBar = tabBarOf(
     tabs,
-    views.map(({ name }) => name),
+    views.map(({ name, countOf }) => ({ name, count: countOf?.(data) })),
     graph.id,
     (name) => {
       void showView(name);
