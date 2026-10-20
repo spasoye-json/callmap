@@ -89,7 +89,7 @@ The zoom band of the zoom decides what text the graph draws:
 | 60% to under 92% | Scan | The names at 11 px on the screen, one count on a level box, badges on the path |
 | 92% or more      | Read | All the text                                                                   |
 
-The lines, the count badges, the "one of" labels and the frame labels keep their screen size at every zoom. A frame label that does not fit cuts the start of its path, so the file name stays.
+The lines, the count badges and the "one of" labels keep their screen size at every zoom. A frame label keeps its screen size while it fits the header of its frame. At a lower zoom, it shrinks with the frame. A frame label that does not fit cuts the start of its path, so the file name stays.
 
 The zoom controls sit at the bottom right of the graph. They are "Zoom out", "Zoom in", "Fit" and the zoom in percent. The label says "Overview" below 92%. Fit shows the whole level, up to 150%. Drag the graph to pan it, and use the mouse wheel to zoom, from 5% to 150%.
 

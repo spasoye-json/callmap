@@ -19,6 +19,9 @@ const RECEIPT = `${CART}#receipt`;
 const ALERT = 'src/alerts.ts#alert';
 const REPORT = 'src/report.ts';
 
+const FRAME_HEADER = 30;
+const HEADER_TEXT = 24;
+
 const TINY: GraphSize = { width: 150, height: 100 };
 const DENSE: GraphSize = { width: 600, height: 400 };
 const FITTING: GraphSize = { width: 1200, height: 500 };
@@ -216,6 +219,44 @@ describe('the zoom bands', () => {
     );
   });
 
+  it('cuts the start of a name in the Scan band, so that it ends before the function count', async () => {
+    const page = await projectPageAt(1);
+    const scale = 0.8;
+    const character = 11 * 0.6;
+    const boxes = [...page.window.document.querySelectorAll('#graph .box.level:not(.outside)')];
+    expect(boxes.length).toBeGreaterThan(0);
+    for (const box of boxes) {
+      const name = box.querySelector(':scope > text.name');
+      const count = box.querySelector(':scope > text.functions');
+      const full = box.querySelector(':scope > title')?.textContent.split('\n')[0] ?? '';
+      const shown = name?.textContent ?? '';
+      const nameEnd = Number(name?.getAttribute('x')) * scale + shown.length * character;
+      const countStart =
+        Number(count?.getAttribute('x')) * scale - (count?.textContent.length ?? 0) * character;
+      expect(nameEnd, shown).toBeLessThanOrEqual(countStart - 4);
+      expect(full.endsWith(shown.replace(/^…/, '')), `${shown} of ${full}`).toBe(true);
+    }
+    expect(nameOf(page, ORDERS).textContent).toMatch(/^…/);
+    press(page, 'Zoom in');
+    expect(nameOf(page, ORDERS).textContent).toBe('orders/');
+  });
+
+  it('cuts the start of a function name in the Scan band, so that it stays in its box', async () => {
+    const page = await loadReaderPage(html, undefined, undefined, DENSE);
+    press(page, 'Zoom out');
+    expect(bandOf(page)).toBe('scan');
+    const scale = 0.8;
+    for (const box of page.window.document.querySelectorAll('#graph .box.function')) {
+      const name = box.querySelector(':scope > text.name');
+      const rect = box.querySelector(':scope > rect');
+      const shown = name?.textContent ?? '';
+      const nameEnd = Number(name?.getAttribute('x')) * scale + shown.length * 11 * 0.6;
+      const boxEnd =
+        (Number(rect?.getAttribute('x')) + Number(rect?.getAttribute('width'))) * scale;
+      expect(nameEnd, shown).toBeLessThanOrEqual(boxEnd);
+    }
+  });
+
   it('sets the count that stays in the Scan band to 11 px on the screen', async () => {
     const page = await projectPageAt(1);
     const count = elementOf(page, `[data-box="${ORDERS}"] .count[data-mark="changed"] > text`);
@@ -228,6 +269,16 @@ describe('the zoom bands', () => {
     expect(shownIn(page, nameOf(page, ORDERS))).toBe(false);
     expect(countsShownOf(page, ORDERS)).toEqual([]);
     expect(shownIn(page, badgeOf(page))).toBe(false);
+  });
+
+  it('hides the "one of" labels in the Map band', async () => {
+    const page = await loadReaderPage(html, undefined, undefined, DENSE);
+    await clickBox(page, `${CART}#subtotal`);
+    const pill = elementOf(page, '.pill');
+    expect(shownIn(page, pill)).toBe(true);
+    press(page, 'Fit');
+    expect(bandOf(page)).toBe('map');
+    expect(shownIn(page, pill)).toBe(false);
   });
 
   it('shows the chip of a function in the Map band, and its name in a tooltip', async () => {
@@ -259,21 +310,34 @@ const screenScalesOf = (page: LoadedPage, selector: string): readonly number[] =
   );
 
 describe('the text that keeps its screen size', () => {
-  it('keeps the count badges, the "one of" labels and the frame labels at their screen size at every zoom', async () => {
+  it('keeps the count badges and the "one of" labels at their screen size at every zoom', async () => {
     const page = await loadReaderPage(html, undefined, undefined, DENSE);
     await clickBox(page, `${CART}#subtotal`);
     expect(page.window.document.querySelector('#graph .pill')).not.toBeNull();
     for (const name of ['Zoom in', 'Zoom out', 'Zoom out', 'Zoom out', 'Fit']) {
       press(page, name);
-      for (const selector of ['.label', '.frame > text']) {
-        const scales = screenScalesOf(page, selector);
-        expect(scales.length, selector).toBeGreaterThan(0);
-        expect(new Set(scales), `${selector} after ${name}`).toEqual(new Set([1]));
-      }
+      const scales = screenScalesOf(page, '.label');
+      expect(scales.length).toBeGreaterThan(0);
+      expect(new Set(scales), `after ${name}`).toEqual(new Set([1]));
     }
   });
 
-  it('keeps the folder icon of a frame at its screen size at every zoom', async () => {
+  const headerFitOf = (scale: number, size = 1): number =>
+    Math.round(size * Math.min(1, (scale * FRAME_HEADER) / HEADER_TEXT) * 1000) / 1000;
+
+  it('keeps the frame labels at their screen size while they fit the frame header, and shrinks them with the frame below that', async () => {
+    const page = await loadReaderPage(html, undefined, undefined, DENSE);
+    for (const name of ['Zoom in', 'Zoom out', 'Zoom out', 'Zoom out', 'Fit']) {
+      press(page, name);
+      const scales = screenScalesOf(page, '.frame > text');
+      expect(scales.length).toBeGreaterThan(0);
+      expect(new Set(scales), `after ${name}`).toEqual(
+        new Set([headerFitOf(cameraOf(page).scale)]),
+      );
+    }
+  });
+
+  it('keeps the folder icon of a frame at its screen size while it fits the frame header', async () => {
     const page = await loadReaderPage(levelsHtml, undefined, undefined, DENSE);
     await openTab(page, 'Whole project');
     await clickBox(page, ORDERS);
@@ -281,7 +345,26 @@ describe('the text that keeps its screen size', () => {
       press(page, name);
       const scales = screenScalesOf(page, '.frame .icon');
       expect(scales.length).toBeGreaterThan(0);
-      expect(new Set(scales), `after ${name}`).toEqual(new Set([0.75]));
+      const expected = headerFitOf(cameraOf(page).scale, 0.75);
+      expect(new Set(scales), `after ${name}`).toEqual(new Set([expected]));
+    }
+  });
+
+  it('keeps every frame label inside the width of its frame at every zoom', async () => {
+    const page = await loadReaderPage(html, undefined, undefined, DENSE);
+    for (const name of ['Zoom in', 'Zoom out', 'Zoom out', 'Zoom out', 'Fit']) {
+      press(page, name);
+      const { scale } = cameraOf(page);
+      for (const frame of page.window.document.querySelectorAll('#graph .frame')) {
+        const label = frame.querySelector(':scope > text');
+        const width = Number(frame.querySelector(':scope > rect')?.getAttribute('width'));
+        const shown =
+          (Number(label?.getAttribute('x')) + (label?.textContent.length ?? 0) * 11 * 0.6) *
+          (label === null ? 1 : screenScaleOf(label));
+        expect(shown, `${label?.textContent ?? ''} after ${name}`).toBeLessThanOrEqual(
+          width * scale,
+        );
+      }
     }
   });
 

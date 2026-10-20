@@ -103,7 +103,7 @@ The zoom where the smallest text of the graph is 11 px on the screen: 92%. A vie
 _Avoid_: minimum zoom, readable zoom
 
 **Zoom band**:
-One range of zoom that decides what text the graph draws. Map, below 60%, draws the boxes and the chips only. Scan, from 60% to the reading floor, draws the names at 11 px on the screen. Read, from the reading floor up, draws all the text. The lines, the count badges and the frame labels keep their screen size in every band.
+One range of zoom that decides what text the graph draws. Map, below 60%, draws the boxes and the chips only. Scan, from 60% to the reading floor, draws the names at 11 px on the screen. Read, from the reading floor up, draws all the text. The lines and the count badges keep their screen size in every band. A frame label keeps its screen size while it fits the header of its frame.
 _Avoid_: zoom level, detail level, level of detail
 
 ### Review
