@@ -1,0 +1,58 @@
+.edge-hint {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  color: var(--ink-2);
+  font: 12px var(--font-ui);
+  cursor: pointer;
+}
+
+.edge-hint[hidden] {
+  display: none;
+}
+
+.edge-hint:hover,
+.edge-hint:focus-visible {
+  border-color: var(--focus);
+  color: var(--ink);
+}
+
+.edge-hint svg path {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.edge-hint.top {
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.edge-hint.right {
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+}
+
+.edge-hint.bottom {
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.edge-hint.left {
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+}

@@ -1,0 +1,53 @@
+.overview-map {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1;
+  width: 200px;
+  height: 136px;
+  overflow: hidden;
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.overview-map[hidden] {
+  display: none;
+}
+
+.overview-map > [data-map-box] {
+  position: absolute;
+  box-sizing: border-box;
+  min-width: 2px;
+  min-height: 2px;
+  border-radius: 2px;
+  background: var(--rule-strong);
+}
+
+.overview-map > .outside {
+  border: 1px solid var(--rule-strong);
+  background: transparent;
+}
+
+.overview-map > .connected {
+  background: var(--ink-2);
+}
+
+.overview-map > .selected {
+  background: var(--focus);
+}
+
+.overview-map > .view {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px solid var(--focus);
+  border-radius: 3px;
+  background: var(--focus-ring);
+}
+
+#graph[data-overview-map] .zoom-controls {
+  bottom: 164px;
+}

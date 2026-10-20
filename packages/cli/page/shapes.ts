@@ -17,11 +17,27 @@ import { keptSizeAt, pathLabelAttributes } from './screen-size.ts';
 import { svgOf } from './svg.ts';
 
 const ARROWS = ['kept', 'added', 'removed', 'focus'] as const;
+const FOCUS_RING_GAP = 4;
 const BOX_PADDING = 10;
 const CHIP_GAP = 8;
 
 const rectOf = ({ x, y, width, height }: Rect, rounding: number): SVGRectElement =>
   svgOf('rect', { x, y, width, height, rx: rounding });
+
+const focusRingOf = ({ x, y, width, height }: Rect, rounding: number): SVGGElement =>
+  svgOf(
+    'g',
+    { class: 'focus-ring', 'aria-hidden': 'true' },
+    rectOf(
+      {
+        x: x - FOCUS_RING_GAP,
+        y: y - FOCUS_RING_GAP,
+        width: width + 2 * FOCUS_RING_GAP,
+        height: height + 2 * FOCUS_RING_GAP,
+      },
+      rounding + FOCUS_RING_GAP,
+    ),
+  );
 
 export const arrowsOf = (): SVGDefsElement =>
   svgOf(
@@ -142,7 +158,8 @@ const levelBoxOf = (box: LevelBox & Rect): SVGGElement => {
     words.length === 0
       ? svgOf('text', { class: 'no-changes', x: left, y: countsMiddle }, NO_CHANGES)
       : countsRowOf(box.counts, left, countsMiddle),
-    svgOf('title', {}, words.length === 0 ? NO_CHANGES : words.join(', ')),
+    svgOf('title', {}, `${box.label}\n${words.length === 0 ? NO_CHANGES : words.join(', ')}`),
+    focusRingOf(box, 8),
   );
 };
 
@@ -170,6 +187,7 @@ const functionBoxOf = (box: FunctionBox & Rect): SVGGElement => {
     ),
     ...(chip === undefined ? [] : [svgChipOf(chip, left, middle - CHIP_SIZE / 2)]),
     svgOf('title', {}, box.label),
+    focusRingOf(box, 6),
   );
 };
 

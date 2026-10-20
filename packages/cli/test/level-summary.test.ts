@@ -116,10 +116,10 @@ describe('the counts of a level box', () => {
     expect(textIn(page, ORDERS, '.no-changes')).toBeUndefined();
   });
 
-  it('puts the words of the counts in the tooltip of the box', async () => {
+  it('puts the name and the words of the counts in the tooltip of the box', async () => {
     const page = await projectPage();
-    expect(textIn(page, ORDERS, ':scope > title')).toBe('2 changed, 1 added');
-    expect(textIn(page, NOTIFY, ':scope > title')).toBe('1 added, 1 open end');
-    expect(textIn(page, RATE, ':scope > title')).toBe('No changes');
+    expect(textIn(page, ORDERS, ':scope > title')).toBe('orders/\n2 changed, 1 added');
+    expect(textIn(page, NOTIFY, ':scope > title')).toBe('notify/\n1 added, 1 open end');
+    expect(textIn(page, RATE, ':scope > title')).toBe('tax/rate.ts\nNo changes');
   });
 });
