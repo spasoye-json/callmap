@@ -31,19 +31,19 @@ const busy: PagePart = (page) => {
   state.append(progress, text);
   page.graph.append(state);
 
-  let laidOut = page.currentView().name;
+  let nameInLayout = page.currentView().name;
   page.onViewChange((view) => {
-    laidOut = view.name;
+    nameInLayout = view.name;
   });
   page.onChoiceChange((_view, choice) => {
-    laidOut = labelOf(choice);
+    nameInLayout = labelOf(choice);
   });
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const show = (): void => {
-    name.textContent = laidOut;
+    name.textContent = nameInLayout;
     text.replaceChildren('Laying out ', name, ' …');
-    state.setAttribute('aria-label', `Laying out ${laidOut}`);
+    state.setAttribute('aria-label', `Laying out ${nameInLayout}`);
     progress.style.top = `${String(page.camera.view().coveredTop)}px`;
     state.hidden = false;
   };

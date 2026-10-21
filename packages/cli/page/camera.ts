@@ -48,11 +48,14 @@ export interface Camera {
   readonly onChange: (handler: (view: CameraView) => void) => void;
 }
 
-export interface CameraRig extends Camera {
-  readonly showLevel: (level: Laid, still?: string) => void;
+export interface SteeredCamera extends Camera {
   readonly open: (selected?: string) => void;
   readonly focus: (id: string) => void;
   readonly keepInView: (id: string) => void;
+}
+
+export interface CameraRig extends SteeredCamera {
+  readonly showLevel: (level: Laid, steadyBoxId?: string) => void;
   readonly takeDrag: () => boolean;
 }
 
@@ -85,13 +88,13 @@ export const cameraOf = (
   container: HTMLElement,
   svg: SVGSVGElement,
   viewport: SVGGElement,
-  sized: (scale: number) => void,
+  fitTextToScale: (scale: number) => void,
 ): CameraRig => {
   let scale = 1;
   let x = 0;
   let y = 0;
   let level = EMPTY;
-  let sizedAt: number | undefined;
+  let textScale: number | undefined;
   const handlers: ((view: CameraView) => void)[] = [];
 
   const sizeOf = (): GraphRoom => {
@@ -133,9 +136,9 @@ export const cameraOf = (
     );
     svg.setAttribute('data-band', bandOf(scale));
     svg.style.setProperty('--zoom', String(scale));
-    if (sizedAt !== scale) {
-      sized(scale);
-      sizedAt = scale;
+    if (textScale !== scale) {
+      fitTextToScale(scale);
+      textScale = scale;
     }
     const current = view();
     for (const handler of handlers) handler(current);
@@ -228,17 +231,17 @@ export const cameraOf = (
     apply();
   };
 
-  const showLevel = (next: Laid, still?: string): void => {
-    const before = still === undefined ? undefined : boxOfId(still);
+  const showLevel = (next: Laid, steadyBoxId?: string): void => {
+    const before = steadyBoxId === undefined ? undefined : boxOfId(steadyBoxId);
     level = next;
-    const after = still === undefined ? undefined : boxOfId(still);
+    const after = steadyBoxId === undefined ? undefined : boxOfId(steadyBoxId);
     if (before !== undefined && after !== undefined) {
       const [beforeX, beforeY] = centreOf(before);
       const [afterX, afterY] = centreOf(after);
       x += (beforeX - afterX) * scale;
       y += (beforeY - afterY) * scale;
     }
-    sizedAt = undefined;
+    textScale = undefined;
     apply();
   };
 
