@@ -99,7 +99,7 @@ A function that the Folder view draws but that the chosen folder does not hold: 
 _Avoid_: neighbour, external function
 
 **Reading floor**:
-The zoom where the smallest text of the graph is 11 px on the screen: 92%. A view or a level opens whole when it fits at the reading floor or above. A larger one opens at 100% on one part of it, so its text can be read. Below the reading floor, the zoom label says "Overview".
+The zoom where the box names are 11 px on the screen: 92%. A box name is the smallest text that names a box, 12 px at 100%. A support text can be smaller than 11 px at the reading floor, such as the "N fn" count, the label of an open end and the glyph of a chip. A view or a level opens whole when it fits at the reading floor or above. A larger one opens at 100% on one part of it, so its text can be read. Below the reading floor, the zoom label says "Overview".
 _Avoid_: minimum zoom, readable zoom
 
 **Zoom band**:
