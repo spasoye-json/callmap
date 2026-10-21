@@ -64,7 +64,7 @@
 }
 
 .drawing[data-band='map'] .box > text,
-.drawing[data-band='map'] .counts,
+.drawing[data-band='map'] .count > text,
 .drawing[data-band='map'] .badge,
 .drawing[data-band='map'] .pill {
   display: none;

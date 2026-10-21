@@ -263,11 +263,17 @@ describe('the zoom bands', () => {
     expect(page.window.getComputedStyle(count).fontSize).toBe('calc(11px / var(--zoom))');
   });
 
-  it('shows no names, no counts and no badges in the Map band, below 60%', async () => {
+  it('shows the count chips of a level box in the Map band, below 60%, with no names, numbers or badges', async () => {
     const page = await projectPageAt(3);
     expect(bandOf(page)).toBe('map');
     expect(shownIn(page, nameOf(page, ORDERS))).toBe(false);
-    expect(countsShownOf(page, ORDERS)).toEqual([]);
+    expect(countsShownOf(page, ORDERS)).toEqual(['changed 2', 'added 1']);
+    for (const count of page.window.document.querySelectorAll(
+      `#graph [data-box="${ORDERS}"] .count`,
+    )) {
+      expect(shownIn(page, count.querySelector(':scope > .chip') ?? count)).toBe(true);
+      expect(shownIn(page, count.querySelector(':scope > text') ?? count)).toBe(false);
+    }
     expect(shownIn(page, badgeOf(page))).toBe(false);
   });
 
