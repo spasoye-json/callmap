@@ -49,6 +49,18 @@ The check of `docs/research/2026-10-20-reader-redesign-on-a-private-app/` ran on
 
 Light mode and dark mode gave the same open zoom on every drawing. The check took no screenshot of the private repo. So it did not compare the look of the 2 modes by eye.
 
+## The browser checks
+
+The DOM tests of ADR-0013 run in jsdom. jsdom does not lay out text, so those tests estimate the width of a text from a fixed width for each character. The new design puts names, counts and frame labels in tight boxes in 3 zoom bands. So the page also gets a second suite, `npm run test:browser`, that opens the page in headless Chromium.
+
+- The suite builds reader pages from the fixture repos and opens each one in Chromium through `playwright-core`.
+- It fails when a label runs past its box or its frame, when a box name runs over its "N fn" count, and when a frame label or a "one of" label runs over a box.
+- It checks the Diff, Folder and Whole project views in the Read, Scan and Map bands, in light mode and dark mode.
+- `playwright-core` is a dev dependency, and it downloads no browser. The suite finds Chromium from `CALLMAP_CHROMIUM`, then the Playwright cache, then the PATH. If it finds none, it fails and names these 3 ways.
+- `npm test` does not run the suite.
+
+Commit `1aad5b7` added the suite. No source records other tools that the owner compared.
+
 ## Consequences
 
 - Every level of this review opens with box text of 11 px or more on the screen. The Diff view opens on its part with the most changes. The reader pans or uses the overview map to see the rest.
