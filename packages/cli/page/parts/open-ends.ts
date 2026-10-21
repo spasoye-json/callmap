@@ -18,8 +18,7 @@ interface FileOpenEnds {
 
 const filesOf = (page: ReaderPage): readonly FileOpenEnds[] => {
   const functions = pageFunctionsOf(page.data);
-  const fileOf = (caller: FunctionId): string =>
-    functions.get(caller)?.file ?? caller.split('#')[0] ?? caller;
+  const fileOf = (caller: FunctionId): string => functions.get(caller)?.file ?? caller;
   const byFile = new Map<string, OpenEnd[]>();
   for (const openEnd of page.data.review.openEnds) {
     const file = fileOf(openEnd.caller);

@@ -5,16 +5,13 @@ import type { ChipMark } from '../chips.ts';
 import { isChangeMark, pageFunctionsOf } from '../functions.ts';
 import { moreButtonOf } from '../panel-elements.ts';
 import type { PagePart } from '../reader-page.ts';
-import { callKeyOf, frameIdOf } from '../scene.ts';
+import { callKeyOf, fileOfFrameId } from '../scene.ts';
 import type { SceneLine } from '../scene.ts';
 import { countWordsOf } from '../words.ts';
 
 const ROWS_SHOWN = 5;
 const EDGE_ROOM = 8;
-const FRAME_PREFIX = frameIdOf('');
-
-const endLabelOf = (id: string): string =>
-  id.startsWith(FRAME_PREFIX) ? id.slice(FRAME_PREFIX.length) : id;
+const endLabelOf = (id: string): string => fileOfFrameId(id) ?? id;
 
 interface CallRow {
   readonly call: SceneLine;

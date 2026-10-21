@@ -124,7 +124,12 @@ export interface Scene {
   readonly lines: readonly SceneLine[];
 }
 
-export const frameIdOf = (file: string): string => `frame:${file}`;
+const FRAME_PREFIX = 'frame:';
+
+export const frameIdOf = (file: string): string => `${FRAME_PREFIX}${file}`;
+
+export const fileOfFrameId = (id: string): string | undefined =>
+  id.startsWith(FRAME_PREFIX) ? id.slice(FRAME_PREFIX.length) : undefined;
 
 export const arrowKeyOf = (from: string, to: string): string => `${from} -> ${to}`;
 

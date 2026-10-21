@@ -128,8 +128,23 @@ describe('the open ends, one-of groups and resolution rate on the reader page', 
         expression: `${name}.go`,
       })),
     );
+    const callers = files.map((name) => ({
+      id: `src/${name}.ts#run`,
+      name: 'run',
+      file: `src/${name}.ts`,
+      firstLine: 1,
+      lastLine: 3,
+      sourceHash: name,
+    }));
     const page = await loadReaderPage(
-      withPageData(html, { ...data, review: { ...data.review, openEnds } }),
+      withPageData(html, {
+        ...data,
+        branchGraph: {
+          ...data.branchGraph,
+          functions: [...data.branchGraph.functions, ...callers],
+        },
+        review: { ...data.review, openEnds },
+      }),
     );
     const region = within(page.window.document.body).getByRole('region', { name: 'Open ends' });
     const fileNames = (): readonly string[] =>
