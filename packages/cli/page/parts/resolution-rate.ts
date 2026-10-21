@@ -1,7 +1,6 @@
 import { eyebrowOf } from '../panel-elements.ts';
 import type { PagePart } from '../reader-page.ts';
-
-const numberOf = (count: number): string => count.toLocaleString('en-US');
+import { countTextOf } from '../words.ts';
 
 const resolutionRate: PagePart = ({ data, panels }) => {
   const { resolved, open, rate } = data.review.resolutionRate;
@@ -23,7 +22,7 @@ const resolutionRate: PagePart = ({ data, panels }) => {
   bar.append(filled);
   const calls = document.createElement('p');
   calls.className = 'rate-calls';
-  calls.textContent = `${numberOf(resolved)} of ${numberOf(resolved + open)} calls`;
+  calls.textContent = `${countTextOf(resolved)} of ${countTextOf(resolved + open)} calls`;
 
   section.append(eyebrowOf('Resolution'), value, bar, calls);
   panels.prepend(section);

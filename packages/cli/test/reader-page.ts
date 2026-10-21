@@ -188,6 +188,40 @@ const withBrowserApis = (
   },
 });
 
+export interface StartCosts {
+  readonly measures: number;
+  readonly localeFormats: number;
+}
+
+export const startCostsOf = async (html: string, graphSize: GraphSize): Promise<StartCosts> => {
+  let measures = 0;
+  let localeFormats = 0;
+  const apis = withBrowserApis([], undefined, undefined, graphSize);
+  const dom = new JSDOM(html, {
+    runScripts: 'dangerously',
+    pretendToBeVisual: true,
+    ...apis,
+    beforeParse: (window) => {
+      apis.beforeParse(window);
+      const elements = window.HTMLElement.prototype;
+      const measure = Reflect.get(elements, 'getBoundingClientRect');
+      elements.getBoundingClientRect = function (this: HTMLElement) {
+        measures += 1;
+        return measure.call(this);
+      };
+      const numbers = window.Number.prototype;
+      const format = Reflect.get(numbers, 'toLocaleString');
+      numbers.toLocaleString = function (this: number, ...args) {
+        localeFormats += 1;
+        return format.apply(this, args);
+      };
+    },
+  });
+  const costs = { measures, localeFormats };
+  await settled({ window: dom.window, layouts: [] });
+  return costs;
+};
+
 export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
   Object.fromEntries(
     Array.from({ length: window.localStorage.length }, (_, index) => {

@@ -1,3 +1,5 @@
+import { countTextOf } from './words.ts';
+
 export interface TabBar {
   readonly select: (name: string) => void;
 }
@@ -20,7 +22,7 @@ const tabOf = ({ name, count }: TabName, controls: string): HTMLButtonElement =>
     const badge = document.createElement('span');
     badge.className = 'count';
     badge.setAttribute('aria-hidden', 'true');
-    badge.textContent = count.count.toLocaleString('en-US');
+    badge.textContent = countTextOf(count.count);
     tab.append(badge);
     tab.title = count.words;
   }
