@@ -13,7 +13,7 @@ import {
   functionCountWidthOf,
 } from './box-sizes.ts';
 import { arrowKeyOf, chipMarkOf, lineLabelOf, markCountsOf } from './scene.ts';
-import type { LevelBox, Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
+import type { FunctionBox, LevelBox, Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 
 export interface Rect {
   readonly x: number;
@@ -32,11 +32,17 @@ export interface LineLabel {
 }
 
 export type LaidBox = SceneBox & Rect;
+export type LaidFunction = FunctionBox & Rect;
+export type LaidLevelBox = LevelBox & Rect;
 export type LaidFrame = SceneFrame & Rect;
 export type LaidLine = SceneLine & {
   readonly points: readonly Point[];
   readonly label?: LineLabel;
 };
+
+export const centreOf = ({ x, y, width, height }: Rect): Point => [x + width / 2, y + height / 2];
+
+export const isOutside = (box: LaidBox): boolean => box.kind !== 'open-end' && box.outside;
 
 export interface Laid {
   readonly frames: readonly LaidFrame[];

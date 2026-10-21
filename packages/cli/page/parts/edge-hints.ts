@@ -2,7 +2,8 @@ import { arrowIconOf } from '../arrows.ts';
 import type { Direction } from '../arrows.ts';
 import type { CameraView } from '../camera.ts';
 import { hiddenIdsOf } from '../hidden-parts.ts';
-import type { LaidBox, Point, Rect } from '../layout.ts';
+import { centreOf } from '../layout.ts';
+import type { LaidBox, Rect } from '../layout.ts';
 import type { PagePart } from '../reader-page.ts';
 import { countWordsOf } from '../words.ts';
 
@@ -29,8 +30,6 @@ const distancePast = (edge: Edge, box: Rect, visible: Rect): number => {
 };
 
 const EDGE_GAP = 12;
-
-const centreOf = ({ x, y, width, height }: Rect): Point => [x + width / 2, y + height / 2];
 
 const hintOf = (edge: Edge): HTMLButtonElement => {
   const hint = document.createElement('button');

@@ -1,11 +1,10 @@
-import { FRAME_HEADER_HEIGHT } from './box-sizes.ts';
+import { FRAME_HEADER_HEIGHT, SMALL_CHARACTER_WIDTH } from './box-sizes.ts';
 
 const KEEP_SIZE = 'data-keep-size';
 const IN_HEADER = 'data-in-header';
 const HEADER_TEXT_HEIGHT = 24;
 const PATH = 'data-path';
 const ROOM = 'data-room';
-const PATH_CHARACTER_WIDTH = 6.6;
 
 export const keptSizeAt = (x: number, y: number): Readonly<Record<string, string>> => {
   const at = `${String(x)},${String(y)}`;
@@ -25,12 +24,13 @@ export const pathLabelAttributes = (
   room: number,
 ): Readonly<Record<string, string>> => ({ [PATH]: path, [ROOM]: String(room) });
 
+const fitsIn = (text: string, room: number): boolean => text.length * SMALL_CHARACTER_WIDTH <= room;
+
 export const pathLabelOf = (path: string, room: number): string => {
-  const fits = (text: string): boolean => text.length * PATH_CHARACTER_WIDTH <= room;
-  if (fits(path)) return path;
+  if (fitsIn(path, room)) return path;
   const parts = path.match(/[^/]+\/?/g) ?? [path];
   const cuts = parts.slice(1).map((_, index) => `…/${parts.slice(index + 1).join('')}`);
-  return cuts.find(fits) ?? cuts.at(-1) ?? path;
+  return cuts.find((cut) => fitsIn(cut, room)) ?? cuts.at(-1) ?? path;
 };
 
 const NAME = 'data-name';
@@ -48,12 +48,10 @@ export const nameAttributes = (
   [BESIDE]: String(beside.length),
 });
 
-const fitsIn = (text: string, room: number): boolean => text.length * PATH_CHARACTER_WIDTH <= room;
-
 export const nameThatFits = (name: string, room: number): string => {
   const cut = pathLabelOf(name, room);
   if (fitsIn(cut, room)) return cut;
-  const characters = Math.max(1, Math.floor(room / PATH_CHARACTER_WIDTH) - 1);
+  const characters = Math.max(1, Math.floor(room / SMALL_CHARACTER_WIDTH) - 1);
   return `…${cut.slice(-characters)}`;
 };
 
@@ -64,7 +62,7 @@ export const fitNames = (root: Element, scale: number, scan: boolean): void => {
     const full = name.getAttribute(NAME) ?? '';
     const beside = Number(name.getAttribute(BESIDE));
     const room = Number(name.getAttribute(NAME_ROOM)) * scale;
-    const roomBeside = beside === 0 ? room : room - beside * PATH_CHARACTER_WIDTH - BESIDE_GAP;
+    const roomBeside = beside === 0 ? room : room - beside * SMALL_CHARACTER_WIDTH - BESIDE_GAP;
     const besideName = nameThatFits(full, roomBeside);
     const crowded = scan && beside > 0 && !fitsIn(besideName, roomBeside);
     name.parentElement?.toggleAttribute(CROWDED, crowded);

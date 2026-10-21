@@ -1,7 +1,8 @@
 import type { CameraView } from '../camera.ts';
 import { hiddenIdsOf } from '../hidden-parts.ts';
 import type { SelectedPath } from '../highlight.ts';
-import type { Laid, LaidBox, Point, Rect } from '../layout.ts';
+import { isOutside } from '../layout.ts';
+import type { Laid, Point, Rect } from '../layout.ts';
 import type { PagePart } from '../reader-page.ts';
 
 const MAP_WIDTH = 200;
@@ -45,8 +46,6 @@ const place = (element: HTMLElement, { x, y, width, height }: Rect, at: MapScale
     height: `${String(height * at.scale)}px`,
   });
 };
-
-const isOutside = (box: LaidBox): boolean => box.kind !== 'open-end' && box.outside;
 
 const overviewMap: PagePart = ({
   graph,

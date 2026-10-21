@@ -2,15 +2,11 @@ import { highlightOf } from './highlight.ts';
 import type { SelectedPath } from './highlight.ts';
 import { bandOf, cameraOf } from './camera.ts';
 import type { Camera } from './camera.ts';
-import type { Laid, LaidBox, LaidLine, Rect } from './layout.ts';
+import type { Laid, LaidBox, LaidFunction, LaidLevelBox, LaidLine } from './layout.ts';
 import { isLevelBox } from './scene.ts';
-import type { FunctionBox, LevelBox } from './scene.ts';
 import { arrowsOf, boxOf, endMarksOf, frameOf, lineOf } from './shapes.ts';
 import { fitNames, keepScreenSize } from './screen-size.ts';
 import { svgOf } from './svg.ts';
-
-type LaidFunction = FunctionBox & Rect;
-type LaidLevelBox = LevelBox & Rect;
 
 export interface Drawing {
   readonly camera: Camera;

@@ -1,4 +1,5 @@
 import { isChangeMark } from './functions.ts';
+import { centreOf, isOutside } from './layout.ts';
 import type { Laid, LaidBox, Point, Rect } from './layout.ts';
 import { isLevelBox } from './scene.ts';
 
@@ -61,8 +62,6 @@ const changesOf = (box: LaidBox): number => {
   return isChangeMark(box.pageFunction.mark) ? 1 : 0;
 };
 
-const isOutside = (box: LaidBox): boolean => box.kind !== 'open-end' && box.outside;
-
 const byPlace = (left: LaidBox, right: LaidBox): number => left.x - right.x || left.y - right.y;
 
 const anchorOf = (boxes: readonly LaidBox[], selected: string | undefined): LaidBox | undefined => {
@@ -73,8 +72,6 @@ const anchorOf = (boxes: readonly LaidBox[], selected: string | undefined): Laid
   const changed = inside.filter((box) => most > 0 && changesOf(box) === most);
   return [...(changed.length > 0 ? changed : boxes)].sort(byPlace)[0];
 };
-
-const centreOf = (box: Rect): Point => [box.x + box.width / 2, box.y + box.height / 2];
 
 interface GraphRoom {
   readonly width: number;

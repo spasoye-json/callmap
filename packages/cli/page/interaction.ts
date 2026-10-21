@@ -3,7 +3,7 @@ import type { FunctionMark } from '@callmap/review';
 import type { ReaderPageData } from './data.ts';
 import { drawingOf } from './drawing.ts';
 import { laidOf, layoutOf } from './layout.ts';
-import type { Laid, Rect } from './layout.ts';
+import type { Laid, LaidFunction, Rect } from './layout.ts';
 import type { ReaderPage } from './reader-page.ts';
 import { isHiddenBy } from './scene.ts';
 import type { FunctionBox, Scene } from './scene.ts';
@@ -33,8 +33,6 @@ interface ViewState {
 
 const keyOf = (choice: Choice | undefined): string =>
   choice === undefined ? '' : choiceKeyOf(choice);
-
-type LaidFunction = FunctionBox & Rect;
 
 const middleOf = ({ y, height }: Rect): number => y + height / 2;
 
