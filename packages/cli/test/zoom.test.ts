@@ -207,7 +207,7 @@ describe('the zoom bands', () => {
     expect(countsShownOf(page, ORDERS)).toEqual(['changed 2']);
     expect(shownIn(page, badgeOf(page))).toBe(false);
     hoverBox(page, ORDERS);
-    expect(shownIn(page, badgeOf(page))).toBe(true);
+    expect(shownIn(page, badgeOf(page))).toBe(false);
   });
 
   it('sets the names in the Scan band to 11 px on the screen', async () => {

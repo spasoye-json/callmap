@@ -69,6 +69,17 @@ const codePanelOf = (page: LoadedPage) =>
   within(bodyOf(page).getByRole('region', { name: 'Code' }));
 
 describe('the hover highlight in the graph', () => {
+  it('keeps the lines of the selected path apart from the lines of the hovered box', async () => {
+    const page = await loadReaderPage(diffHtml);
+    await clickBox(page, TAXED);
+    const selectedPath = linesWith(page, 'selected-path');
+    expect(selectedPath).toEqual([`${RECEIPT} -> ${TAXED}`, `${TAXED} -> ${CART}#subtotal`]);
+
+    hoverBox(page, `${CHECKOUT}#checkout`);
+    expect(linesWith(page, 'selected-path')).toEqual(selectedPath);
+    expect(linesWith(page, 'connected')).toEqual([`${CHECKOUT}#checkout -> ${RECEIPT}`]);
+  });
+
   it('highlights the calls in and out of the box under the pointer and the boxes at their other ends', async () => {
     const page = await loadReaderPage(diffHtml);
     hoverBox(page, RECEIPT);

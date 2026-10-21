@@ -60,8 +60,8 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   const boxOfId = (id: string): LaidBox | undefined => laid.boxes.find((box) => box.id === id);
 
   const highlight = (selected: string | undefined, hovered?: string): void => {
-    const centre = hovered ?? selected;
-    const lit = centre === undefined ? undefined : highlightOf(laid, centre);
+    const onPath = selected === undefined ? undefined : highlightOf(laid, selected);
+    const lit = hovered === undefined ? onPath : highlightOf(laid, hovered);
     for (const element of viewport.querySelectorAll('[data-box], [data-line]')) {
       const box = element.getAttribute('data-box');
       const line = Number(element.getAttribute('data-line'));
@@ -70,9 +70,10 @@ export const drawingOf = (container: HTMLElement): Drawing => {
       element.classList.toggle('selected', box !== null && box === selected);
       element.classList.toggle('hovered', isCentre && box !== selected);
       element.classList.toggle('connected', connected === true);
+      element.classList.toggle('selected-path', box === null && onPath?.lines.has(line) === true);
       element.classList.toggle('faded', lit !== undefined && !isCentre && connected !== true);
     }
-    const path: SelectedPath = { selected, connected: lit?.boxes ?? new Set() };
+    const path: SelectedPath = { selected, connected: onPath?.boxes ?? new Set() };
     for (const handler of highlightHandlers) handler(path);
   };
 
