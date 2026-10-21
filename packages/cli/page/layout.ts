@@ -8,6 +8,7 @@ import {
   LEVEL_BOX_HEIGHT,
   LEVEL_NAME_CHARACTER_WIDTH,
   LEVEL_PADDING,
+  OPEN_END_PADDING,
   countWidthOf,
   functionCountWidthOf,
 } from './box-sizes.ts';
@@ -97,7 +98,11 @@ const boxNodeOf = (box: SceneBox): ElkNode => {
         height: BOX_HEIGHT,
       };
     case 'open-end':
-      return { id: box.id, width: widthOf(box.label, 6, 16), height: OPEN_END_HEIGHT };
+      return {
+        id: box.id,
+        width: widthOf(box.label, 6, 2 * OPEN_END_PADDING),
+        height: OPEN_END_HEIGHT,
+      };
     case 'folder':
     case 'file':
       return {

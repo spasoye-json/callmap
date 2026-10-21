@@ -58,6 +58,7 @@
 }
 
 .drawing[data-band='scan'] .count:not(.biggest),
+.drawing[data-band='scan'] .box[data-crowded] > .functions,
 .drawing[data-band='scan'] .line:not(.connected) > .badge {
   display: none;
 }
