@@ -275,6 +275,25 @@ describe('the keys of the graph', () => {
     expect(zoomLabelOf(page)).toBe('125%');
   });
 
+  it('leaves the keys to a button of the graph when the focus is on it', async () => {
+    const page = await loadReaderPage(html, undefined, undefined, DENSE);
+    await clickBox(page, `src/checkout.ts#checkout`);
+    const controls = bodyOf(page).getByRole('group', { name: 'Zoom' });
+    const buttons = [
+      within(controls).getByRole('button', { name: 'Zoom in' }),
+      bodyOf(page).getAllByRole('button', { name: /more box(es)? / })[0],
+    ];
+    for (const button of buttons) {
+      if (button === undefined) throw new Error('the graph shows no edge hint');
+      button.focus();
+      for (const key of ['f', '0', 'ArrowRight']) {
+        expect(fireEvent.keyDown(button, { key }), `${key} on ${button.className}`).toBe(true);
+      }
+    }
+    expect(zoomLabelOf(page)).toBe('100%');
+    expect(openName(page)).toBe('checkout');
+  });
+
   it('moves the selection to the nearest callee with the right arrow, and to the nearest caller with the left arrow', async () => {
     const page = await loadReaderPage(html, undefined, undefined, DENSE);
     await clickBox(page, `src/checkout.ts#checkout`);

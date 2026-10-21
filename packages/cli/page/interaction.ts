@@ -194,8 +194,10 @@ export const interactionOf = (
       step('callees');
     },
   };
+  const isOnDrawing = (target: EventTarget | null): boolean =>
+    target instanceof Element && target.closest('svg.drawing') !== null;
   graph.addEventListener('keydown', (event) => {
-    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.ctrlKey || event.metaKey || event.altKey || !isOnDrawing(event.target)) return;
     const act = graphKeys[event.key];
     if (act === undefined) return;
     event.preventDefault();
