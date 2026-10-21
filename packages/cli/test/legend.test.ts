@@ -144,6 +144,34 @@ describe('the legend of the marks', () => {
     expect(isShown(page, frameElementOf(page, 'folder:src/orders'))).toBe(false);
   });
 
+  it('hides the count of a hidden mark on a level box, and hides the box when every change in it has a hidden mark', async () => {
+    const page = await loadReaderPage(levelsHtml);
+    await openTab(page, 'Whole project');
+    const ORDERS = 'src/orders';
+    const countOf = (mark: string): Element | undefined =>
+      boxElementOf(page, ORDERS)?.querySelector(`.count[data-mark="${mark}"]`) ?? undefined;
+
+    clickMark(page, 'Changed');
+    expect(isShown(page, boxElementOf(page, ORDERS))).toBe(true);
+    expect(isShown(page, countOf('changed'))).toBe(false);
+    expect(isShown(page, countOf('added'))).toBe(true);
+    expect(isShown(page, boxElementOf(page, 'src/shipping/carriers'))).toBe(false);
+    expect(
+      lineElementsTo(page, 'src/shipping/carriers').every((line) => !isShown(page, line)),
+    ).toBe(true);
+    expect(isShown(page, boxElementOf(page, 'src/tax/rate.ts'))).toBe(true);
+
+    clickMark(page, 'Added');
+    expect(isShown(page, boxElementOf(page, ORDERS))).toBe(false);
+    expect(isShown(page, boxElementOf(page, 'src/money'))).toBe(true);
+
+    clickMark(page, 'Changed');
+    expect(isShown(page, boxElementOf(page, ORDERS))).toBe(true);
+    expect(isShown(page, countOf('changed'))).toBe(true);
+    expect(isShown(page, countOf('added'))).toBe(false);
+    expect(isShown(page, boxElementOf(page, 'src/shipping/carriers'))).toBe(true);
+  });
+
   it('counts no box past an edge when every mark is hidden', async () => {
     const page = await loadReaderPage(html, undefined, undefined, SMALL);
     expect(edgeHintsOf(page).length).toBeGreaterThan(0);

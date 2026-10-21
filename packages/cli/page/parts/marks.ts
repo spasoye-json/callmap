@@ -41,6 +41,10 @@ const hideParts = (graph: HTMLElement, level: Laid, marks: ReadonlySet<FunctionM
       endsOf(element).some((id) => id !== null && hidden.has(id)),
     );
   }
+  const hiddenMarks: ReadonlySet<string> = marks;
+  for (const count of graph.querySelectorAll('.count[data-mark]')) {
+    count.toggleAttribute(HIDDEN, hiddenMarks.has(count.getAttribute('data-mark') ?? ''));
+  }
 };
 
 const marks: PagePart = ({

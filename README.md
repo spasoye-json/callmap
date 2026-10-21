@@ -65,7 +65,7 @@ The top bar holds the tabs of the views. The Diff tab shows the count of changed
 
 Each panel collapses and opens with its own button, and a drag on its inner edge changes its width. The graph keeps the selected function in view when a panel opens or closes. The search finds any function in scope by name. Each function carries an editor link that opens its file at its first line.
 
-The legend counts each mark and each kind of call. A click on a mark in the legend hides the functions with that mark and their calls. A second click shows them again. For example, hide the changed, removed and neighbour marks to see only the added code. The arrow keys and the edge hints skip the hidden functions.
+The legend counts each mark and each kind of call. A click on a mark in the legend hides the functions with that mark and their calls. On a level of the Whole project view, it hides the count of that mark on each box, and it hides a box when every change in it has a hidden mark. A second click shows them again. For example, hide the changed, removed and neighbour marks to see only the added code. The arrow keys and the edge hints skip the hidden functions.
 
 The open ends are grouped by file, with the file that holds the most open ends first. A click on a file opens or closes its list. The panel shows 5 files, and a button shows the rest.
 

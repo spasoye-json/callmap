@@ -81,13 +81,22 @@ export const hasChanges = ({ changed, added, removed }: LevelCounts): boolean =>
 
 export type SceneBox = FunctionBox | OpenEndBox | LevelBox;
 
-export const isHiddenBy = (hidden: ReadonlySet<FunctionMark>, box: SceneBox): boolean =>
-  box.kind === 'function' &&
-  box.pageFunction.mark !== undefined &&
-  hidden.has(box.pageFunction.mark);
-
 export const isLevelBox = <Box extends SceneBox>(box: Box): box is Extract<Box, LevelBox> =>
   box.kind === 'folder' || box.kind === 'file';
+
+const CHANGE_MARKS = ['changed', 'added', 'removed'] as const;
+
+export const isHiddenBy = (hidden: ReadonlySet<FunctionMark>, box: SceneBox): boolean => {
+  if (isLevelBox(box)) {
+    const held = CHANGE_MARKS.filter((mark) => box.counts[mark] > 0);
+    return held.length > 0 && held.every((mark) => hidden.has(mark));
+  }
+  return (
+    box.kind === 'function' &&
+    box.pageFunction.mark !== undefined &&
+    hidden.has(box.pageFunction.mark)
+  );
+};
 
 export interface SceneLine {
   readonly kind: 'call' | 'open-end' | 'bundled';
