@@ -27,8 +27,7 @@ const mapScaleOf = ({ width, height }: Laid): MapScale => {
   };
 };
 
-const isLargerThanView = (view: CameraView): boolean => {
-  const { level } = view;
+const isLargerThanView = (level: Laid, view: CameraView): boolean => {
   if (level.boxes.length === 0) return false;
   const { visible } = view;
   return (
@@ -50,6 +49,7 @@ const place = (element: HTMLElement, { x, y, width, height }: Rect, at: MapScale
 const overviewMap: PagePart = ({
   graph,
   camera,
+  level: levelOf,
   onHighlight,
   hiddenMarks,
   onHiddenMarksChange,
@@ -94,12 +94,13 @@ const overviewMap: PagePart = ({
   };
 
   const show = (view: CameraView): void => {
-    const shown = isLargerThanView(view);
+    const current = levelOf();
+    const shown = isLargerThanView(current, view);
     map.hidden = !shown;
     graph.toggleAttribute('data-overview-map', shown);
     if (!shown) return;
-    if (view.level !== level) {
-      drawBoxes(view.level);
+    if (current !== level) {
+      drawBoxes(current);
       showPath();
     }
     place(rectangle, view.visible, at);

@@ -10,6 +10,8 @@ import { svgOf } from './svg.ts';
 
 export interface Drawing {
   readonly camera: SteeredCamera;
+  readonly level: () => Laid;
+  readonly onLevelChange: (handler: (level: Laid) => void) => void;
   readonly draw: (laid: Laid, anchor?: string) => void;
   readonly highlight: (selected: string | undefined, hovered?: string) => void;
   readonly onBoxClick: (handler: (box: LaidFunction) => void) => void;
@@ -38,13 +40,20 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   const svg = svgOf('svg', { class: 'drawing', tabindex: -1 }, arrowsOf(), viewport);
   container.append(svg);
 
-  const camera = cameraOf(container, svg, viewport, (scale) => {
-    keepScreenSize(viewport, scale);
-    fitNames(viewport, scale, bandOf(scale) === 'scan');
-  });
   let laid: Laid = { frames: [], boxes: [], lines: [], width: 0, height: 0 };
+  const camera = cameraOf(
+    container,
+    svg,
+    viewport,
+    () => laid,
+    (scale) => {
+      keepScreenSize(viewport, scale);
+      fitNames(viewport, scale, bandOf(scale) === 'scan');
+    },
+  );
+  const levelHandlers: ((level: Laid) => void)[] = [];
   const handlers: ((box: LaidFunction) => void)[] = [];
-  const levelHandlers: ((box: LaidLevelBox) => void)[] = [];
+  const levelBoxHandlers: ((box: LaidLevelBox) => void)[] = [];
   const lineHandlers: ((line: LaidLine) => void)[] = [];
   const emptyHandlers: (() => void)[] = [];
   const hoverHandlers: ((id: string | undefined) => void)[] = [];
@@ -71,7 +80,9 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   };
 
   const draw = (next: Laid, anchor?: string): void => {
+    const before = anchor === undefined ? undefined : boxOfId(anchor);
     laid = next;
+    const after = anchor === undefined ? undefined : boxOfId(anchor);
     const endMarkOf = endMarksOf(next.boxes);
     const linesOf = (bundled: boolean): SVGGElement[] =>
       next.lines.flatMap((line, index) =>
@@ -84,7 +95,10 @@ export const drawingOf = (container: HTMLElement): Drawing => {
       svgOf('g', { class: 'boxes' }, ...next.boxes.map(boxOf)),
     );
     markBiggestCounts(viewport);
-    camera.showLevel(next, anchor);
+    camera.showNewLevel(
+      before !== undefined && after !== undefined ? { before, after } : undefined,
+    );
+    for (const handler of levelHandlers) handler(next);
   };
 
   const clickedLine = (target: EventTarget | null): LaidLine | undefined => {
@@ -114,7 +128,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     for (const handler of lineHandlers) handler(line);
   };
   const fireLevelBoxClick = (box: LaidLevelBox): void => {
-    for (const handler of levelHandlers) handler(box);
+    for (const handler of levelBoxHandlers) handler(box);
   };
   const activate = (target: EventTarget | null): boolean => {
     const box = clickedBox(target);
@@ -147,13 +161,17 @@ export const drawingOf = (container: HTMLElement): Drawing => {
 
   return {
     camera,
+    level: () => laid,
+    onLevelChange: (handler) => {
+      levelHandlers.push(handler);
+    },
     draw,
     highlight,
     onBoxClick: (handler) => {
       handlers.push(handler);
     },
     onLevelBoxClick: (handler) => {
-      levelHandlers.push(handler);
+      levelBoxHandlers.push(handler);
     },
     onLineClick: (handler) => {
       lineHandlers.push(handler);

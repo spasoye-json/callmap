@@ -4,7 +4,14 @@ import type { Laid } from '../layout.ts';
 import type { PagePart } from '../reader-page.ts';
 import { svgOf } from '../svg.ts';
 
-const allHidden: PagePart = ({ graph, camera, hiddenMarks, toggleMark, onHiddenMarksChange }) => {
+const allHidden: PagePart = ({
+  graph,
+  level: levelOf,
+  onLevelChange,
+  hiddenMarks,
+  toggleMark,
+  onHiddenMarksChange,
+}) => {
   const message = emptyStateOf({
     name: 'all-hidden',
     title: 'All marks are hidden',
@@ -22,13 +29,9 @@ const allHidden: PagePart = ({ graph, camera, hiddenMarks, toggleMark, onHiddenM
     const hidden = hiddenIdsOf(level, hiddenMarks());
     message.hidden = level.boxes.length === 0 || !level.boxes.every(({ id }) => hidden.has(id));
   };
-  let drawn: Laid | undefined;
-  camera.onChange(({ level }) => {
-    drawn = level;
-    show(level);
-  });
+  onLevelChange(show);
   onHiddenMarksChange(() => {
-    if (drawn !== undefined) show(drawn);
+    show(levelOf());
   });
 };
 

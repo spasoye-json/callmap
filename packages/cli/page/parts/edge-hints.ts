@@ -39,7 +39,13 @@ const hintOf = (edge: Edge): HTMLButtonElement => {
   return hint;
 };
 
-const edgeHints: PagePart = ({ graph, camera, hiddenMarks, onHiddenMarksChange }) => {
+const edgeHints: PagePart = ({
+  graph,
+  camera,
+  level: levelOf,
+  hiddenMarks,
+  onHiddenMarksChange,
+}) => {
   const edges = Object.keys(EDGES) as Edge[];
   const hints = new Map(edges.map((edge) => [edge, hintOf(edge)]));
   const nearest = new Map<Edge, LaidBox>();
@@ -51,7 +57,7 @@ const edgeHints: PagePart = ({ graph, camera, hiddenMarks, onHiddenMarksChange }
   };
 
   const show = (view: CameraView): void => {
-    const { level } = view;
+    const level = levelOf();
     const hidden = hiddenIdsOf(level, hiddenMarks());
     const boxes = level.boxes.filter(({ id }) => !hidden.has(id));
     if (boxes.length === 0) {

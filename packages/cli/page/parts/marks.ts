@@ -50,7 +50,7 @@ const hideParts = (graph: HTMLElement, level: Laid, marks: ReadonlySet<FunctionM
 const marks: PagePart = ({
   data,
   graph,
-  camera,
+  onLevelChange,
   panels,
   hiddenMarks,
   toggleMark,
@@ -100,7 +100,7 @@ const marks: PagePart = ({
   panels.append(section);
 
   let drawn: Laid | undefined;
-  camera.onChange(({ level }) => {
+  onLevelChange((level) => {
     if (level === drawn) return;
     drawn = level;
     hideParts(graph, level, hiddenMarks());

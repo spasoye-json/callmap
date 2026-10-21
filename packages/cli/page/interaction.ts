@@ -82,7 +82,6 @@ export const interactionOf = (
   let selected: FunctionId | undefined;
   let hovered: string | undefined;
   let drawn: ViewState | undefined;
-  let drawnLevel: Laid | undefined;
   let queue = Promise.resolve();
   let pending = 0;
 
@@ -100,7 +99,6 @@ export const interactionOf = (
   const paint = (target: ViewState, laid: Laid, anchor?: FunctionId): void => {
     if (target !== current) return;
     drawing.draw(laid, anchor);
-    drawnLevel = laid;
     hovered = undefined;
     drawing.highlight(selected, hovered);
     if (drawn !== target) drawing.camera.open(selected);
@@ -176,8 +174,8 @@ export const interactionOf = (
     if (event.key === 'Escape') highlight(undefined);
   });
   const step = (along: 'callers' | 'callees'): void => {
-    if (selected === undefined || drawnLevel === undefined) return;
-    const next = nextAlongCalls(drawnLevel, selected, along, hiddenMarks);
+    if (selected === undefined) return;
+    const next = nextAlongCalls(drawing.level(), selected, along, hiddenMarks);
     if (next === undefined) return;
     select(next);
     drawing.camera.keepInView(next.id);
@@ -265,6 +263,8 @@ export const interactionOf = (
     data,
     graph,
     camera: drawing.camera,
+    level: drawing.level,
+    onLevelChange: drawing.onLevelChange,
     panels,
     onBoxClick: (handler) => {
       boxHandlers.push(handler);

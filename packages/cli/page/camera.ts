@@ -35,7 +35,6 @@ export interface CameraView {
   readonly band: ZoomBand;
   readonly coveredTop: number;
   readonly visible: Rect;
-  readonly level: Laid;
 }
 
 export interface Camera {
@@ -54,8 +53,13 @@ export interface SteeredCamera extends Camera {
   readonly keepInView: (id: string) => void;
 }
 
+export interface SteadyBox {
+  readonly before: LaidBox;
+  readonly after: LaidBox;
+}
+
 export interface CameraRig extends SteeredCamera {
-  readonly showLevel: (level: Laid, steadyBoxId?: string) => void;
+  readonly showNewLevel: (steady?: SteadyBox) => void;
   readonly takeDrag: () => boolean;
 }
 
@@ -82,18 +86,16 @@ interface GraphRoom {
   readonly top: number;
 }
 
-const EMPTY: Laid = { frames: [], boxes: [], lines: [], width: 0, height: 0 };
-
 export const cameraOf = (
   container: HTMLElement,
   svg: SVGSVGElement,
   viewport: SVGGElement,
+  levelOf: () => Laid,
   fitTextToScale: (scale: number) => void,
 ): CameraRig => {
   let scale = 1;
   let x = 0;
   let y = 0;
-  let level = EMPTY;
   let textScale: number | undefined;
   const handlers: ((view: CameraView) => void)[] = [];
 
@@ -125,7 +127,6 @@ export const cameraOf = (
           height: height / at.scale,
         };
       },
-      level,
     };
   };
 
@@ -144,20 +145,23 @@ export const cameraOf = (
     for (const handler of handlers) handler(current);
   };
 
-  const boxOfId = (id: string): LaidBox | undefined => level.boxes.find((box) => box.id === id);
+  const boxOfId = (id: string): LaidBox | undefined => levelOf().boxes.find((box) => box.id === id);
 
   const hasRoom = (): boolean => {
     const { width, height } = sizeOf();
+    const level = levelOf();
     return width > 0 && height > 0 && level.width > 0 && level.height > 0;
   };
 
   const fitZoom = (): number => {
     const { width, height } = sizeOf();
+    const level = levelOf();
     return Math.min((width - FIT_MARGIN) / level.width, (height - FIT_MARGIN) / level.height);
   };
 
   const centreLevel = (): void => {
     const { width, height, top } = sizeOf();
+    const level = levelOf();
     x = (width - level.width * scale) / 2;
     y = top + (height - level.height * scale) / 2;
   };
@@ -175,6 +179,7 @@ export const cameraOf = (
     if (!hasRoom()) return;
     scale = openZoomOf(fitZoom());
     centreLevel();
+    const level = levelOf();
     const anchor = anchorOf(level.boxes, selected);
     if (anchor !== undefined) {
       const { width, height, top } = sizeOf();
@@ -231,13 +236,10 @@ export const cameraOf = (
     apply();
   };
 
-  const showLevel = (next: Laid, steadyBoxId?: string): void => {
-    const before = steadyBoxId === undefined ? undefined : boxOfId(steadyBoxId);
-    level = next;
-    const after = steadyBoxId === undefined ? undefined : boxOfId(steadyBoxId);
-    if (before !== undefined && after !== undefined) {
-      const [beforeX, beforeY] = centreOf(before);
-      const [afterX, afterY] = centreOf(after);
+  const showNewLevel = (steady?: SteadyBox): void => {
+    if (steady !== undefined) {
+      const [beforeX, beforeY] = centreOf(steady.before);
+      const [afterX, afterY] = centreOf(steady.after);
       x += (beforeX - afterX) * scale;
       y += (beforeY - afterY) * scale;
     }
@@ -305,7 +307,7 @@ export const cameraOf = (
     onChange: (handler) => {
       handlers.push(handler);
     },
-    showLevel,
+    showNewLevel,
     open,
     focus,
     keepInView,
