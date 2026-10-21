@@ -1,4 +1,5 @@
 import type { CameraView } from '../camera.ts';
+import { hiddenIdsOf } from '../hidden-parts.ts';
 import type { SelectedPath } from '../highlight.ts';
 import type { Laid, LaidBox, Point, Rect } from '../layout.ts';
 import type { PagePart } from '../reader-page.ts';
@@ -47,7 +48,13 @@ const place = (element: HTMLElement, { x, y, width, height }: Rect, at: MapScale
 
 const isOutside = (box: LaidBox): boolean => box.kind !== 'open-end' && box.outside;
 
-const overviewMap: PagePart = ({ graph, camera, onHighlight }) => {
+const overviewMap: PagePart = ({
+  graph,
+  camera,
+  onHighlight,
+  hiddenMarks,
+  onHiddenMarksChange,
+}) => {
   const map = document.createElement('div');
   map.className = 'overview-map';
   map.setAttribute('role', 'img');
@@ -65,14 +72,17 @@ const overviewMap: PagePart = ({ graph, camera, onHighlight }) => {
   const drawBoxes = (next: Laid): void => {
     level = next;
     at = mapScaleOf(next);
+    const hidden = hiddenIdsOf(next, hiddenMarks());
     mapBoxes = new Map(
-      next.boxes.map((box) => {
-        const mapBox = document.createElement('span');
-        mapBox.setAttribute('data-map-box', box.id);
-        mapBox.classList.toggle('outside', isOutside(box));
-        place(mapBox, box, at);
-        return [box.id, mapBox];
-      }),
+      next.boxes
+        .filter(({ id }) => !hidden.has(id))
+        .map((box) => {
+          const mapBox = document.createElement('span');
+          mapBox.setAttribute('data-map-box', box.id);
+          mapBox.classList.toggle('outside', isOutside(box));
+          place(mapBox, box, at);
+          return [box.id, mapBox];
+        }),
     );
     map.replaceChildren(...mapBoxes.values(), rectangle);
   };
@@ -95,6 +105,12 @@ const overviewMap: PagePart = ({ graph, camera, onHighlight }) => {
     }
     place(rectangle, view.visible, at);
   };
+
+  onHiddenMarksChange(() => {
+    if (level === undefined) return;
+    drawBoxes(level);
+    showPath();
+  });
 
   onHighlight((next) => {
     path = next;

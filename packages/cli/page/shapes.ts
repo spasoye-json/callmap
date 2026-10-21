@@ -7,6 +7,7 @@ import {
   ICON_SIZE,
   LEVEL_PADDING,
   LEVEL_ROW_OFFSET,
+  OPEN_END_PADDING,
   countWidthOf,
   functionCountOf,
 } from './box-sizes.ts';
@@ -217,7 +218,15 @@ export const boxOf = (box: LaidBox): SVGGElement => {
     'g',
     { class: 'box open-end', 'data-box': box.id, 'data-kind': box.kind },
     rectOf(box, 4),
-    svgOf('text', { x: box.x + box.width / 2, y: box.y + box.height / 2 }, box.label),
+    svgOf(
+      'text',
+      {
+        x: box.x + box.width / 2,
+        y: box.y + box.height / 2,
+        ...nameAttributes(box.label, box.width - 2 * OPEN_END_PADDING),
+      },
+      box.label,
+    ),
   );
 };
 

@@ -1,5 +1,7 @@
 import type { FunctionMark } from '@callmap/review';
 import { chipOf } from '../chips.ts';
+import { hiddenIdsOf } from '../hidden-parts.ts';
+import type { Laid } from '../layout.ts';
 import { sectionHeadOf, spanOf } from '../panel-elements.ts';
 import type { PagePart } from '../reader-page.ts';
 import { svgOf } from '../svg.ts';
@@ -11,6 +13,8 @@ const MARKS: readonly (readonly [FunctionMark, string])[] = [
   ['removed', 'Removed'],
   ['neighbour', 'Neighbour'],
 ];
+
+const HIDDEN = 'data-mark-hidden';
 
 const countSpanOf = (count: number): HTMLSpanElement => spanOf('count', countTextOf(count));
 
@@ -24,7 +28,30 @@ const callSampleOf = (kind: string): SVGSVGElement => {
   return sample;
 };
 
-const marks: PagePart = ({ data, panels, hiddenMarks, toggleMark }) => {
+const endsOf = (element: Element): readonly (string | null)[] =>
+  element.hasAttribute('data-from')
+    ? [element.getAttribute('data-from'), element.getAttribute('data-to')]
+    : [element.getAttribute('data-box') ?? element.getAttribute('data-frame')];
+
+const hideParts = (graph: HTMLElement, level: Laid, marks: ReadonlySet<FunctionMark>): void => {
+  const hidden = hiddenIdsOf(level, marks);
+  for (const element of graph.querySelectorAll('[data-box], [data-frame], [data-from]')) {
+    element.toggleAttribute(
+      HIDDEN,
+      endsOf(element).some((id) => id !== null && hidden.has(id)),
+    );
+  }
+};
+
+const marks: PagePart = ({
+  data,
+  graph,
+  camera,
+  panels,
+  hiddenMarks,
+  toggleMark,
+  onHiddenMarksChange,
+}) => {
   const section = document.createElement('section');
   section.setAttribute('aria-label', 'Marks');
   section.className = 'marks';
@@ -38,9 +65,8 @@ const marks: PagePart = ({ data, panels, hiddenMarks, toggleMark }) => {
     button.append(chipOf(mark), spanOf('label', name), ' ', countSpanOf(count));
     button.addEventListener('click', () => {
       toggleMark(mark);
-      button.setAttribute('aria-pressed', String(hiddenMarks().has(mark)));
     });
-    return button;
+    return [mark, button] as const;
   });
 
   const callsHead = document.createElement('p');
@@ -63,11 +89,23 @@ const marks: PagePart = ({ data, panels, hiddenMarks, toggleMark }) => {
 
   section.append(
     sectionHeadOf('Marks', spanOf('hint', 'Click to hide')),
-    ...markRows,
+    ...markRows.map(([, button]) => button),
     callsHead,
     ...callRows,
   );
   panels.append(section);
+
+  let drawn: Laid | undefined;
+  camera.onChange(({ level }) => {
+    if (level === drawn) return;
+    drawn = level;
+    hideParts(graph, level, hiddenMarks());
+  });
+  onHiddenMarksChange((hidden) => {
+    for (const [mark, button] of markRows)
+      button.setAttribute('aria-pressed', String(hidden.has(mark)));
+    hideParts(graph, camera.view().level, hidden);
+  });
 };
 
 export default marks;

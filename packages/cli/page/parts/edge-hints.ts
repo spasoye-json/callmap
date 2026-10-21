@@ -1,9 +1,9 @@
 import { arrowIconOf } from '../arrows.ts';
 import type { Direction } from '../arrows.ts';
 import type { CameraView } from '../camera.ts';
+import { hiddenIdsOf } from '../hidden-parts.ts';
 import type { LaidBox, Point, Rect } from '../layout.ts';
 import type { PagePart } from '../reader-page.ts';
-import { isHiddenBy } from '../scene.ts';
 import { countWordsOf } from '../words.ts';
 
 type Edge = 'top' | 'right' | 'bottom' | 'left';
@@ -52,8 +52,9 @@ const edgeHints: PagePart = ({ graph, camera, hiddenMarks, onHiddenMarksChange }
   };
 
   const show = (view: CameraView): void => {
-    const hidden = hiddenMarks();
-    const boxes = view.level.boxes.filter((box) => !isHiddenBy(hidden, box));
+    const { level } = view;
+    const hidden = hiddenIdsOf(level, hiddenMarks());
+    const boxes = level.boxes.filter(({ id }) => !hidden.has(id));
     if (boxes.length === 0) {
       hideAll();
       return;
