@@ -76,6 +76,8 @@
 
 .marks .sample.one-of {
   stroke-width: 2;
+  stroke-dasharray: 0 4;
+  stroke-linecap: round;
 }
 
 .marks .sample.open-end {
@@ -88,17 +90,6 @@
   stroke-dasharray: none;
 }
 
-#graph[data-hidden-marks~='changed'] .box.function.changed,
-#graph[data-hidden-marks~='changed'] .line[data-from-mark='changed'],
-#graph[data-hidden-marks~='changed'] .line[data-to-mark='changed'],
-#graph[data-hidden-marks~='added'] .box.function.added,
-#graph[data-hidden-marks~='added'] .line[data-from-mark='added'],
-#graph[data-hidden-marks~='added'] .line[data-to-mark='added'],
-#graph[data-hidden-marks~='removed'] .box.function.removed,
-#graph[data-hidden-marks~='removed'] .line[data-from-mark='removed'],
-#graph[data-hidden-marks~='removed'] .line[data-to-mark='removed'],
-#graph[data-hidden-marks~='neighbour'] .box.function.neighbour,
-#graph[data-hidden-marks~='neighbour'] .line[data-from-mark='neighbour'],
-#graph[data-hidden-marks~='neighbour'] .line[data-to-mark='neighbour'] {
+#graph [data-mark-hidden] {
   display: none;
 }

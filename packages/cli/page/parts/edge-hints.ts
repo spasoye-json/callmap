@@ -1,9 +1,9 @@
 import { arrowIconOf } from '../arrows.ts';
 import type { Direction } from '../arrows.ts';
 import type { CameraView } from '../camera.ts';
+import { hiddenIdsOf } from '../hidden-parts.ts';
 import type { LaidBox, Point, Rect } from '../layout.ts';
 import type { PagePart } from '../reader-page.ts';
-import { isHiddenBy } from '../scene.ts';
 import { countWordsOf } from '../words.ts';
 
 type Edge = 'top' | 'right' | 'bottom' | 'left';
@@ -47,9 +47,9 @@ const edgeHints: PagePart = ({ graph, camera, hiddenMarks, onHiddenMarksChange }
   graph.append(...hints.values());
 
   const show = ({ level, visible, coveredTop }: CameraView): void => {
-    const hidden = hiddenMarks();
+    const hidden = hiddenIdsOf(level, hiddenMarks());
     hints.get('top')?.style.setProperty('top', `${String(coveredTop + EDGE_GAP)}px`);
-    const shown = visible.width > 0 ? level.boxes.filter((box) => !isHiddenBy(hidden, box)) : [];
+    const shown = visible.width > 0 ? level.boxes.filter(({ id }) => !hidden.has(id)) : [];
     for (const [edge, hint] of hints) {
       const past = shown
         .map((box) => ({ box, distance: distancePast(edge, box, visible) }))
