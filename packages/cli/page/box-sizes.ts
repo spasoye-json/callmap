@@ -1,6 +1,7 @@
 import { COUNT_CHIP_SIZE } from './chips.ts';
 
 export const LEVEL_PADDING = 12;
+export const OPEN_END_PADDING = 8;
 export const FRAME_HEADER_HEIGHT = 30;
 export const ICON_SIZE = 14;
 export const ICON_ROOM = ICON_SIZE + 7;
