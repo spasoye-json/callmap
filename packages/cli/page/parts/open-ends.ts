@@ -100,7 +100,7 @@ const openEnds: PagePart = (page) => {
   );
   const hint = document.createElement('p');
   hint.className = 'hint';
-  hint.textContent = 'Calls the checker could not resolve, by file';
+  hint.textContent = 'Calls that Callmap could not resolve, by file';
   section.append(head, hint);
 
   const groups = files.map((file, index) => fileGroupOf(page, file, index === 0));
