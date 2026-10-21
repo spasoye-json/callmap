@@ -212,30 +212,30 @@
   font-weight: 600;
 }
 
-.line > .edge {
+.line > .line-path {
   fill: none;
   stroke: var(--edge);
   stroke-width: 1.25;
 }
 
-.line.added > .edge {
+.line.added > .line-path {
   stroke: var(--added);
   stroke-width: 1.5;
 }
 
-.line.removed > .edge {
+.line.removed > .line-path {
   stroke: var(--removed);
   stroke-width: 1.5;
   stroke-dasharray: 5 3;
 }
 
-.line.one-of > .edge {
+.line.one-of > .line-path {
   stroke-width: 2;
   stroke-dasharray: 0 4;
   stroke-linecap: round;
 }
 
-.line.open-end > .edge {
+.line.open-end > .line-path {
   stroke: var(--open);
   stroke-dasharray: 3 3;
 }
@@ -271,8 +271,8 @@
   outline: none;
 }
 
-.line.bundled:hover > .edge,
-.line.bundled:focus-visible > .edge {
+.line.bundled:hover > .line-path,
+.line.bundled:focus-visible > .line-path {
   stroke: var(--ink);
 }
 
@@ -319,23 +319,23 @@
   fill: var(--focus);
 }
 
-.line.connected > .edge {
+.line.connected > .line-path {
   stroke: var(--focus);
   stroke-width: 2;
   marker-end: url(#arrow-focus);
 }
 
-.line.connected.added > .edge {
+.line.connected.added > .line-path {
   stroke: var(--added);
   marker-end: url(#arrow-added);
 }
 
-.line.connected.removed > .edge {
+.line.connected.removed > .line-path {
   stroke: var(--removed);
   marker-end: url(#arrow-removed);
 }
 
-.line.connected.open-end > .edge {
+.line.connected.open-end > .line-path {
   stroke: var(--open);
   stroke-width: 1.5;
 }

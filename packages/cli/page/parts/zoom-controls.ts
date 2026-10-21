@@ -33,7 +33,7 @@ const zoomControls: PagePart = ({ graph, camera }) => {
   controls.setAttribute('role', 'group');
   controls.setAttribute('aria-label', 'Zoom');
   const label = document.createElement('span');
-  label.className = 'zoom-level';
+  label.className = 'zoom-label';
   const fit = buttonOf('Fit', camera.fit);
   fit.className = 'zoom-fit';
   controls.append(

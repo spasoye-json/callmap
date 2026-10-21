@@ -39,7 +39,7 @@
   stroke-linecap: round;
 }
 
-.zoom-controls .zoom-level {
+.zoom-controls .zoom-label {
   min-width: 52px;
   border-right: 1px solid var(--rule);
   border-left: 1px solid var(--rule);

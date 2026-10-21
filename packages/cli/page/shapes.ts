@@ -320,7 +320,7 @@ export const lineOf = (
         : { role: 'button', tabindex: 0, 'aria-label': line.title ?? '' }),
     },
     svgOf('path', {
-      class: 'edge',
+      class: 'line-path',
       d: path,
       'vector-effect': 'non-scaling-stroke',
       ...(line.kind === 'open-end' ? {} : { 'marker-end': `url(#arrow-${line.mark})` }),

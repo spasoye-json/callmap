@@ -216,11 +216,11 @@ describe('the legend of the marks', () => {
   it('draws the sample of a one-of call dotted, as the graph draws the call', async () => {
     const page = await loadReaderPage(html);
     const sample = page.window.document.querySelector('.marks .sample.one-of');
-    const edge = page.window.document.querySelector('#graph .line.one-of > .edge');
-    if (sample === null || edge === null) throw new Error('the page draws no one-of call');
+    const linePath = page.window.document.querySelector('#graph .line.one-of > .line-path');
+    if (sample === null || linePath === null) throw new Error('the page draws no one-of call');
     for (const property of ['stroke-dasharray', 'stroke-linecap']) {
       expect(declared(page, sample, property)).not.toBe('');
-      expect(declared(page, sample, property)).toBe(declared(page, edge, property));
+      expect(declared(page, sample, property)).toBe(declared(page, linePath, property));
     }
   });
 });
