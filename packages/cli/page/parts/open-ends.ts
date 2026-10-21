@@ -5,7 +5,7 @@ import { moreButtonOf, sectionHeadOf, spanOf } from '../panel-elements.ts';
 import type { PagePart, ReaderPage } from '../reader-page.ts';
 import { byLine } from '../scene.ts';
 import { svgOf } from '../svg.ts';
-import { countWordsOf } from '../words.ts';
+import { countTextOf, countWordsOf } from '../words.ts';
 
 const FILES_SHOWN = 5;
 const OPEN_CHEVRON = 'M4 6l4 4 4-4';
@@ -96,7 +96,7 @@ const openEnds: PagePart = (page) => {
   section.className = 'open-ends';
   const head = sectionHeadOf(
     'Open ends',
-    spanOf('total', page.data.review.openEnds.length.toLocaleString('en-US')),
+    spanOf('total', countTextOf(page.data.review.openEnds.length)),
   );
   const hint = document.createElement('p');
   hint.className = 'hint';

@@ -46,10 +46,21 @@ const edgeHints: PagePart = ({ graph, camera, hiddenMarks, onHiddenMarksChange }
   const nearest = new Map<Edge, LaidBox>();
   graph.append(...hints.values());
 
-  const show = ({ level, visible, coveredTop }: CameraView): void => {
+  const hideAll = (): void => {
+    for (const hint of hints.values()) hint.hidden = true;
+    nearest.clear();
+  };
+
+  const show = (view: CameraView): void => {
     const hidden = hiddenMarks();
+    const boxes = view.level.boxes.filter((box) => !isHiddenBy(hidden, box));
+    if (boxes.length === 0) {
+      hideAll();
+      return;
+    }
+    const { visible, coveredTop } = view;
     hints.get('top')?.style.setProperty('top', `${String(coveredTop + EDGE_GAP)}px`);
-    const shown = visible.width > 0 ? level.boxes.filter((box) => !isHiddenBy(hidden, box)) : [];
+    const shown = visible.width > 0 ? boxes : [];
     for (const [edge, hint] of hints) {
       const past = shown
         .map((box) => ({ box, distance: distancePast(edge, box, visible) }))

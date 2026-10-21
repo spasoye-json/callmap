@@ -3,6 +3,7 @@ import { chipOf } from '../chips.ts';
 import { sectionHeadOf, spanOf } from '../panel-elements.ts';
 import type { PagePart } from '../reader-page.ts';
 import { svgOf } from '../svg.ts';
+import { countTextOf } from '../words.ts';
 
 const MARKS: readonly (readonly [FunctionMark, string])[] = [
   ['changed', 'Changed'],
@@ -11,8 +12,7 @@ const MARKS: readonly (readonly [FunctionMark, string])[] = [
   ['neighbour', 'Neighbour'],
 ];
 
-const countSpanOf = (count: number): HTMLSpanElement =>
-  spanOf('count', count.toLocaleString('en-US'));
+const countSpanOf = (count: number): HTMLSpanElement => spanOf('count', countTextOf(count));
 
 const callSampleOf = (kind: string): SVGSVGElement => {
   const sample = svgOf(

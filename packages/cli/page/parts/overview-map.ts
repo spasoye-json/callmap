@@ -25,10 +25,16 @@ const mapScaleOf = ({ width, height }: Laid): MapScale => {
   };
 };
 
-const isLargerThanView = ({ level, visible }: CameraView): boolean =>
-  visible.width > 0 &&
-  visible.height > 0 &&
-  (level.width > visible.width || level.height > visible.height);
+const isLargerThanView = (view: CameraView): boolean => {
+  const { level } = view;
+  if (level.boxes.length === 0) return false;
+  const { visible } = view;
+  return (
+    visible.width > 0 &&
+    visible.height > 0 &&
+    (level.width > visible.width || level.height > visible.height)
+  );
+};
 
 const place = (element: HTMLElement, { x, y, width, height }: Rect, at: MapScale): void => {
   Object.assign(element.style, {

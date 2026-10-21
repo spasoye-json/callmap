@@ -76,6 +76,12 @@ const anchorOf = (boxes: readonly LaidBox[], selected: string | undefined): Laid
 
 const centreOf = (box: Rect): Point => [box.x + box.width / 2, box.y + box.height / 2];
 
+interface GraphRoom {
+  readonly width: number;
+  readonly height: number;
+  readonly top: number;
+}
+
 const EMPTY: Laid = { frames: [], boxes: [], lines: [], width: 0, height: 0 };
 
 export const cameraOf = (
@@ -91,7 +97,7 @@ export const cameraOf = (
   let sizedAt: number | undefined;
   const handlers: ((view: CameraView) => void)[] = [];
 
-  const sizeOf = (): { readonly width: number; readonly height: number; readonly top: number } => {
+  const sizeOf = (): GraphRoom => {
     const { width, height } = container.getBoundingClientRect();
     const top = [...container.querySelectorAll(`:scope > [${COVERS}="top"]`)].reduce(
       (covered, cover) => Math.max(covered, cover.getBoundingClientRect().height),
@@ -101,16 +107,23 @@ export const cameraOf = (
   };
 
   const view = (): CameraView => {
-    const { width, height, top } = sizeOf();
+    const at = { scale, x, y };
+    let room: GraphRoom | undefined;
+    const measured = (): GraphRoom => (room ??= sizeOf());
     return {
       scale,
       band: bandOf(scale),
-      coveredTop: top,
-      visible: {
-        x: -x / scale,
-        y: (top - y) / scale,
-        width: width / scale,
-        height: height / scale,
+      get coveredTop() {
+        return measured().top;
+      },
+      get visible() {
+        const { width, height, top } = measured();
+        return {
+          x: -at.x / at.scale,
+          y: (top - at.y) / at.scale,
+          width: width / at.scale,
+          height: height / at.scale,
+        };
       },
       level,
     };
