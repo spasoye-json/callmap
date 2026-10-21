@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Script } from 'node:vm';
 import { gunzipSync } from 'node:zlib';
 import { fireEvent, within } from '@testing-library/dom';
 import { JSDOM } from 'jsdom';
@@ -195,6 +196,44 @@ export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
     }),
   );
 
+const PAGE_SCRIPT = /(<script>\n)([\s\S]*)(\n<\/script>\n<\/body>)/;
+const RUN_PAGE_SCRIPT = 'runPageScriptCompiledOnce';
+const compiledScripts = new Map<string, Script>();
+
+const compiledOnce = (source: string): Script => {
+  const known = compiledScripts.get(source);
+  if (known !== undefined) return known;
+  const compiled = new Script(source, { filename: 'reader-page.js' });
+  compiledScripts.set(source, compiled);
+  return compiled;
+};
+
+interface SplitPage {
+  readonly html: string;
+  readonly script?: Script;
+}
+
+// jsdom tokenizes and compiles the 1.9 MB inline page script on every load, about 150 ms.
+// A stub in its place runs the same script, compiled once, at the same point of the parse.
+const splitPage = (html: string): SplitPage => {
+  const found = PAGE_SCRIPT.exec(html);
+  if (found === null) return { html };
+  const [whole, open = '', source = '', close = ''] = found;
+  return {
+    html: `${html.slice(0, found.index)}${open}${RUN_PAGE_SCRIPT}()${close}${html.slice(found.index + whole.length)}`,
+    script: compiledOnce(source),
+  };
+};
+
+const runPageScriptAtStub = (window: JSDOM['window'], script: Script): void => {
+  Object.assign(window, {
+    [RUN_PAGE_SCRIPT]: () => {
+      Reflect.deleteProperty(window, RUN_PAGE_SCRIPT);
+      script.runInContext(window);
+    },
+  });
+};
+
 export const loadReaderPage = async (
   html: string,
   stored?: StoredItems,
@@ -202,10 +241,16 @@ export const loadReaderPage = async (
   graphSize?: GraphSize,
 ): Promise<LoadedPage> => {
   const layouts: string[] = [];
-  const dom = new JSDOM(html, {
+  const split = splitPage(html);
+  const browserApis = withBrowserApis(layouts, stored, textsHeldUntil, graphSize);
+  const dom = new JSDOM(split.html, {
     runScripts: 'dangerously',
     pretendToBeVisual: true,
-    ...withBrowserApis(layouts, stored, textsHeldUntil, graphSize),
+    ...browserApis,
+    beforeParse: (window) => {
+      browserApis.beforeParse(window);
+      if (split.script !== undefined) runPageScriptAtStub(window, split.script);
+    },
   });
   const page = { window: dom.window, layouts };
   await settled(page);
