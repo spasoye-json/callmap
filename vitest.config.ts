@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     include: ['packages/*/test/**/*.test.ts', 'test/**/*.test.ts'],
     environment: 'node',
+    maxWorkers: '50%',
   },
 });
