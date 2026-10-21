@@ -48,21 +48,28 @@ export const nameAttributes = (
   [BESIDE]: String(beside.length),
 });
 
+const fitsIn = (text: string, room: number): boolean => text.length * PATH_CHARACTER_WIDTH <= room;
+
 export const nameThatFits = (name: string, room: number): string => {
   const cut = pathLabelOf(name, room);
-  if (cut.length * PATH_CHARACTER_WIDTH <= room) return cut;
+  if (fitsIn(cut, room)) return cut;
   const characters = Math.max(1, Math.floor(room / PATH_CHARACTER_WIDTH) - 1);
   return `…${cut.slice(-characters)}`;
 };
+
+const CROWDED = 'data-crowded';
 
 export const fitNames = (root: Element, scale: number, scan: boolean): void => {
   for (const name of root.querySelectorAll(`[${NAME}]`)) {
     const full = name.getAttribute(NAME) ?? '';
     const beside = Number(name.getAttribute(BESIDE));
-    const room =
-      Number(name.getAttribute(NAME_ROOM)) * scale -
-      (beside === 0 ? 0 : beside * PATH_CHARACTER_WIDTH + BESIDE_GAP);
-    name.textContent = scan ? nameThatFits(full, room) : full;
+    const room = Number(name.getAttribute(NAME_ROOM)) * scale;
+    const roomBeside = beside === 0 ? room : room - beside * PATH_CHARACTER_WIDTH - BESIDE_GAP;
+    const besideName = nameThatFits(full, roomBeside);
+    const crowded = scan && beside > 0 && !fitsIn(besideName, roomBeside);
+    name.parentElement?.toggleAttribute(CROWDED, crowded);
+    if (!scan) name.textContent = full;
+    else name.textContent = crowded ? nameThatFits(full, room) : besideName;
   }
 };
 

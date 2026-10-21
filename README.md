@@ -214,4 +214,15 @@ Each extractor commits a small fixture repo under `packages/<extractor>/fixture/
 npm install
 npm run lint   # formatting, types, and eslint
 npm test       # the whole suite
+npm run test:browser
 ```
+
+`npm run test:browser` builds reader pages from the fixture repos and opens them in headless Chromium. It reads the place of each label on the screen. It fails when a label runs past its box or its frame. It also fails when a box name runs over its "N fn" count. It also fails when a frame label or a "one of" label runs over a box. It checks the Diff, Folder and Whole project views. It checks each view in the Read, Scan and Map bands, in light mode and in dark mode. Plain `npm test` does not run these checks.
+
+The command does not download a browser. It uses the first Chromium that it finds:
+
+1. The path in the `CALLMAP_CHROMIUM` environment variable.
+2. The Chromium that Playwright keeps in its cache.
+3. `chromium-browser` or `chromium` on the `PATH`.
+
+If it finds no Chromium, the command fails and tells you how to get one.
