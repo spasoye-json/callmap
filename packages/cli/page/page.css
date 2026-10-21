@@ -363,3 +363,56 @@ span.chip.open-end {
   border: 1px dashed var(--open);
   color: var(--open);
 }
+
+.empty-state {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 24px;
+  background: var(--canvas);
+  text-align: center;
+}
+
+.empty-state[hidden] {
+  display: none;
+}
+
+.empty-state-icon {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+}
+
+.empty-state h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.empty-state button {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 12px var(--font-ui);
+  cursor: pointer;
+}
+
+.empty-state button:hover,
+.empty-state button:focus-visible {
+  border-color: var(--focus);
+}
