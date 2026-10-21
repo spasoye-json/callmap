@@ -108,7 +108,7 @@ const marks: PagePart = ({
   onHiddenMarksChange((hidden) => {
     for (const [mark, button] of markRows)
       button.setAttribute('aria-pressed', String(hidden.has(mark)));
-    hideParts(graph, camera.view().level, hidden);
+    if (drawn !== undefined) hideParts(graph, drawn, hidden);
   });
 };
 

@@ -82,6 +82,7 @@ export const interactionOf = (
   let selected: FunctionId | undefined;
   let hovered: string | undefined;
   let drawn: ViewState | undefined;
+  let drawnLevel: Laid | undefined;
   let queue = Promise.resolve();
   let pending = 0;
 
@@ -99,9 +100,10 @@ export const interactionOf = (
   const paint = (target: ViewState, laid: Laid, anchor?: FunctionId): void => {
     if (target !== current) return;
     drawing.draw(laid, anchor);
+    drawnLevel = laid;
     hovered = undefined;
     drawing.highlight(selected, hovered);
-    if (drawn !== target) drawing.open(selected);
+    if (drawn !== target) drawing.camera.open(selected);
     drawn = target;
   };
 
@@ -174,11 +176,11 @@ export const interactionOf = (
     if (event.key === 'Escape') highlight(undefined);
   });
   const step = (along: 'callers' | 'callees'): void => {
-    if (selected === undefined) return;
-    const next = nextAlongCalls(drawing.camera.view().level, selected, along, hiddenMarks);
+    if (selected === undefined || drawnLevel === undefined) return;
+    const next = nextAlongCalls(drawnLevel, selected, along, hiddenMarks);
     if (next === undefined) return;
     select(next);
-    drawing.keepInView(next.id);
+    drawing.camera.keepInView(next.id);
     graph.querySelector<SVGElement>(`[data-box="${CSS.escape(next.id)}"]`)?.focus();
   };
   const graphKeys: Readonly<Record<string, () => void>> = {
@@ -233,7 +235,7 @@ export const interactionOf = (
     await reveal(id);
     const box = functionBoxOf(id);
     if (box === undefined) return;
-    drawing.focus(id);
+    drawing.camera.focus(id);
     select(box);
   };
 
@@ -284,7 +286,7 @@ export const interactionOf = (
     show,
     open,
     keepSelectionInView: () => {
-      if (selected !== undefined) drawing.keepInView(selected);
+      if (selected !== undefined) drawing.camera.keepInView(selected);
     },
     showView,
     choose,

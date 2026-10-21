@@ -1,7 +1,7 @@
 import { highlightOf } from './highlight.ts';
 import type { SelectedPath } from './highlight.ts';
 import { bandOf, cameraOf } from './camera.ts';
-import type { Camera } from './camera.ts';
+import type { SteeredCamera } from './camera.ts';
 import type { Laid, LaidBox, LaidFunction, LaidLevelBox, LaidLine } from './layout.ts';
 import { isLevelBox } from './scene.ts';
 import { arrowsOf, boxOf, endMarksOf, frameOf, lineOf } from './shapes.ts';
@@ -9,12 +9,9 @@ import { fitNames, keepScreenSize } from './screen-size.ts';
 import { svgOf } from './svg.ts';
 
 export interface Drawing {
-  readonly camera: Camera;
+  readonly camera: SteeredCamera;
   readonly draw: (laid: Laid, anchor?: string) => void;
-  readonly open: (selected?: string) => void;
   readonly highlight: (selected: string | undefined, hovered?: string) => void;
-  readonly focus: (id: string) => void;
-  readonly keepInView: (id: string) => void;
   readonly onBoxClick: (handler: (box: LaidFunction) => void) => void;
   readonly onLevelBoxClick: (handler: (box: LaidLevelBox) => void) => void;
   readonly onLineClick: (handler: (line: LaidLine) => void) => void;
@@ -151,10 +148,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
   return {
     camera,
     draw,
-    open: camera.open,
     highlight,
-    focus: camera.focus,
-    keepInView: camera.keepInView,
     onBoxClick: (handler) => {
       handlers.push(handler);
     },

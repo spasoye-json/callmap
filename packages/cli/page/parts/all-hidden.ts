@@ -22,11 +22,13 @@ const allHidden: PagePart = ({ graph, camera, hiddenMarks, toggleMark, onHiddenM
     const hidden = hiddenIdsOf(level, hiddenMarks());
     message.hidden = level.boxes.length === 0 || !level.boxes.every(({ id }) => hidden.has(id));
   };
+  let drawn: Laid | undefined;
   camera.onChange(({ level }) => {
+    drawn = level;
     show(level);
   });
   onHiddenMarksChange(() => {
-    show(camera.view().level);
+    if (drawn !== undefined) show(drawn);
   });
 };
 
