@@ -38,8 +38,6 @@ type LaidFunction = FunctionBox & Rect;
 
 const middleOf = ({ y, height }: Rect): number => y + height / 2;
 
-const HIDDEN_MARKS = 'data-hidden-marks';
-
 const nextAlongCalls = (
   { boxes, lines }: Laid,
   from: string,
@@ -207,7 +205,6 @@ export const interactionOf = (
   const toggleMark = (mark: FunctionMark): void => {
     if (hiddenMarks.has(mark)) hiddenMarks.delete(mark);
     else hiddenMarks.add(mark);
-    graph.setAttribute(HIDDEN_MARKS, [...hiddenMarks].join(' '));
     for (const handler of hiddenMarkHandlers) handler(hiddenMarks);
   };
 
