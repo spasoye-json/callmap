@@ -14,7 +14,7 @@ const CALL_NOTES: Readonly<Record<CallMark, string | undefined>> = {
   kept: undefined,
 };
 
-interface CallRow {
+interface FunctionRow {
   readonly function: PageFunction;
   readonly notes: readonly string[];
 }
@@ -24,7 +24,7 @@ export type CallListsOf = (id: FunctionId, select: (id: FunctionId) => void) => 
 const notesOf = (notes: readonly string[]): readonly (HTMLSpanElement | string)[] =>
   notes.flatMap((note) => [' ', spanOf('note', note)]);
 
-const functionRowOf = (row: CallRow, select: (id: FunctionId) => void): HTMLLIElement => {
+const functionItemOf = (row: FunctionRow, select: (id: FunctionId) => void): HTMLLIElement => {
   const item = document.createElement('li');
   const button = document.createElement('button');
   button.type = 'button';
@@ -52,7 +52,7 @@ const listOf = (title: string, rows: readonly HTMLLIElement[]): HTMLElement => {
   return block;
 };
 
-const byName = (left: CallRow, right: CallRow): number =>
+const byName = (left: FunctionRow, right: FunctionRow): number =>
   byText(left.function.name, right.function.name) || byText(left.function.id, right.function.id);
 
 export const callListsOf = (data: ReaderPageData): CallListsOf => {
@@ -62,7 +62,7 @@ export const callListsOf = (data: ReaderPageData): CallListsOf => {
   const oneOfLabels = oneOfLabelsOf(data, reviewed);
   const openEnds = openEndsByCallerOf(data, reviewed);
 
-  const rowOf = (call: MarkedCall, end: FunctionId): readonly CallRow[] => {
+  const rowOf = (call: MarkedCall, end: FunctionId): readonly FunctionRow[] => {
     const shown = functions.get(end);
     if (shown === undefined) return [];
     const notes = [CALL_NOTES[call.mark], oneOfLabels.get(callKeyOf(call))].filter(
@@ -94,9 +94,9 @@ export const callListsOf = (data: ReaderPageData): CallListsOf => {
     lists.append(
       listOf(
         'Called by',
-        callers.map((row) => functionRowOf(row, select)),
+        callers.map((row) => functionItemOf(row, select)),
       ),
-      listOf('Calls', [...callees.map((row) => functionRowOf(row, select)), ...openEndRows]),
+      listOf('Calls', [...callees.map((row) => functionItemOf(row, select)), ...openEndRows]),
     );
     return lists;
   };

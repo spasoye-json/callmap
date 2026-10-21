@@ -11,9 +11,12 @@ import { countWordsOf } from '../words.ts';
 
 const ROWS_SHOWN = 5;
 const EDGE_ROOM = 8;
+const keptInside = (pointer: number, size: number, room: number): number =>
+  Math.max(EDGE_ROOM, Math.min(pointer + EDGE_ROOM, room - size - EDGE_ROOM));
+
 const endLabelOf = (id: string): string => fileOfFrameId(id) ?? id;
 
-interface CallRow {
+interface BundledCallRow {
   readonly call: SceneLine;
   readonly chip: ChipMark | undefined;
   readonly rank: number;
@@ -25,7 +28,7 @@ const rankOf = (call: SceneLine, callerMark: FunctionMark | undefined): number =
   return isChangeMark(callerMark) ? 1 : 2;
 };
 
-const byRankThenLine = (left: CallRow, right: CallRow): number =>
+const byRankThenLine = (left: BundledCallRow, right: BundledCallRow): number =>
   left.rank - right.rank ||
   (left.line ?? 0) - (right.line ?? 0) ||
   byText(left.call.from, right.call.from) ||
@@ -40,7 +43,7 @@ const bundledCalls: PagePart = (page) => {
     lines.set(key, Math.min(call.line, lines.get(key) ?? call.line));
   }
 
-  const rowOf = (call: SceneLine): CallRow => {
+  const rowOf = (call: SceneLine): BundledCallRow => {
     const callerMark = functions.get(call.from)?.mark;
     return {
       call,
@@ -65,7 +68,7 @@ const bundledCalls: PagePart = (page) => {
     list.replaceChildren();
   };
 
-  const buttonOf = ({ call, chip, line }: CallRow): HTMLButtonElement => {
+  const buttonOf = ({ call, chip, line }: BundledCallRow): HTMLButtonElement => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'bundled-call';
@@ -94,8 +97,8 @@ const bundledCalls: PagePart = (page) => {
     const width = page.graph.clientWidth;
     const height = page.graph.clientHeight;
     const { x, y } = point ?? { x: width, y: 0 };
-    list.style.left = `${String(Math.max(EDGE_ROOM, Math.min(x + EDGE_ROOM, width - list.offsetWidth - EDGE_ROOM)))}px`;
-    list.style.top = `${String(Math.max(EDGE_ROOM, Math.min(y + EDGE_ROOM, height - list.offsetHeight - EDGE_ROOM)))}px`;
+    list.style.left = `${String(keptInside(x, list.offsetWidth, width))}px`;
+    list.style.top = `${String(keptInside(y, list.offsetHeight, height))}px`;
   };
 
   const show = (line: SceneLine, calls: readonly SceneLine[]): void => {
