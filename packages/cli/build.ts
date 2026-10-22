@@ -1,8 +1,7 @@
-import { chmodSync, copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { build } from 'rolldown';
-import { pageScript, pageStyle } from './src/page-build.ts';
+import { assets } from './src/assets.ts';
 
 const PACKAGE = import.meta.dirname;
 const ROOT = join(PACKAGE, '..', '..');
@@ -16,7 +15,7 @@ await build({
   input: {
     cli: join(PACKAGE, 'src', 'cli.ts'),
     'layout-worker': join(PACKAGE, 'src', 'layout-worker.ts'),
-    'extract-typescript': fileURLToPath(import.meta.resolve('@callmap/extractor-typescript/cli')),
+    'extract-typescript': assets.TYPESCRIPT_EXTRACTOR,
   },
   platform: 'node',
   external: ['typescript'],
@@ -36,8 +35,7 @@ await build({
 // npm makes a bin executable only when it links it, and a linked clone runs each new build.
 chmodSync(join(DIST, 'cli.js'), 0o755);
 
-mkdirSync(DIST, { recursive: true });
-writeFileSync(join(DIST, 'page.js'), await pageScript());
-writeFileSync(join(DIST, 'page.css'), pageStyle());
+writeFileSync(join(DIST, 'page.js'), await assets.pageScript());
+writeFileSync(join(DIST, 'page.css'), assets.pageStyle());
 
 for (const file of ['README.md', 'LICENSE']) copyFileSync(join(ROOT, file), join(PACKAGE, file));

@@ -23,7 +23,7 @@ Before this change, every package was private at version `0.0.0`, and every `bin
 
 ## How the package finds its files
 
-The command reads 4 things from disk: the extractor, the layout worker, the page script and the page style. `src/clone-assets.ts` finds them in a clone: the extractor source through its package export, the worker as `layout-worker.ts`, and the page through `rolldown` at each run. `src/package-assets.ts` finds them next to itself in `dist/`, as `.js` and `.css` files. The build swaps the first module for the second, so `dist/` never imports `rolldown` and the tests never need a build. Both modules export the same names, and the build fails if one is missing.
+The command reads 4 things from disk: the extractor, the layout worker, the page script and the page style. The code imports them from `src/assets.ts`, which also holds the `Assets` type. `src/clone-assets.ts` finds them in a clone: the extractor source through its package export, the worker as `layout-worker.ts`, and the page through `rolldown` at each run. `src/package-assets.ts` finds them next to itself in `dist/`, as `.js` and `.css` files. `src/assets.ts` takes its values from the first module, and the build swaps it for the second, so `dist/` never imports `rolldown` and the tests never need a build. Each module checks its values with `satisfies Assets`, so the typecheck fails if one has a gap.
 
 ## Why `elkjs` is bundled
 
