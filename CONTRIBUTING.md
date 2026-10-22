@@ -61,6 +61,8 @@ To report a security problem, do not open an issue. `SECURITY.md` tells you what
 
 Name a branch for its issue: `issue/<number>-<slug>`, for example `issue/49-contributing`.
 
+A spec with several tickets uses one integration branch, `spec/<number>-<slug>`, for example `spec/70-open-source-release`. Each ticket branch merges into it, and one pull request merges it into `master`.
+
 Start each commit subject with a prefix for the part that it changes, then one sentence in the present tense:
 
 ```
