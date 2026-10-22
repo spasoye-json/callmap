@@ -43,7 +43,7 @@ The `packed cli` check in the same workflow runs `npm run test:pack`. It packs `
 
 ## Issues and triage
 
-Open an issue with the bug template or the idea template. Each template has the headings `## Problem`, `## What to do` and `## Acceptance criteria`, and gives the issue the `needs-triage` label. The maintainer then changes the label to one of these:
+Open an issue with the bug template or the idea template. Each template has the headings `## Problem`, `## What to do` and `## Acceptance criteria`, and gives the issue the `needs-triage` label. The bug template also gives the `bug` label, and the idea template gives the `enhancement` label. These 2 labels name the kind of issue, and they stay on the issue after the triage. The maintainer changes the triage label to one of these:
 
 | Label             | Meaning                                                  |
 | ----------------- | -------------------------------------------------------- |
