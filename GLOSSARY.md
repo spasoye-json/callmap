@@ -21,8 +21,12 @@ Every function in scope and every call between them.
 _Avoid_: map, dependency graph, reference graph
 
 **Open end**:
-A call that the language's tools cannot tie to a function, such as a call on an untyped value or a callback. The page shows it, marked, and it leads nowhere.
+A call that the language's tools cannot tie to a function, such as a call on an untyped value or a callback. The page shows it, marked, with its open-end reason, and it leads nowhere.
 _Avoid_: unknown call, gap, hole
+
+**Open-end reason**:
+The cause, from a fixed list, of why the language's tools cannot tie an open end to a function: a module not found, a dynamic key, an untyped value, a function value, no implementation in scope, or not resolved for any other cause. When 2 causes fit, the first in this list names the open end. So a dynamic key on a map of functions is a dynamic key, not a function value.
+_Avoid_: cause, error, why
 
 **One-of call**:
 One of several calls from one call site through an interface or a map of strategies, one to each implementation. Only one of them runs.
@@ -63,8 +67,12 @@ The per-language program that reads the source code and emits the graph document
 _Avoid_: parser, analyzer, scanner
 
 **Graph document**:
-What one extractor emits for one repo: its files, its functions, its calls, its open ends, and the scope it was built under.
+What one extractor emits for one repo: its files, its functions, its calls, its open ends, the scope it was built under, and the checker that proved its calls.
 _Avoid_: graph JSON, payload, manifest
+
+**Checker**:
+The tool of a language that proves the calls of a graph document, with its name and its full version, such as TypeScript 6.0.3. It is the tool that the extractor runs, not the tool that the repo under review installs. The page shows it next to the resolution rate.
+_Avoid_: compiler, type checker version, toolchain
 
 **Reference graph document**:
 What the extractors emit before spec 15: the files in scope and the import edges between them. The graph document replaces it for the review, and the Go and Ruby extractors keep it until they emit functions and calls.
@@ -133,8 +141,12 @@ _Avoid_: scroll hint, more indicator
 ### Review
 
 **Review**:
-The reader page for one branch: every changed function, one hop around each, and the calls the branch added or removed, against the merge base with the default branch.
+The reader page for one branch: every changed function, one hop around each, and the calls the branch added or removed, against the base. The branch side is the working tree, so a review also holds the uncommitted changes. The top bar names the branch and the base and shows the commit range from the base to HEAD, with a mark when the review holds uncommitted changes. A detached HEAD shows as "detached HEAD" in place of the branch name.
 _Avoid_: PR view, change summary
+
+**Base**:
+The commit that a review compares the branch against: the merge base with the default branch, or the commit that `--base` names. The top bar names the base as git names it, such as `origin/main`, or as the reader typed it, such as `HEAD~8`.
+_Avoid_: target, parent, main
 
 **Changed function**:
 A function that the branch added, removed, or changed in its body.
