@@ -1,0 +1,32 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # npm trusted publishing with the OIDC token of the job needs npm 11.5.1 or later.
+      - run: npm install --global npm@^11.5.1
+
+      - run: npm ci
+
+      - run: npm run test:pack
+
+      - run: npm publish --workspace @callmap/cli

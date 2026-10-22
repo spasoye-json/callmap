@@ -4,14 +4,30 @@ Callmap is a call graph reader for an engineer who still reads code. It reads a 
 
 ## Install
 
-Callmap needs Node 22.18 or later. Install the `callmap` command from a clone of this repo:
+Callmap needs Node 22.18 or later. Run it in the repo of the branch, with no install:
+
+```sh
+npx @callmap/cli review
+```
+
+To keep the `callmap` command, install the package once:
+
+```sh
+npm install --global @callmap/cli
+```
+
+The examples below use `callmap`. With `npx`, write `npx @callmap/cli` in its place.
+
+### From a clone
+
+To try a change to Callmap on another repo, install the `callmap` command from a clone of this repo:
 
 ```sh
 npm install
 npm link -w @callmap/cli
 ```
 
-The link points at the clone, so a `git pull` updates the command. `npm unlink -g @callmap/cli` removes it.
+`npm install` builds the command into `packages/cli/dist/`, and the link points at that build. So run `npm run build` after each `git pull` or change. `npm unlink -g @callmap/cli` removes the command. The tests run the source in `packages/cli/src/`, so they need no build.
 
 ## Review a branch
 
@@ -35,7 +51,7 @@ callmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>
 
 The default branch is the head of `origin`, then the head of any other remote, then `main`, then `master`. The review reads the base commit in a temporary git worktree and removes it at the end, so the checkout and the uncommitted files never move. The worktree links to the `node_modules` folders of the checkout, so the library types resolve on the base too. The command prints the path of the page when it ends.
 
-The command caches the graph of the base, so a second review of the same base reads only the branch. The cache is in `$XDG_CACHE_HOME/callmap/`, or in `~/.cache/callmap/` when the variable is not set. A cache entry belongs to one base commit, one set of scope globs, one tsconfig, one lock file in the checkout and one version of the extractor. A change of any of them reads the base again. The cache never holds the graph of the branch. It keeps the 20 newest entries for each repo. A cache file that cannot be read gives a fresh read of the base. You can delete the folder at any time.
+The command caches the graph of the base, so a second review of the same base reads only the branch. The cache is in `$XDG_CACHE_HOME/callmap/`, or in `~/.cache/callmap/` when the variable is not set. A cache entry belongs to one base commit, one set of scope globs, one tsconfig, one lock file in the checkout and one version of the extractor. A change of any of them reads the base again. The version of the extractor is the version of `@callmap/cli` and of its `typescript`, so a new release starts with an empty cache. A run of the source in a clone uses a hash of the extractor source in its place. The cache never holds the graph of the branch. It keeps the 20 newest entries for each repo. A cache file that cannot be read gives a fresh read of the base. You can delete the folder at any time.
 
 A scope glob matches a whole path from the repo root. `*` matches inside one folder, `**` matches across folders, and `?` matches one character. A glob that starts with `!` leaves files out. Quote each glob, so that the shell does not expand it.
 
@@ -207,7 +223,9 @@ The host runs the extractors and the core, and writes the reader page.
 | -------------- | ----------------------------------------------------------------------------------------- |
 | `@callmap/cli` | The `callmap` command: git, the extractor processes, and the reader page with ELK inlined |
 
-The page script lives in `packages/cli/page/`. The CLI bundles it with `elkjs` into the page at each run. The command lays out the Diff view and the top level of the Whole project view in worker threads with the same layout module, `page/layout.ts`, and writes the places into the page data. `page/levels.ts` builds the boxes and the lines of each level. The page lays out the other views in the browser, and draws every view as SVG. A view is one module in `packages/cli/page/views/`: a pure function from the page data to frames, boxes and lines. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.
+The page script lives in `packages/cli/page/`. `npm run build` bundles it with `elkjs` once, into `packages/cli/dist/page.js`, and the command inlines that file into each page. A run of the source in `packages/cli/src/` bundles the page script at each run, so a test always sees the current page. The command lays out the Diff view and the top level of the Whole project view in worker threads with the same layout module, `page/layout.ts`, and writes the places into the page data. `page/levels.ts` builds the boxes and the lines of each level. The page lays out the other views in the browser, and draws every view as SVG. A view is one module in `packages/cli/page/views/`: a pure function from the page data to frames, boxes and lines. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.
+
+Only `@callmap/cli` goes to npm. `npm run build` writes it to `packages/cli/dist/`: the command, the layout worker, the TypeScript extractor, and the page script and style. The build bundles the other `@callmap/*` packages and `elkjs` into these files. `typescript` stays a dependency of the package, at a pinned version. ADR-0021 records why.
 
 `test/core-is-language-blind-and-pure.test.ts` reads the imports of every package. It holds the core away from the filesystem and from any language name. It holds each extractor to the opposite. It holds the host to its own list, and keeps the page script off every Node built-in.
 
@@ -230,7 +248,10 @@ npm install
 npm run lint   # formatting, types, and eslint
 npm test       # the whole suite
 npm run test:browser
+npm run test:pack
 ```
+
+`npm run test:pack` packs `@callmap/cli` with `npm pack` and installs the tarball in a fixture repo. Then it runs `callmap review` from that install and reads the page. It also fails when the tarball holds a file other than the manifest, the README, the LICENSE and the built files in `dist/`. The install fetches `typescript` from npm. Plain `npm test` does not run this check. The CI runs it on each pull request, and the release workflow runs it before it publishes.
 
 `npm run test:browser` builds reader pages from the fixture repos and opens them in headless Chromium. It reads the place of each label on the screen. It fails when a label runs past its box or its frame. It also fails when a box name runs over its "N fn" count. It also fails when a frame label or a "one of" label runs over a box. It checks the Diff, Folder and Whole project views. It checks each view in the Read, Scan and Map bands, in light mode and in dark mode. It also fails when an edge hint covers a box while the graph pans, when the zoom label has no room on either side or changes the width of the zoom controls, and when a chip of a level box in the Map band is smaller than at the reading floor or a box border is less than 1 px. In dark mode, it also fails when a box border in the Map band has a contrast below 3 to 1. Plain `npm test` does not run these checks.
 

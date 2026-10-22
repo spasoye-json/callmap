@@ -1,59 +1,11 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { gzipSync } from 'node:zlib';
-import { rolldown } from 'rolldown';
 import { DATA_BLOCK_ID } from '../page/data.ts';
 import type { ReaderPageData, Sources } from '../page/data.ts';
 import type { Placement } from '../page/layout.ts';
 import { READER_VIEWS } from '../page/reader-views.ts';
 import type { Scene } from '../page/scene.ts';
-
-const PAGE = fileURLToPath(new URL('../page/', import.meta.url));
-const PARTS = join(PAGE, 'parts');
-const ENTRY = '\0reader-page-entry';
-
-const partsWith = (extension: string): readonly string[] =>
-  readdirSync(PARTS)
-    .filter((name) => name.endsWith(extension))
-    .sort()
-    .map((name) => join(PARTS, name));
-
-const entrySource = (): string => {
-  const parts = partsWith('.ts');
-  return [
-    `import { startReaderPage } from ${JSON.stringify(join(PAGE, 'main.ts'))};`,
-    ...parts.map((path, index) => `import part${index} from ${JSON.stringify(path)};`),
-    `startReaderPage([${parts.map((_, index) => `part${index}`).join(', ')}]);`,
-  ].join('\n');
-};
-
-const pageScript = async (): Promise<string> => {
-  const bundle = await rolldown({
-    input: ENTRY,
-    platform: 'browser',
-    logLevel: 'silent',
-    plugins: [
-      {
-        name: 'reader-page-entry',
-        resolveId: (id) => (id === ENTRY ? id : null),
-        load: (id) => (id === ENTRY ? entrySource() : null),
-      },
-    ],
-  });
-  try {
-    const { output } = await bundle.generate({ format: 'iife', minify: true });
-    return output.map((chunk) => (chunk.type === 'chunk' ? chunk.code : '')).join('\n');
-  } finally {
-    await bundle.close();
-  }
-};
-
-const pageStyle = (): string =>
-  [join(PAGE, 'page.css'), join(PAGE, 'drawing.css'), ...partsWith('.css')]
-    .map((path) => readFileSync(path, 'utf8'))
-    .join('\n');
+import { LAYOUT_WORKER, pageScript, pageStyle } from './clone-assets.ts';
 
 const inlineScript = (code: string): string => code.replaceAll('</script', '<\\/script');
 
@@ -88,7 +40,7 @@ ${inlineScript(script)}
 
 const placementInWorkerOf = (scene: Scene): Promise<Placement> =>
   new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('layout-worker.ts', import.meta.url), { workerData: scene });
+    const worker = new Worker(LAYOUT_WORKER, { workerData: scene });
     worker.once('message', resolve);
     worker.once('error', reject);
   });
