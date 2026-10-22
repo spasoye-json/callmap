@@ -18,7 +18,7 @@ interface Shot {
   readonly view: 'Diff' | 'Whole project';
   readonly level?: string;
   readonly selected?: string;
-  readonly leftPanel?: 'collapsed';
+  readonly collapsesLeftPanel?: boolean;
 }
 
 const SHOTS: readonly Shot[] = [
@@ -27,7 +27,7 @@ const SHOTS: readonly Shot[] = [
     fixture: 'review',
     view: 'Diff',
     selected: 'src/cart.ts#receipt',
-    leftPanel: 'collapsed',
+    collapsesLeftPanel: true,
   },
   { file: 'whole-project-top-level', fixture: 'levels', view: 'Whole project' },
   {
@@ -142,7 +142,7 @@ const openShot = async (page: Page, shot: Shot): Promise<void> => {
     await page.locator(`#graph .box[data-box="${box}"]`).click();
     await settled(page);
   }
-  if (shot.leftPanel === 'collapsed')
+  if (shot.collapsesLeftPanel)
     await page.getByRole('button', { name: 'Collapse the left panel', exact: true }).click();
   await bringDrawingIntoView(page);
 };

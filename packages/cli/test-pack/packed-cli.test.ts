@@ -7,7 +7,7 @@ import { tempDir } from '../../../test/temp-dir.ts';
 import { featureBranchRepo } from '../test/fixture-repo.ts';
 import { pageDataOf } from '../test/reader-page.ts';
 
-const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
+const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
 interface Tarball {
   readonly path: string;
@@ -25,7 +25,7 @@ const npm = (cwd: string, ...args: readonly string[]): string =>
 const packedCli = (): Tarball => {
   const folder = tempDir('callmap-pack-');
   const [report] = JSON.parse(
-    npm(ROOT, 'pack', '--json', '--workspace', '@callmap/cli', '--pack-destination', folder),
+    npm(REPO_ROOT, 'pack', '--json', '--workspace', '@callmap/cli', '--pack-destination', folder),
   ) as readonly PackReport[];
   if (report === undefined) throw new Error('npm pack wrote no tarball');
   return { path: join(folder, report.filename), files: report.files.map(({ path }) => path) };

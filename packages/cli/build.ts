@@ -7,7 +7,7 @@ import { sha256OfFiles } from './src/file-hash.ts';
 import { pageBundle } from './src/page-build.ts';
 
 const PACKAGE = import.meta.dirname;
-const ROOT = join(PACKAGE, '..', '..');
+const REPO_ROOT = join(PACKAGE, '..', '..');
 const DIST = join(PACKAGE, 'dist');
 const CLONE_ASSETS = join(PACKAGE, 'src', 'clone-assets.ts');
 const PACKAGE_ASSETS = join(PACKAGE, 'src', 'package-assets.ts');
@@ -83,4 +83,5 @@ writeFileSync(
   ]),
 );
 
-for (const file of ['README.md', 'LICENSE']) copyFileSync(join(ROOT, file), join(PACKAGE, file));
+for (const file of ['README.md', 'LICENSE'])
+  copyFileSync(join(REPO_ROOT, file), join(PACKAGE, file));
