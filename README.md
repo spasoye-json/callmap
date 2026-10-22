@@ -79,7 +79,7 @@ open zoom = fit, up to 125%,  when fit is 92% or more
 open zoom = 100%,             when fit is less than 92%
 ```
 
-92% is the reading floor: the zoom where the smallest text of the graph is 11 px on the screen. So a level that fits at the reading floor or above opens whole. A larger level opens at 100% on one part of it. That part is the selected box, else the box with the most changes, else the first box on the left. The page puts that box one third from the left edge of the graph. ADR-0018 records the rule and its check on a real review.
+92% is the reading floor: the zoom where the box names are 11 px on the screen. A box name is 12 px at 100%. A support text can be smaller at the reading floor, such as the "N fn" count, the label of an open end and the glyph of a chip. So a level that fits at the reading floor or above opens whole. A larger level opens at 100% on one part of it. That part is the selected box, else the box with the most changes, else the first box on the left. The page puts that box one third from the left edge of the graph. ADR-0018 records the rule and its check on a real review.
 
 The zoom band of the zoom decides what text the graph draws:
 
