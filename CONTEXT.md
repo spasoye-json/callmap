@@ -83,7 +83,7 @@ The link on a function that opens its file and line in the reader's editor. A re
 _Avoid_: deep link, jump link
 
 **View**:
-One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data and the choice of the reader, such as the open level, to boxes, frames and lines. The Diff view opens first. The marks, the open ends, the one-of groups, the selection and the code panel work in every view.
+One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data and the choice of the reader, such as the open level, to boxes, frames and lines. A view also gives the model order of the ELK layout. The Diff view opens first. The marks, the open ends, the one-of groups, the selection and the code panel work in every view.
 _Avoid_: mode, screen, perspective
 
 **Level**:

@@ -1,7 +1,9 @@
+import ELK from 'elkjs/lib/elk.bundled.js';
 import type { ElkNode } from 'elkjs/lib/elk-api.js';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ReaderPageData } from '../page/data.ts';
-import { elkGraphOf } from '../page/layout.ts';
+import { placementOf } from '../page/layout.ts';
+import type { Scene } from '../page/scene.ts';
 import type { Choice, View } from '../page/view.ts';
 import { diffView } from '../page/views/diff.ts';
 import { folderView } from '../page/views/folder.ts';
@@ -30,19 +32,30 @@ const modelOrdersOf = (graph: ElkNode): Readonly<Record<string, string | undefin
     framesAndRootOf(graph).map(({ id, layoutOptions }) => [id, layoutOptions?.[MODEL_ORDER]]),
   );
 
-const levelGraphOf = (path: string): ElkNode =>
-  elkGraphOf(wholeProjectView.sceneOf(levels, new Set(), { kind: 'level', path }));
+const graphSentToElkOf = async (scene: Scene): Promise<ElkNode> => {
+  const layout = vi.spyOn(ELK.prototype, 'layout');
+  try {
+    await placementOf(scene);
+    const graph = layout.mock.lastCall?.[0] as ElkNode | undefined;
+    if (graph === undefined) throw new Error('ELK did not lay out the scene');
+    return graph;
+  } finally {
+    layout.mockRestore();
+  }
+};
+
+const levelGraphOf = (choice: Choice | undefined): Promise<ElkNode> =>
+  graphSentToElkOf(wholeProjectView.sceneOf(levels, new Set(), choice));
 
 describe('the model order of the ELK layout', () => {
-  it('is NONE at the top level of the Whole project view', () => {
-    const graph = elkGraphOf(
-      wholeProjectView.sceneOf(levels, new Set(), wholeProjectView.firstChoice?.(levels)),
-    );
+  it('is NONE at the top level of the Whole project view', async () => {
+    const graph = await levelGraphOf(wholeProjectView.firstChoice?.(levels));
     expect(modelOrdersOf(graph)).toEqual({ root: 'NONE' });
   });
 
-  it('is NONE on the root of a level below the top, and its frames take the ELK default NONE', () => {
-    expect(modelOrdersOf(levelGraphOf('src/orders'))).toEqual({
+  it('is NONE on the root of a level below the top, and its frames take the ELK default NONE', async () => {
+    const graph = await levelGraphOf({ kind: 'level', path: 'src/orders' });
+    expect(modelOrdersOf(graph)).toEqual({
       root: 'NONE',
       'folder:src/orders': undefined,
     });
@@ -54,9 +67,9 @@ describe('the model order of the ELK layout', () => {
     { view: routeView },
   ])(
     'stays NODES_AND_EDGES on the root of the $view.name view, with no model order on its frames',
-    ({ view, choice }) => {
+    async ({ view, choice }) => {
       const [root, ...frames] = Object.entries(
-        modelOrdersOf(elkGraphOf(view.sceneOf(review, new Set(), choice))),
+        modelOrdersOf(await graphSentToElkOf(view.sceneOf(review, new Set(), choice))),
       );
       expect(root).toEqual(['root', 'NODES_AND_EDGES']);
       expect(frames.filter(([, order]) => order !== undefined)).toEqual([]);

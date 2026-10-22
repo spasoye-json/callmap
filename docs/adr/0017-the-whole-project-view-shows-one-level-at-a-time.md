@@ -28,7 +28,7 @@ Each level of the Whole project view lays out with `elk.layered.considerModelOrd
 
 The reason is the layout time. On ECharts, the ELK phase "Sort By Input Model NODES_AND_EDGES" took 83% of the layout of `src/chart`. With `NONE`, its layout goes from 714 ms to 163 ms in the browser. The cost is a looser drawing. On `src/chart`, the lines are 16% longer and the drawing is 11% wider. The crossings are 3% more. No commit, ADR or note gave a reason for `NODES_AND_EDGES`. It came with the first ELK drawing in `aa80287`.
 
-The model order is a field of the `Scene`, not a flag of the `View` like `laidOutByCommand`. The reason is that the scene is the one object that `placementOf` gets. The CLI sends only the scene to its layout worker. A flag on the `View` would need a second argument on `placementOf` and on the layout worker.
+The model order is a field of the `Scene`, not a flag of the `View` like `laidOutByCommand`. The reason is that the scene is the one object that `placementOf` gets. The CLI sends only the scene to its layout worker. A flag on the `View` would need a second argument on `placementOf` and on the layout worker. This changes ADR-0013. ADR-0013 says that a view is a pure function from the page data to frames, boxes and lines. A view now also gives the model order of its layout.
 
 ## Numbers
 

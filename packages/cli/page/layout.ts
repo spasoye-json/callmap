@@ -151,12 +151,7 @@ const edgeOf = (line: SceneLine): ElkExtendedEdge => {
   };
 };
 
-export const elkGraphOf = ({
-  frames,
-  boxes,
-  lines,
-  modelOrder = 'NODES_AND_EDGES',
-}: Scene): ElkNode => {
+const elkGraphOf = ({ frames, boxes, lines, modelOrder = 'NODES_AND_EDGES' }: Scene): ElkNode => {
   const childrenOf = new Map<string, ElkNode[]>();
   const frameIds = new Set(frames.map(({ id }) => id));
   for (const box of [...boxes].sort(byId)) {

@@ -1,6 +1,8 @@
 # ELK and SVG draw the reader page, not Cytoscape
 
 > Superseded in part by ADR-0016. The CLI lays out the Diff view and the Whole project view, and the page lays out the other views.
+>
+> Superseded in part by ADR-0017. A view also gives the model order of its ELK layout.
 
 The reader page draws its graph with `elkjs` and SVG. ELK lays out the boxes and the file frames with the `layered` algorithm from left to right. It routes each call with `elk.edgeRouting: ORTHOGONAL` and `hierarchyHandling: INCLUDE_CHILDREN`, so a line turns only at 90 degrees and goes around the boxes. The page draws the boxes, the frames and the bend points of each line as SVG, and has its own pan and zoom. Cytoscape leaves the page and the dependencies.
 
