@@ -8,7 +8,10 @@ export const wholeProjectView: View = {
   firstChoice: (data) => ({ kind: 'level', path: levelsOf(data).top }),
   sceneOf: (data, _opened, choice) => {
     const levels = levelsOf(data);
-    return levels.sceneOf(choice?.kind === 'level' ? choice.path : levels.top);
+    return {
+      ...levels.sceneOf(choice?.kind === 'level' ? choice.path : levels.top),
+      modelOrder: 'NONE',
+    };
   },
   choiceShowing: (data, id) => {
     const file = pageFunctionsOf(data).get(id)?.file;

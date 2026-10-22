@@ -22,6 +22,12 @@ The owner confirmed 2 rules of the levels on 2026-10-20, for spec 37.
 - A click on an outside box opens the level of that outside code. The outside box is the first folder or file on the path of that code that does not hold the open level, so the click opens that folder or file. The page already did this, and the README already said so.
 - An outside box collapses like the box of that path at its parent level, so a click on it opens a level with 2 or more boxes or a file level.
 
+## The model order of a level
+
+Each level of the Whole project view lays out with `elk.layered.considerModelOrder.strategy: NONE`, after issue 44. This holds for the top level that the CLI lays out and for each level that the page lays out. The Diff view, the Folder view and the Route view keep `NODES_AND_EDGES`. The model order sits on the root of the ELK graph only. ELK failed on the Diff view when its frames carried `NODES_AND_EDGES`. A frame with no model order takes the ELK default, `NONE`.
+
+The reason is the layout time. On ECharts, the ELK phase "Sort By Input Model NODES_AND_EDGES" took 83% of the layout of `src/chart`. With `NONE`, its layout goes from 714 ms to 163 ms in the browser. The cost is a looser drawing. On `src/chart`, the lines are 16% longer and the drawing is 11% wider. The crossings are 3% more. No commit, ADR or note gave a reason for `NODES_AND_EDGES`. It came with the first ELK drawing in `aa80287`.
+
 ## Numbers
 
 The check of `docs/research/2026-10-19-levels-on-a-large-codebase/` ran on 2026-10-19. "Before" is commit `ee2e994`, the end of issue 35. "After" is spec 37 with tickets 38 to 41. Each number is the median of 3 runs. The review of the private app holds 375 functions in scope. The Apache ECharts review holds 3,933 functions in scope.
@@ -45,4 +51,6 @@ The check of `docs/research/2026-10-19-levels-on-a-large-codebase/` ran on 2026-
 - The page holds no layout of the whole project, and its texts are compressed. On ECharts the page is 42% smaller. The branch graph is now the largest part of the page data, 2,754,067 B of 4,122,815 B on ECharts.
 - The page draws only the boxes and the lines of one level, so pan and zoom stay fast on a large repo. The zoom levels leave the view.
 - A click on a level that the page did not lay out yet waits for ELK. The page keeps each layout, so a second visit to a level does not wait.
+- After issue 44, no level of ECharts lays out in 200 ms or more. But `src/chart` still waits 224 ms from the click on its box to its drawing. The scene and the drawing add about 60 ms to its layout of 163 ms. The check is `docs/research/2026-10-22-model-order-on-echarts/`. The other 545 levels wait less than 200 ms.
+- A repo with denser levels than ECharts can still take more than 200 ms. The layout time follows the lines of a level, and the model order `NONE` makes each line cheaper, not fewer.
 - The levels do not change the Diff view. On ECharts, a review of 50 commits gives a Diff view of 2,584 boxes and 6,356 lines, and the command did not end in 10 minutes.
