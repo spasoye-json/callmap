@@ -1,10 +1,8 @@
 import { spawn } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { isAbsolute, join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
 import { assets } from './assets.ts';
-import { packageManifestAt } from './package-manifest.ts';
 
 const runExtractorProcess = (args: readonly string[]): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -41,9 +39,4 @@ export const extractGraphDocumentOf = async (
 ): Promise<GraphDocument> =>
   readGraphDocument(JSON.parse(await runExtractorProcess(argumentsOf(repo, settings))));
 
-export const extractorVersionOf = (): string => {
-  const typescript = packageManifestAt(
-    createRequire(assets.typescriptExtractor).resolve('typescript/package.json'),
-  );
-  return assets.extractorVersion(typescript.version);
-};
+export const extractorVersionOf = (): string => assets.extractorVersion();

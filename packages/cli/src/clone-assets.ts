@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { Assets } from './assets.ts';
 import { sha256OfFiles } from './file-hash.ts';
 import type { NamedFile } from './file-hash.ts';
+import { typescriptVersionFor } from './package-manifest.ts';
 import { pageScript, pageStyle } from './page-build.ts';
 
 const TYPESCRIPT_EXTRACTOR = fileURLToPath(
@@ -33,6 +34,9 @@ export const assets = {
   layoutWorker: new URL('layout-worker.ts', import.meta.url),
   pageScript,
   pageStyle,
-  extractorVersion: (typescript) =>
-    sha256OfFiles(extractorSourceFiles(), `typescript ${typescript}\0`),
+  extractorVersion: () =>
+    sha256OfFiles(
+      extractorSourceFiles(),
+      `typescript ${typescriptVersionFor(TYPESCRIPT_EXTRACTOR)}\0`,
+    ),
 } satisfies Assets;
