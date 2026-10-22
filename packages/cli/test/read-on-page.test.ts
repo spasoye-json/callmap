@@ -151,8 +151,11 @@ describe('the colours of the page', () => {
     const light = /<style>\s*:root\s*\{([^}]*)\}/.exec(html)?.[1] ?? '';
     const dark =
       /@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{([^}]*)\}/.exec(html)?.[1] ?? '';
-    expect(tokensIn(light)).toContain('--changed-line');
-    expect(tokensIn(dark)).toEqual(tokensIn(light));
+    expect(tokensIn(light)).toEqual(
+      expect.arrayContaining(['--focus', '--selected', '--fade', '--edge', '--canvas']),
+    );
+    expect(tokensIn(light)).not.toContain('--changed-line');
+    expect(tokensIn(dark)).toEqual(tokensIn(light).filter((token) => !token.startsWith('--font-')));
     expect(html).toMatch(/color-scheme:\s*light dark/);
   });
 });

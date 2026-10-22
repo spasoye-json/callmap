@@ -1,8 +1,19 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import type { ElkExtendedEdge, ElkLabel, ElkNode } from 'elkjs/lib/elk-api.js';
 import { appendTo, byText } from '@callmap/review';
-import { arrowKeyOf, countsTextOf, lineLabelOf } from './scene.ts';
-import type { Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
+import {
+  COUNTS_GAP,
+  FRAME_HEADER_HEIGHT,
+  ICON_ROOM,
+  LEVEL_BOX_HEIGHT,
+  LEVEL_NAME_CHARACTER_WIDTH,
+  LEVEL_PADDING,
+  OPEN_END_PADDING,
+  countWidthOf,
+  functionCountWidthOf,
+} from './box-sizes.ts';
+import { arrowKeyOf, chipMarkOf, lineLabelOf, markCountsOf } from './scene.ts';
+import type { FunctionBox, LevelBox, Scene, SceneBox, SceneFrame, SceneLine } from './scene.ts';
 
 export interface Rect {
   readonly x: number;
@@ -13,16 +24,25 @@ export interface Rect {
 
 export type Point = readonly [number, number];
 
-export interface LineLabel extends Rect {
+export interface LineLabel {
   readonly text: string;
+  readonly centre: Point;
+  readonly width: number;
+  readonly height: number;
 }
 
 export type LaidBox = SceneBox & Rect;
+export type LaidFunction = FunctionBox & Rect;
+export type LaidLevelBox = LevelBox & Rect;
 export type LaidFrame = SceneFrame & Rect;
 export type LaidLine = SceneLine & {
   readonly points: readonly Point[];
   readonly label?: LineLabel;
 };
+
+export const centreOf = ({ x, y, width, height }: Rect): Point => [x + width / 2, y + height / 2];
+
+export const isOutside = (box: LaidBox): boolean => box.kind !== 'open-end' && box.outside;
 
 export interface Laid {
   readonly frames: readonly LaidFrame[];
@@ -57,27 +77,49 @@ const CYCLE_BREAKING: Readonly<Record<string, string>> = {
   'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
 };
 
-const FRAME_PADDING = '[top=30,left=12,bottom=12,right=12]';
+const FRAME_PADDING = `[top=${String(FRAME_HEADER_HEIGHT)},left=12,bottom=12,right=12]`;
 const BOX_HEIGHT = 30;
 const OPEN_END_HEIGHT = 22;
-const COUNTED_BOX_HEIGHT = 46;
 const LABEL_HEIGHT = 16;
+const CHIP_ROOM = 24;
 
 const widthOf = (text: string, perCharacter: number, padding: number): number =>
   Math.ceil(text.length * perCharacter) + padding;
 
+const countsWidthOf = ({ counts }: LevelBox): number =>
+  markCountsOf(counts).reduce(
+    (width, { count }, index) => width + countWidthOf(count) + (index === 0 ? 0 : COUNTS_GAP),
+    2 * LEVEL_PADDING,
+  );
+
 const boxNodeOf = (box: SceneBox): ElkNode => {
   switch (box.kind) {
     case 'function':
-      return { id: box.id, width: Math.max(96, widthOf(box.label, 7, 24)), height: BOX_HEIGHT };
+      return {
+        id: box.id,
+        width: Math.max(
+          96,
+          widthOf(box.label, 7, chipMarkOf(box) === undefined ? 24 : 24 + CHIP_ROOM),
+        ),
+        height: BOX_HEIGHT,
+      };
     case 'open-end':
-      return { id: box.id, width: widthOf(box.label, 6, 16), height: OPEN_END_HEIGHT };
+      return {
+        id: box.id,
+        width: widthOf(box.label, 6, 2 * OPEN_END_PADDING),
+        height: OPEN_END_HEIGHT,
+      };
     case 'folder':
     case 'file':
       return {
         id: box.id,
-        width: Math.max(96, widthOf(box.label, 7, 24), widthOf(countsTextOf(box), 6, 24)),
-        height: box.counts.length === 0 ? BOX_HEIGHT : COUNTED_BOX_HEIGHT,
+        width: Math.max(
+          96,
+          widthOf(box.label, LEVEL_NAME_CHARACTER_WIDTH, 2 * LEVEL_PADDING + ICON_ROOM) +
+            (box.outside ? 0 : functionCountWidthOf(box.counts.functions)),
+          countsWidthOf(box),
+        ),
+        height: LEVEL_BOX_HEIGHT,
       };
   }
 };
@@ -205,18 +247,61 @@ export const placementOf = async (scene: Scene): Promise<Placement> => {
 
 const rectOf = ([x, y, width, height]: Place = NOWHERE): Rect => ({ x, y, width, height });
 
+const SHORTEST_PART_FOR_A_BADGE = 32;
+const BADGE_GAP_FROM_CALLER = 16;
+
+type Part = readonly [Point, Point];
+
+const partsOf = (points: readonly Point[]): readonly Part[] =>
+  points.slice(1).map((point, index): Part => [points[index] ?? point, point]);
+
+const lengthOf = ([[x1, y1], [x2, y2]]: Part): number => Math.abs(x2 - x1) + Math.abs(y2 - y1);
+
+const badgeCentreOf = (points: readonly Point[]): Point => {
+  const parts = partsOf(points);
+  const longest = parts.reduce<Part | undefined>(
+    (best, part) => (best === undefined || lengthOf(part) > lengthOf(best) ? part : best),
+    undefined,
+  );
+  if (longest === undefined) return points[0] ?? [0, 0];
+  if (lengthOf(longest) >= SHORTEST_PART_FOR_A_BADGE) {
+    const [[x1, y1], [x2, y2]] = longest;
+    return [(x1 + x2) / 2, (y1 + y2) / 2];
+  }
+  const [first = longest] = parts;
+  const [[x1, y1], [x2, y2]] = first;
+  const share = Math.min(1, BADGE_GAP_FROM_CALLER / Math.max(1, lengthOf(first)));
+  return [x1 + (x2 - x1) * share, y1 + (y2 - y1) * share];
+};
+
+const lineLabelFor = (
+  { oneOf }: SceneLine,
+  text: string,
+  points: readonly Point[],
+  placed: Place,
+): LineLabel => {
+  const { x, y, width, height } = rectOf(placed);
+  return {
+    text,
+    centre: oneOf === undefined ? badgeCentreOf(points) : [x + width / 2, y + height / 2],
+    width,
+    height,
+  };
+};
+
 export const laidOf = (scene: Scene, placement: Placement): Laid => ({
   frames: scene.frames.map((frame, index) => ({ ...frame, ...rectOf(placement.frames[index]) })),
   boxes: scene.boxes.map((box, index) => ({ ...box, ...rectOf(placement.boxes[index]) })),
   lines: scene.lines.map((line, index) => {
     const placed = placement.lines[index];
+    const points = placed?.points ?? [];
     const text = lineLabelOf(line);
     return {
       ...line,
-      points: placed?.points ?? [],
+      points,
       ...(placed?.label === undefined || text === undefined
         ? {}
-        : { label: { ...rectOf(placed.label), text } }),
+        : { label: lineLabelFor(line, text, points, placed.label) }),
     };
   }),
   width: placement.width,

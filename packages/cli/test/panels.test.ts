@@ -47,6 +47,31 @@ const translateOf = (page: LoadedPage): readonly [number, number] => {
   return [Number(x), Number(scale)];
 };
 
+describe('the top bar', () => {
+  it('shows the product name, and the count of changed functions on the Diff tab, with no branch name', async () => {
+    const page = await loadReaderPage(html);
+    const banner = bodyOf(page).getByRole('banner');
+    const bar = within(banner);
+    expect(bar.getByRole('heading', { name: 'Callmap' })).toBeDefined();
+    const diff = bar.getByRole('tab', { name: 'Diff' });
+    expect(diff.querySelector('.count')?.textContent).toBe('5');
+    expect(diff.title).toBe('5 changed functions');
+    expect(banner.textContent).not.toMatch(/feature|main/);
+  });
+});
+
+describe('the search field', () => {
+  it('takes the focus when the reader presses the slash key outside a text field', async () => {
+    const page = await loadReaderPage(html);
+    const { document } = page.window;
+    const field = bodyOf(page).getByRole('searchbox', { name: 'Find a function' });
+    expect(field.getAttribute('placeholder')).toBe('Find a function');
+    fireEvent.keyDown(document.body, { key: '/' });
+    expect(document.activeElement).toBe(field);
+    expect(fireEvent.keyDown(field, { key: '/' })).toBe(true);
+  });
+});
+
 describe('the two panels beside the graph', () => {
   it('puts the search, the rate, the legend and the view lists in the left panel, and only the code in the right panel', async () => {
     const page = await loadReaderPage(html);

@@ -36,13 +36,13 @@ const bodyOf = ({ window }: LoadedPage) => within(window.document.body);
 describe('the tabs of the views', () => {
   it('has a tab for each view, and opens the Diff tab when the page loads', async () => {
     const body = bodyOf(await loadReaderPage(html));
-    expect(body.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+    expect(body.getAllByRole('tab').map((tab) => tab.firstChild?.textContent)).toEqual([
       'Diff',
       'Whole project',
       'Folder',
       'Route',
     ]);
-    expect(body.getByRole('tab', { selected: true }).textContent).toBe('Diff');
+    expect(body.getByRole('tab', { selected: true })).toBe(body.getByRole('tab', { name: 'Diff' }));
   });
 
   it('draws the view of a tab after a click on it, and the Diff view again after a click back', async () => {
@@ -65,7 +65,7 @@ describe('the tabs of the views', () => {
     expect(page.window.document.activeElement?.textContent).toBe('Whole project');
     fireEvent.keyDown(body.getByRole('tab', { name: 'Whole project' }), { key: 'ArrowLeft' });
     await settled(page);
-    expect(body.getByRole('tab', { selected: true }).textContent).toBe('Diff');
+    expect(body.getByRole('tab', { selected: true })).toBe(body.getByRole('tab', { name: 'Diff' }));
   });
 });
 
@@ -106,13 +106,12 @@ describe('the Whole project view of a scope with files at its top', () => {
   it('lists the calls of a line after Enter on it', async () => {
     const page = await projectPage();
     const body = bodyOf(page);
-    fireEvent.keyDown(body.getByRole('button', { name: `2 calls from ${CART} to ${MONEY}` }), {
-      key: 'Enter',
-    });
+    const name = `2 calls from ${CART} to ${MONEY}`;
+    fireEvent.keyDown(body.getByRole('button', { name }), { key: 'Enter' });
     expect(
-      within(body.getByRole('region', { name: 'Calls' }))
+      within(body.getByRole('dialog', { name }))
         .getAllByRole('button')
         .map((call) => call.textContent),
-    ).toEqual(['receipt calls format', 'subtotal calls round']);
+    ).toEqual(['Δreceipt → format:10', '·subtotal → round:4']);
   });
 });

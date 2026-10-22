@@ -1,26 +1,42 @@
+import { countTextOf } from './words.ts';
+
 export interface TabBar {
   readonly select: (name: string) => void;
 }
 
 const STEPS: Readonly<Record<string, number>> = { ArrowRight: 1, ArrowLeft: -1 };
 
-const tabOf = (name: string, controls: string): HTMLButtonElement => {
+export interface TabName {
+  readonly name: string;
+  readonly count?: { readonly count: number; readonly words: string } | undefined;
+}
+
+const tabOf = ({ name, count }: TabName, controls: string): HTMLButtonElement => {
   const tab = document.createElement('button');
   tab.type = 'button';
   tab.className = 'tab';
   tab.setAttribute('role', 'tab');
   tab.setAttribute('aria-controls', controls);
   tab.textContent = name;
+  if (count !== undefined) {
+    const badge = document.createElement('span');
+    badge.className = 'count';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.textContent = countTextOf(count.count);
+    tab.append(badge);
+    tab.title = count.words;
+  }
   return tab;
 };
 
 export const tabBarOf = (
   container: HTMLElement,
-  names: readonly string[],
+  tabNames: readonly TabName[],
   controls: string,
   showView: (name: string) => void,
 ): TabBar => {
-  const tabs = names.map((name) => tabOf(name, controls));
+  const names = tabNames.map(({ name }) => name);
+  const tabs = tabNames.map((tabName) => tabOf(tabName, controls));
   container.setAttribute('role', 'tablist');
   container.setAttribute('aria-label', 'Views');
 

@@ -1,9 +1,10 @@
 import type { Call, FunctionId, OpenEnd } from '@callmap/graph-document';
 import { appendTo, byText } from '@callmap/review';
-import type { CallMark, MarkedCall } from '@callmap/review';
+import type { CallMark, FunctionMark, MarkedCall } from '@callmap/review';
 import type { ReaderPageData } from './data.ts';
 import type { PageFunction } from './functions.ts';
 import type { Choice } from './view.ts';
+import { countWordsOf } from './words.ts';
 
 export interface SceneFrame {
   readonly kind: 'file' | 'folder';
@@ -21,6 +22,9 @@ export interface FunctionBox {
   readonly outside: boolean;
 }
 
+export const chipMarkOf = ({ outside, pageFunction }: FunctionBox): FunctionMark | undefined =>
+  outside ? undefined : pageFunction.mark;
+
 export interface OpenEndBox {
   readonly kind: 'open-end';
   readonly id: string;
@@ -29,23 +33,70 @@ export interface OpenEndBox {
   readonly caller: FunctionId;
 }
 
+export interface LevelCounts {
+  readonly functions: number;
+  readonly changed: number;
+  readonly added: number;
+  readonly removed: number;
+  readonly openEnds: number;
+}
+
 export interface LevelBox {
   readonly kind: 'folder' | 'file';
   readonly id: string;
   readonly label: string;
   readonly frame: string;
   readonly outside: boolean;
-  readonly changed: boolean;
-  readonly counts: readonly string[];
+  readonly counts: LevelCounts;
   readonly opens: Choice;
 }
 
-export const countsTextOf = ({ counts }: LevelBox): string => counts.join(', ');
+export type CountMark = 'changed' | 'added' | 'removed' | 'open-end';
+
+export interface MarkCount {
+  readonly mark: CountMark;
+  readonly count: number;
+  readonly words: string;
+}
+
+export const markCountsOf = ({
+  changed,
+  added,
+  removed,
+  openEnds,
+}: LevelCounts): readonly MarkCount[] =>
+  [
+    { mark: 'changed' as const, count: changed, words: countWordsOf(changed, 'changed') },
+    { mark: 'added' as const, count: added, words: countWordsOf(added, 'added') },
+    { mark: 'removed' as const, count: removed, words: countWordsOf(removed, 'removed') },
+    {
+      mark: 'open-end' as const,
+      count: openEnds,
+      words: countWordsOf(openEnds, 'open end', 'open ends'),
+    },
+  ].filter(({ count }) => count > 0);
+
+export const hasChanges = ({ changed, added, removed }: LevelCounts): boolean =>
+  changed + added + removed > 0;
 
 export type SceneBox = FunctionBox | OpenEndBox | LevelBox;
 
 export const isLevelBox = <Box extends SceneBox>(box: Box): box is Extract<Box, LevelBox> =>
   box.kind === 'folder' || box.kind === 'file';
+
+const CHANGE_MARKS = ['changed', 'added', 'removed'] as const;
+
+export const isHiddenBy = (hidden: ReadonlySet<FunctionMark>, box: SceneBox): boolean => {
+  if (isLevelBox(box)) {
+    const held = CHANGE_MARKS.filter((mark) => box.counts[mark] > 0);
+    return held.length > 0 && held.every((mark) => hidden.has(mark));
+  }
+  return (
+    box.kind === 'function' &&
+    box.pageFunction.mark !== undefined &&
+    hidden.has(box.pageFunction.mark)
+  );
+};
 
 export interface SceneLine {
   readonly kind: 'call' | 'open-end' | 'bundled';
@@ -57,8 +108,15 @@ export interface SceneLine {
   readonly title?: string;
 }
 
+const MOST_CALLS_SHOWN = 999;
+
+const countBadgeOf = (count: number): string | undefined => {
+  if (count < 2) return undefined;
+  return count > MOST_CALLS_SHOWN ? `${String(MOST_CALLS_SHOWN)}+` : String(count);
+};
+
 export const lineLabelOf = ({ oneOf, calls }: SceneLine): string | undefined =>
-  oneOf ?? (calls === undefined ? undefined : String(calls.length));
+  oneOf ?? (calls === undefined ? undefined : countBadgeOf(calls.length));
 
 export interface Scene {
   readonly frames: readonly SceneFrame[];
@@ -66,14 +124,21 @@ export interface Scene {
   readonly lines: readonly SceneLine[];
 }
 
-export const frameIdOf = (file: string): string => `frame:${file}`;
+const FRAME_PREFIX = 'frame:';
+
+export const frameIdOf = (file: string): string => `${FRAME_PREFIX}${file}`;
+
+export const fileOfFrameId = (id: string): string | undefined =>
+  id.startsWith(FRAME_PREFIX) ? id.slice(FRAME_PREFIX.length) : undefined;
 
 export const arrowKeyOf = (from: string, to: string): string => `${from} -> ${to}`;
 
 export const callKeyOf = ({ caller, callee }: Pick<Call, 'caller' | 'callee'>): string =>
   arrowKeyOf(caller, callee);
 
-const openEndsByCallerOf = (
+export const byLine = (left: OpenEnd, right: OpenEnd): number => left.line - right.line;
+
+export const openEndsByCallerOf = (
   { review, branchGraph }: ReaderPageData,
   reviewed: ReadonlySet<FunctionId>,
 ): ReadonlyMap<FunctionId, readonly OpenEnd[]> => {
@@ -89,7 +154,7 @@ const openEndsByCallerOf = (
 
 type GroupCall = Pick<Call, 'caller' | 'callee'> & { readonly group: string };
 
-const oneOfLabelsOf = (
+export const oneOfLabelsOf = (
   { review, branchGraph }: ReaderPageData,
   reviewed: ReadonlySet<FunctionId>,
 ): ReadonlyMap<string, string> => {

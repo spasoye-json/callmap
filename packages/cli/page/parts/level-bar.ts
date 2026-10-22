@@ -1,16 +1,35 @@
+import { arrowIconOf } from '../arrows.ts';
+import { coverTopOfGraph } from '../camera.ts';
 import { levelsOf } from '../levels.ts';
 import type { PagePart } from '../reader-page.ts';
 import { wholeProjectView } from '../views/whole-project.ts';
+import { countWordsOf } from '../words.ts';
 
-const breadcrumb: PagePart = (page) => {
+const levelBar: PagePart = (page) => {
   const levels = levelsOf(page.data);
+  const bar = document.createElement('section');
+  bar.setAttribute('aria-label', 'Level bar');
+  bar.className = 'level-bar';
+  coverTopOfGraph(bar);
+  bar.hidden = true;
   const nav = document.createElement('nav');
   nav.setAttribute('aria-label', 'Level');
   nav.className = 'breadcrumb';
-  nav.hidden = true;
   const list = document.createElement('ol');
   nav.append(list);
-  page.graph.append(nav);
+  const summary = document.createElement('span');
+  summary.className = 'level-counts';
+  const up = document.createElement('button');
+  up.type = 'button';
+  up.className = 'up-level';
+  up.append(arrowIconOf('up', 'up-arrow'), 'Up one level');
+  bar.append(nav, summary, up);
+  page.graph.append(bar);
+
+  let parent: string | undefined;
+  up.addEventListener('click', () => {
+    if (parent !== undefined) void page.choose({ kind: 'level', path: parent });
+  });
 
   const show = (level: string): void => {
     const crumbs = levels.crumbsOf(level);
@@ -28,15 +47,19 @@ const breadcrumb: PagePart = (page) => {
         return item;
       }),
     );
+    const { boxes, lines } = levels.sceneOf(level);
+    summary.textContent = `${countWordsOf(boxes.length, 'box', 'boxes')} · ${countWordsOf(lines.length, 'line', 'lines')}`;
+    parent = crumbs.at(-2)?.path;
+    up.disabled = parent === undefined;
   };
 
   show(levels.top);
   page.onViewChange((view) => {
-    nav.hidden = view !== wholeProjectView;
+    bar.hidden = view !== wholeProjectView;
   });
   page.onChoiceChange((view, choice) => {
     if (view === wholeProjectView && choice.kind === 'level') show(choice.path);
   });
 };
 
-export default breadcrumb;
+export default levelBar;

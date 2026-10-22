@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Script } from 'node:vm';
 import { gunzipSync } from 'node:zlib';
 import { fireEvent, within } from '@testing-library/dom';
 import { JSDOM } from 'jsdom';
@@ -146,14 +147,38 @@ const recordLayouts = (window: JSDOM['window'], layouts: string[]): void => {
   });
 };
 
+export interface GraphSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+export const COVER_HEIGHT = 40;
+
+const sizeOf = (element: HTMLElement, graph: GraphSize): GraphSize => {
+  if (element.id === 'graph') return graph;
+  if (element.matches('[data-covers="top"]:not([hidden])'))
+    return { width: graph.width, height: COVER_HEIGHT };
+  return { width: 0, height: 0 };
+};
+
+const giveGraphSize = (window: JSDOM['window'], size: GraphSize): void => {
+  window.HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement): DOMRect {
+    const { width, height } = sizeOf(this, size);
+    const box = { x: 0, y: 0, top: 0, left: 0, right: width, bottom: height, width, height };
+    return { ...box, toJSON: () => box };
+  };
+};
+
 const withBrowserApis = (
   layouts: string[],
   stored: StoredItems | undefined,
   textsHeldUntil?: Promise<void>,
+  graphSize?: GraphSize,
 ) => ({
   ...(stored === undefined ? {} : { url: 'http://localhost/' }),
   beforeParse: (window: JSDOM['window']) => {
     recordLayouts(window, layouts);
+    if (graphSize !== undefined) giveGraphSize(window, graphSize);
     Object.assign(window, {
       DecompressionStream:
         textsHeldUntil === undefined ? DecompressionStream : decompressionHeldUntil(textsHeldUntil),
@@ -163,6 +188,40 @@ const withBrowserApis = (
   },
 });
 
+export interface StartCosts {
+  readonly measures: number;
+  readonly localeFormats: number;
+}
+
+export const startCostsOf = async (html: string, graphSize: GraphSize): Promise<StartCosts> => {
+  let measures = 0;
+  let localeFormats = 0;
+  const apis = withBrowserApis([], undefined, undefined, graphSize);
+  const dom = new JSDOM(html, {
+    runScripts: 'dangerously',
+    pretendToBeVisual: true,
+    ...apis,
+    beforeParse: (window) => {
+      apis.beforeParse(window);
+      const elements = window.HTMLElement.prototype;
+      const measure = Reflect.get(elements, 'getBoundingClientRect');
+      elements.getBoundingClientRect = function (this: HTMLElement) {
+        measures += 1;
+        return measure.call(this);
+      };
+      const numbers = window.Number.prototype;
+      const format = Reflect.get(numbers, 'toLocaleString');
+      numbers.toLocaleString = function (this: number, ...args) {
+        localeFormats += 1;
+        return format.apply(this, args);
+      };
+    },
+  });
+  const costs = { measures, localeFormats };
+  await settled({ window: dom.window, layouts: [] });
+  return costs;
+};
+
 export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
   Object.fromEntries(
     Array.from({ length: window.localStorage.length }, (_, index) => {
@@ -171,16 +230,61 @@ export const storedItemsOf = ({ window }: LoadedPage): StoredItems =>
     }),
   );
 
+const PAGE_SCRIPT = /(<script>\n)([\s\S]*)(\n<\/script>\n<\/body>)/;
+const RUN_PAGE_SCRIPT = 'runPageScriptCompiledOnce';
+const compiledScripts = new Map<string, Script>();
+
+const compiledOnce = (source: string): Script => {
+  const known = compiledScripts.get(source);
+  if (known !== undefined) return known;
+  const compiled = new Script(source, { filename: 'reader-page.js' });
+  compiledScripts.set(source, compiled);
+  return compiled;
+};
+
+interface SplitPage {
+  readonly html: string;
+  readonly script?: Script;
+}
+
+// jsdom tokenizes and compiles the 1.9 MB inline page script on every load, about 150 ms.
+// A stub in its place runs the same script, compiled once, at the same point of the parse.
+const splitPage = (html: string): SplitPage => {
+  const found = PAGE_SCRIPT.exec(html);
+  if (found === null) return { html };
+  const [whole, open = '', source = '', close = ''] = found;
+  return {
+    html: `${html.slice(0, found.index)}${open}${RUN_PAGE_SCRIPT}()${close}${html.slice(found.index + whole.length)}`,
+    script: compiledOnce(source),
+  };
+};
+
+const runPageScriptAtStub = (window: JSDOM['window'], script: Script): void => {
+  Object.assign(window, {
+    [RUN_PAGE_SCRIPT]: () => {
+      Reflect.deleteProperty(window, RUN_PAGE_SCRIPT);
+      script.runInContext(window);
+    },
+  });
+};
+
 export const loadReaderPage = async (
   html: string,
   stored?: StoredItems,
   textsHeldUntil?: Promise<void>,
+  graphSize?: GraphSize,
 ): Promise<LoadedPage> => {
   const layouts: string[] = [];
-  const dom = new JSDOM(html, {
+  const split = splitPage(html);
+  const browserApis = withBrowserApis(layouts, stored, textsHeldUntil, graphSize);
+  const dom = new JSDOM(split.html, {
     runScripts: 'dangerously',
     pretendToBeVisual: true,
-    ...withBrowserApis(layouts, stored, textsHeldUntil),
+    ...browserApis,
+    beforeParse: (window) => {
+      browserApis.beforeParse(window);
+      if (split.script !== undefined) runPageScriptAtStub(window, split.script);
+    },
   });
   const page = { window: dom.window, layouts };
   await settled(page);
@@ -234,7 +338,7 @@ export const linesOf = (page: LoadedPage): readonly DrawnLine[] =>
     from: element.getAttribute('data-from') ?? '',
     to: element.getAttribute('data-to') ?? '',
     classes: [...element.classList],
-    label: textOf(element, 'text'),
+    label: textOf(element, ':scope > .label > text'),
     points: pointsOf(element.querySelector('path')?.getAttribute('d') ?? ''),
   }));
 

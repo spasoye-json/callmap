@@ -10,9 +10,10 @@
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/cli/page",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/cli/page && tsc --noEmit -p packages/cli/test-browser",
     "lint": "npm run format:check && npm run typecheck && eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:browser": "vitest run --config vitest.browser.config.ts"
   },
   "engines": {
     "node": ">=22.18"
@@ -21,6 +22,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.2.0",
     "eslint": "^10.8.1",
+    "playwright-core": "1.64.1",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.67.0",

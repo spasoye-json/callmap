@@ -47,6 +47,7 @@ const linesWith = (page: LoadedPage, mark: string): readonly string[] =>
 
 const marksOf = (page: LoadedPage) => ({
   selected: boxesWith(page, 'selected'),
+  hovered: boxesWith(page, 'hovered'),
   boxes: boxesWith(page, 'connected'),
   lines: linesWith(page, 'connected'),
   fadedBoxes: boxesWith(page, 'faded'),
@@ -56,6 +57,7 @@ const marksOf = (page: LoadedPage) => ({
 const expectNoHighlight = (page: LoadedPage): void => {
   expect(marksOf(page)).toEqual({
     selected: [],
+    hovered: [],
     boxes: [],
     lines: [],
     fadedBoxes: [],
@@ -67,10 +69,22 @@ const codePanelOf = (page: LoadedPage) =>
   within(bodyOf(page).getByRole('region', { name: 'Code' }));
 
 describe('the hover highlight in the graph', () => {
+  it('keeps the lines of the selected path apart from the lines of the hovered box', async () => {
+    const page = await loadReaderPage(diffHtml);
+    await clickBox(page, TAXED);
+    const selectedPath = linesWith(page, 'selected-path');
+    expect(selectedPath).toEqual([`${RECEIPT} -> ${TAXED}`, `${TAXED} -> ${CART}#subtotal`]);
+
+    hoverBox(page, `${CHECKOUT}#checkout`);
+    expect(linesWith(page, 'selected-path')).toEqual(selectedPath);
+    expect(linesWith(page, 'connected')).toEqual([`${CHECKOUT}#checkout -> ${RECEIPT}`]);
+  });
+
   it('highlights the calls in and out of the box under the pointer and the boxes at their other ends', async () => {
     const page = await loadReaderPage(diffHtml);
     hoverBox(page, RECEIPT);
-    expect(boxesWith(page, 'selected')).toEqual([RECEIPT]);
+    expect(boxesWith(page, 'hovered')).toEqual([RECEIPT]);
+    expect(boxesWith(page, 'selected')).toEqual([]);
     expect(boxesWith(page, 'connected')).toEqual([
       `${CART}#label`,
       `${CART}#legacyTotal`,
@@ -88,12 +102,12 @@ describe('the hover highlight in the graph', () => {
     expect(boxesWith(page, 'faded')).toContain(`${CART}#subtotal`);
   });
 
-  it('looks the same as the highlight of a click on the box', async () => {
+  it('lights the same path as a click on the box, and marks the box as hovered, not selected', async () => {
     const hovered = await loadReaderPage(diffHtml);
     hoverBox(hovered, RECEIPT);
     const clicked = await loadReaderPage(diffHtml);
     await clickBox(clicked, RECEIPT);
-    expect(marksOf(hovered)).toEqual(marksOf(clicked));
+    expect(marksOf(hovered)).toEqual({ ...marksOf(clicked), selected: [], hovered: [RECEIPT] });
   });
 
   it('clears the highlight when the pointer leaves the box', async () => {
@@ -108,7 +122,8 @@ describe('the hover highlight in the graph', () => {
     await clickBox(page, RECEIPT);
     const selection = marksOf(page);
     hoverBox(page, TAXED);
-    expect(boxesWith(page, 'selected')).toEqual([TAXED]);
+    expect(boxesWith(page, 'hovered')).toEqual([TAXED]);
+    expect(boxesWith(page, 'selected')).toEqual([RECEIPT]);
     leaveBox(page, TAXED);
     expect(marksOf(page)).toEqual(selection);
   });
@@ -131,7 +146,7 @@ describe('the hover highlight in the graph', () => {
     await openTab(page, 'Folder');
     await pickFolder(page, 'src/');
     hoverBox(page, RECEIPT);
-    expect(boxesWith(page, 'selected')).toEqual([RECEIPT]);
+    expect(boxesWith(page, 'hovered')).toEqual([RECEIPT]);
     expect(linesWith(page, 'connected')).toContain(`frame:${CART} -> frame:${MONEY}`);
     expect(boxesWith(page, 'connected')).toContain(`${MONEY}#format`);
   });
@@ -141,7 +156,7 @@ describe('the hover highlight in the graph', () => {
     await openTab(page, 'Route');
     await chooseEntry(page, 'checkout');
     hoverBox(page, RECEIPT);
-    expect(boxesWith(page, 'selected')).toEqual([RECEIPT]);
+    expect(boxesWith(page, 'hovered')).toEqual([RECEIPT]);
     expect(linesWith(page, 'connected')).toContain(`${CHECKOUT}#checkout -> ${RECEIPT}`);
   });
 });
@@ -167,7 +182,8 @@ describe('the hover highlight on a level of the Whole project view', () => {
     const page = await ordersPage();
     hoverBox(page, SERVICE);
     expect(marksOf(page)).toEqual({
-      selected: [SERVICE],
+      selected: [],
+      hovered: [SERVICE],
       boxes: [LEVEL_MONEY, NOTIFY, API, CARRIERS].sort(),
       lines: [
         `${API} -> ${SERVICE}`,
@@ -185,7 +201,8 @@ describe('the hover highlight on a level of the Whole project view', () => {
     const page = await ordersPage();
     hoverBox(page, LEVEL_MONEY);
     expect(marksOf(page)).toEqual({
-      selected: [LEVEL_MONEY],
+      selected: [],
+      hovered: [LEVEL_MONEY],
       boxes: [API, SERVICE],
       lines: [`${API} -> ${LEVEL_MONEY}`, `${SERVICE} -> ${LEVEL_MONEY}`],
       fadedBoxes: [NOTIFY, CARRIERS],

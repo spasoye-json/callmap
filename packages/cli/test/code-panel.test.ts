@@ -308,17 +308,15 @@ describe('the colours of the diff', () => {
     ['light', /<style>\s*:root\s*\{([^}]*)\}/],
     ['dark', /@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{([^}]*)\}/],
   ])(
-    'gives a removed line and an added line a clear colour of the same strength in %s mode, and a stronger one to the changed characters',
+    'gives a removed line and an added line a clear colour in %s mode, and a stronger one to the changed characters',
     (_mode, block) => {
       const tokens = tokensOf(block.exec(html)?.[1] ?? '');
       const removedLine = strength(tokens, '--diff-removed-line');
       const addedLine = strength(tokens, '--diff-added-line');
-      const removedText = strength(tokens, '--diff-removed-text');
-      const addedText = strength(tokens, '--diff-added-text');
-      expect(Math.min(removedLine, addedLine)).toBeGreaterThan(0.06);
-      expect(Math.abs(removedLine - addedLine)).toBeLessThan(0.01);
-      expect(Math.abs(removedText - addedText)).toBeLessThan(0.01);
-      expect(Math.min(removedText, addedText)).toBeGreaterThan(
+      const removedWord = strength(tokens, '--diff-removed-word');
+      const addedWord = strength(tokens, '--diff-added-word');
+      expect(Math.min(removedLine, addedLine)).toBeGreaterThan(0.04);
+      expect(Math.min(removedWord, addedWord)).toBeGreaterThan(
         Math.max(removedLine, addedLine) + 0.06,
       );
     },

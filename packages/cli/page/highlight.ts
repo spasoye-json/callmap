@@ -6,6 +6,11 @@ export interface Highlight {
   readonly lines: ReadonlySet<number>;
 }
 
+export interface SelectedPath {
+  readonly selected: string | undefined;
+  readonly connected: ReadonlySet<string>;
+}
+
 export const highlightOf = (laid: Laid, selected: string): Highlight | undefined => {
   const boxIds = new Set(laid.boxes.map(({ id }) => id));
   if (!boxIds.has(selected)) return undefined;

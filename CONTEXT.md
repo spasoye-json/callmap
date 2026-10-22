@@ -13,7 +13,7 @@ One named piece of code that can be called: a function, a method, or a construct
 _Avoid_: node, symbol, routine
 
 **Call**:
-An arrow from one function to a function it calls, proven by the language's own tools.
+An arrow from one function to a function it calls, proven by the language's own tools. The page draws a call with the colour token `--edge`. The Tokens artboard of the design gives that name, so the page keeps it. It is the only place where the page says "edge" for a call.
 _Avoid_: edge, link, dependency
 
 **Call graph**:
@@ -97,6 +97,38 @@ _Avoid_: external box, neighbour box, ghost
 **Outside function**:
 A function that the Folder view draws but that the chosen folder does not hold: a caller or a callee one hop out of the folder, or a function that the search opened. The view draws it greyed. This is not a review mark, so an outside function is also a neighbour only when it is one hop from a changed function.
 _Avoid_: neighbour, external function
+
+**Reading floor**:
+The zoom where the box names are 11 px on the screen: 92%. A box name is the smallest text that names a box, 12 px at 100%. A support text can be smaller than 11 px at the reading floor, such as the "N fn" count, the label of an open end and the glyph of a chip. A view or a level opens whole when it fits at the reading floor or above. A larger one opens at 100% on one part of it, so its text can be read. Below the reading floor, the zoom label says "Overview".
+_Avoid_: minimum zoom, readable zoom
+
+**Zoom band**:
+One range of zoom that decides what text the graph draws. Map, below 60%, draws the boxes and the chips only. The chips of a box keep their screen size while they fit the box. Scan, from 60% to the reading floor, draws the names at 11 px on the screen. Read, from the reading floor up, draws all the text. The lines and the count badges keep their screen size in every band. A frame label keeps its screen size while it fits the header of its frame.
+_Avoid_: zoom level, detail level, level of detail
+
+**Selected path**:
+The selected box, the lines into it and out of it, and the boxes at the far ends of those lines. The page draws it in blue as the strongest thing on the screen, and everything off it fades. A hover lights the same parts around the box under the pointer, but the hover does not change the selected path. The selected path reaches one hop only, so it is not a route. "Path" alone still does not name a route.
+_Avoid_: highlight, focus path, selection route
+
+**Chip**:
+A small square with a glyph that carries a mark: Δ changed, + added, − removed, · neighbour and ? open end. A function box shows the chip of its mark. A level box shows one chip for each mark that it counts, with the count beside it.
+_Avoid_: tag, pill, icon
+
+**Count badge**:
+The number of calls on a bundled line, in a rounded box on the line. It shows only for 2 calls or more, and it says "999+" above 999.
+_Avoid_: call count label, edge label
+
+**Level bar**:
+The bar at the top of the graph on a level of the Whole project view. It holds the breadcrumb, the "Up one level" button and the count of the boxes and the lines of the open level.
+_Avoid_: toolbar, header
+
+**Overview map**:
+The small drawing at the bottom right of the graph that shows every box of the level, when the level is larger than the graph. It shows the selected path in blue and the visible part as a rectangle. A click or a drag on it moves the visible part.
+_Avoid_: minimap, map
+
+**Edge hint**:
+A button at one edge of the graph that counts the boxes past that edge, for example "2 more →". A click pans to the nearest of them. The hint moves along its edge to the place nearest the middle where it covers no box. "Edge" here is the edge of the graph, not a call.
+_Avoid_: scroll hint, more indicator
 
 ### Review
 

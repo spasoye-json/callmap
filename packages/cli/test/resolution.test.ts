@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fireEvent, getAllByRole, getByRole, within } from '@testing-library/dom';
+import { fireEvent, getByRole, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { commitFile, featureBranchRepo, git } from './fixture-repo.ts';
 import {
@@ -11,6 +11,7 @@ import {
   pageDataOf,
   runCallmap,
   settled,
+  withPageData,
 } from './reader-page.ts';
 import type { LoadedPage } from './reader-page.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
@@ -87,20 +88,78 @@ describe('the open ends, one-of groups and resolution rate of callmap review', (
 });
 
 describe('the open ends, one-of groups and resolution rate on the reader page', () => {
-  it('shows the resolution rate, and says that it counts the whole repo in scope', async () => {
+  it('shows the resolution rate, and the calls that it proves of all the calls in the whole repo in scope', async () => {
     const { window } = await loadReaderPage(html);
     const rate = getByRole(window.document.body, 'region', { name: 'Resolution rate' });
     expect(rate.textContent).toContain('90.0%');
-    expect(rate.textContent).toContain('In the whole repo in scope: 9 calls resolved, 1 open end.');
+    expect(rate.textContent).toContain('9 of 10 calls');
   });
 
-  it('lists each open end of this review with its caller, its line and its full text', async () => {
+  it('lists the open ends of this review by the file of their caller, with the line of each', async () => {
     const { window } = await loadReaderPage(html);
-    const rate = getByRole(window.document.body, 'region', { name: 'Resolution rate' });
-    const list = getByRole(rate, 'list', { name: 'In this review: 1 open end' });
-    expect(getAllByRole(list, 'listitem').map((item) => item.textContent)).toEqual([
-      'relay, line 8: JSON.parse(raw).notify',
+    const openEnds = within(getByRole(window.document.body, 'region', { name: 'Open ends' }));
+    const file = openEnds.getByRole('button', { name: `${ALERTS} 1` });
+    expect(file.getAttribute('aria-expanded')).toBe('true');
+    expect(openEnds.getByRole('button', { name: 'JSON.parse(raw).notify line 8' })).toBeDefined();
+
+    fireEvent.click(file);
+    expect(file.getAttribute('aria-expanded')).toBe('false');
+    expect(openEnds.queryByRole('button', { name: 'JSON.parse(raw).notify line 8' })).toBeNull();
+  });
+
+  it('selects the caller of an open end after a click on it', async () => {
+    const page = await loadReaderPage(html);
+    const body = within(page.window.document.body);
+    const openEnds = within(body.getByRole('region', { name: 'Open ends' }));
+    fireEvent.click(openEnds.getByRole('button', { name: 'JSON.parse(raw).notify line 8' }));
+    await settled(page);
+    expect(
+      within(body.getByRole('region', { name: 'Code' })).getByRole('heading', { name: 'relay' }),
+    ).toBeDefined();
+  });
+
+  it('shows the 5 files with the most open ends first, and the others after a click on "Show 3 more files"', async () => {
+    const data = pageDataOf(html);
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const openEnds = files.flatMap((name, index) =>
+      Array.from({ length: (index % 3) + 1 }, (_, line) => ({
+        caller: `src/${name}.ts#run`,
+        line: line + 1,
+        expression: `${name}.go`,
+      })),
+    );
+    const callers = files.map((name) => ({
+      id: `src/${name}.ts#run`,
+      name: 'run',
+      file: `src/${name}.ts`,
+      firstLine: 1,
+      lastLine: 3,
+      sourceHash: name,
+    }));
+    const page = await loadReaderPage(
+      withPageData(html, {
+        ...data,
+        branchGraph: {
+          ...data.branchGraph,
+          functions: [...data.branchGraph.functions, ...callers],
+        },
+        review: { ...data.review, openEnds },
+      }),
+    );
+    const region = within(page.window.document.body).getByRole('region', { name: 'Open ends' });
+    const fileNames = (): readonly string[] =>
+      [...region.querySelectorAll('[aria-expanded]')].map((button) => button.textContent);
+    expect(fileNames()).toEqual([
+      'src/c.ts 3',
+      'src/f.ts 3',
+      'src/b.ts 2',
+      'src/e.ts 2',
+      'src/h.ts 2',
     ]);
+
+    fireEvent.click(within(region).getByRole('button', { name: 'Show 3 more files' }));
+    expect(fileNames().slice(5)).toEqual(['src/a.ts 1', 'src/d.ts 1', 'src/g.ts 1']);
+    expect(within(region).queryByRole('button', { name: /^Show/ })).toBeNull();
   });
 
   it('marks each open end at its call site, as an arrow from its caller that leads nowhere', async () => {
