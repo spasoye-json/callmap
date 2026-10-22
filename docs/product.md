@@ -1,6 +1,6 @@
 # Callmap, the product record
 
-Settled through two grilling sessions and two prototype rounds in 2026-08, and changed by the grilling of 2026-10-12 to 2026-10-18. This file holds the product decisions. `CONTEXT.md` holds the vocabulary and `docs/adr/` holds the architectural decisions. ADR-0012 tells how the product became a call graph reader. The records of 2026-08 and the prototype verdicts live in the `archmap-prototype` repo. The measurement behind the reader is in `docs/research/2026-10-18-call-resolution/`.
+Settled through two grilling sessions and two prototype rounds in 2026-08, and changed by the grilling of 2026-10-12 to 2026-10-18. This file holds the product decisions. `GLOSSARY.md` holds the vocabulary and `docs/adr/` holds the architectural decisions. ADR-0012 tells how the product became a call graph reader. The records of 2026-08 and the prototype verdicts live in the `archmap-prototype` repo. The measurement behind the reader is in `docs/research/2026-10-18-call-resolution/`.
 
 ## Positioning
 
