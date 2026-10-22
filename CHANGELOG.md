@@ -4,6 +4,7 @@ Each version of Callmap gets a section here. The changes that no version holds y
 
 ## Unreleased
 
+- The command installs from npm as `@callmap/cli`, and `npx @callmap/cli review` runs it with no clone.
 - `callmap review` reads a branch of a TypeScript repo with the TypeScript type checker and writes one HTML reader page for the code review. The same commits always give the same page and the same layout.
 - The review compares the branch with the merge base of the default branch, or with the commit of `--base`. It reads the base in a temporary git worktree, so the checkout and the uncommitted files never move.
 - `--scope` limits the review to the files that a glob matches, and a glob that starts with `!` leaves files out. `--tsconfig` names the TypeScript config to read.
