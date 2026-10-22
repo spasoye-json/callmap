@@ -1,18 +1,18 @@
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { chromium } from 'playwright-core';
-import type { Browser, Page } from 'playwright-core';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { tempDir } from '../../../test/temp-dir.ts';
+import type { Page } from 'playwright-core';
+import { describe, expect, it } from 'vitest';
 import {
   featureBranchRepoWithUnchangedFiles,
   levelsRepo,
   longNamesRepo,
 } from '../test/fixture-repo.ts';
-import { reviewHtmlOf } from '../test/reader-page.ts';
-import { chromiumExecutable } from './chromium.ts';
-import { hintsOverBoxes, mapBandProblems, problemsOnPage, zoomLabelRoom } from './problems.ts';
+import {
+  hintsOverBoxes,
+  mapBandProblems,
+  problemsOnPage,
+  readerPagesOf,
+  settled,
+  zoomLabelRoom,
+} from './problems.ts';
 
 type Fixture = 'levels' | 'review' | 'long names';
 type Scheme = 'light' | 'dark';
@@ -44,34 +44,11 @@ const SCHEMES: readonly Scheme[] = ['light', 'dark'];
 const BANDS = ['read', 'scan', 'map'];
 const MOST_ZOOM_STEPS = 20;
 
-const pageFiles = new Map<Fixture, string>();
-let browser: Browser | undefined;
-
-const pageFileOf = (repo: string): string => {
-  const file = join(tempDir('callmap-browser-'), 'review.html');
-  writeFileSync(file, reviewHtmlOf(repo));
-  return pathToFileURL(file).href;
-};
-
-beforeAll(async () => {
-  const executablePath = chromiumExecutable();
-  pageFiles.set('levels', pageFileOf(levelsRepo()));
-  pageFiles.set('review', pageFileOf(featureBranchRepoWithUnchangedFiles()));
-  pageFiles.set('long names', pageFileOf(longNamesRepo()));
-  browser = await chromium.launch({ executablePath });
-}, 120_000);
-
-afterAll(async () => {
-  await browser?.close();
+const readerPageOf = readerPagesOf<Fixture>({
+  levels: levelsRepo,
+  review: featureBranchRepoWithUnchangedFiles,
+  'long names': longNamesRepo,
 });
-
-const settled = async (page: Page): Promise<void> => {
-  await page.waitForFunction(
-    () =>
-      document.getElementById('graph')?.getAttribute('aria-busy') === 'false' &&
-      document.querySelector('[aria-busy="true"]') === null,
-  );
-};
 
 const openLook = async (page: Page, look: Look): Promise<void> => {
   await page.getByRole('tab', { name: look.view, exact: true }).click();
@@ -107,10 +84,7 @@ const openPage = async (
   scheme: Scheme,
   viewport: { readonly width: number; readonly height: number } = WIDE,
 ): Promise<Page> => {
-  if (browser === undefined) throw new Error('the browser did not start');
-  const page = await browser.newPage({ viewport, colorScheme: scheme });
-  await page.goto(pageFiles.get(look.fixture) ?? '');
-  await settled(page);
+  const page = await readerPageOf(look.fixture, { viewport, colorScheme: scheme });
   await openLook(page, look);
   return page;
 };

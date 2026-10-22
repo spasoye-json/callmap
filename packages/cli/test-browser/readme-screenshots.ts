@@ -1,13 +1,10 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { chromium } from 'playwright-core';
-import type { Browser, Page } from 'playwright-core';
-import { afterAll, beforeAll, it } from 'vitest';
-import { tempDir } from '../../../test/temp-dir.ts';
+import { fileURLToPath } from 'node:url';
+import type { Page } from 'playwright-core';
+import { beforeAll, it } from 'vitest';
 import { featureBranchRepoWithUnchangedFiles, levelsRepo } from '../test/fixture-repo.ts';
-import { reviewHtmlOf } from '../test/reader-page.ts';
-import { chromiumExecutable } from './chromium.ts';
+import { readerPagesOf, settled } from './problems.ts';
 
 type Fixture = 'levels' | 'review';
 type Scheme = 'light' | 'dark';
@@ -42,34 +39,14 @@ const SCHEMES: readonly Scheme[] = ['light', 'dark'];
 const VIEWPORT = { width: 1600, height: 1000 };
 const FOLDER = fileURLToPath(new URL('../../../docs/screenshots', import.meta.url));
 
-const pageFiles = new Map<Fixture, string>();
-let browser: Browser | undefined;
-
-const pageFileOf = (repo: string): string => {
-  const file = join(tempDir('callmap-screenshots-'), 'review.html');
-  writeFileSync(file, reviewHtmlOf(repo));
-  return pathToFileURL(file).href;
-};
-
-beforeAll(async () => {
-  const executablePath = chromiumExecutable();
-  pageFiles.set('review', pageFileOf(featureBranchRepoWithUnchangedFiles()));
-  pageFiles.set('levels', pageFileOf(levelsRepo()));
-  mkdirSync(FOLDER, { recursive: true });
-  browser = await chromium.launch({ executablePath });
-}, 120_000);
-
-afterAll(async () => {
-  await browser?.close();
+const readerPageOf = readerPagesOf<Fixture>({
+  review: featureBranchRepoWithUnchangedFiles,
+  levels: levelsRepo,
 });
 
-const settled = async (page: Page): Promise<void> => {
-  await page.waitForFunction(
-    () =>
-      document.getElementById('graph')?.getAttribute('aria-busy') === 'false' &&
-      document.querySelector('[aria-busy="true"]') === null,
-  );
-};
+beforeAll(() => {
+  mkdirSync(FOLDER, { recursive: true });
+});
 
 interface Rect {
   readonly left: number;
@@ -152,10 +129,7 @@ const CASES = SHOTS.flatMap((shot) =>
 );
 
 it.each(CASES)('writes $name', async ({ shot, scheme, name }) => {
-  if (browser === undefined) throw new Error('the browser did not start');
-  const page = await browser.newPage({ viewport: VIEWPORT, colorScheme: scheme });
-  await page.goto(pageFiles.get(shot.fixture) ?? '');
-  await settled(page);
+  const page = await readerPageOf(shot.fixture, { viewport: VIEWPORT, colorScheme: scheme });
   await openShot(page, shot);
   await page.mouse.move(0, 0);
   await page.screenshot({ path: join(FOLDER, name) });
