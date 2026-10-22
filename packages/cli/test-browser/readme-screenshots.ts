@@ -55,7 +55,7 @@ interface Rect {
   readonly height: number;
 }
 
-interface Room {
+interface GraphFit {
   readonly graph: Rect;
   readonly drawing: Rect;
   readonly band: string;
@@ -63,7 +63,7 @@ interface Room {
 
 const MARGIN = 24;
 
-const roomOf = (page: Page): Promise<Room> =>
+const graphFitOf = (page: Page): Promise<GraphFit> =>
   page.evaluate(() => {
     const rectOf = (selector: string): Rect => {
       const rect = document.querySelector(selector)?.getBoundingClientRect();
@@ -89,18 +89,18 @@ const roomOf = (page: Page): Promise<Room> =>
     };
   });
 
-const fits = ({ graph, drawing }: Room): boolean =>
+const fits = ({ graph, drawing }: GraphFit): boolean =>
   drawing.width + 2 * MARGIN <= graph.width && drawing.height + 2 * MARGIN <= graph.height;
 
 const bringDrawingIntoView = async (page: Page): Promise<void> => {
-  let room = await roomOf(page);
-  while (!fits(room)) {
+  let graphFit = await graphFitOf(page);
+  while (!fits(graphFit)) {
     await page.getByRole('button', { name: 'Zoom out' }).click();
-    room = await roomOf(page);
-    if (room.band !== 'read')
-      throw new Error(`the drawing fits only out of the Read band: ${JSON.stringify(room)}`);
+    graphFit = await graphFitOf(page);
+    if (graphFit.band !== 'read')
+      throw new Error(`the drawing fits only out of the Read band: ${JSON.stringify(graphFit)}`);
   }
-  const { graph, drawing } = room;
+  const { graph, drawing } = graphFit;
   const dx = graph.left + (graph.width - drawing.width) / 2 - drawing.left;
   const dy = graph.top + (graph.height - drawing.height) / 2 - drawing.top;
   const x = graph.left + MARGIN / 2;
