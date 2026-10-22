@@ -2,6 +2,7 @@
   "name": "@callmap/cli",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "bin": {
     "callmap": "./src/cli.ts"
