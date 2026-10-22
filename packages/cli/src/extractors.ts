@@ -1,15 +1,14 @@
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { isAbsolute, join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
-import { extractorRelease, TYPESCRIPT_EXTRACTOR } from './clone-assets.ts';
+import { assets } from './assets.ts';
 
 const runExtractorProcess = (args: readonly string[]): Promise<string> =>
   new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [TYPESCRIPT_EXTRACTOR, ...args], {
+    const child = spawn(process.execPath, [assets.TYPESCRIPT_EXTRACTOR, ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     const stdout: Buffer[] = [];
@@ -44,9 +43,10 @@ export const extractGraphDocumentOf = async (
 
 export const extractorVersionOf = (): string => {
   const typescript = JSON.parse(
-    readFileSync(createRequire(TYPESCRIPT_EXTRACTOR).resolve('typescript/package.json'), 'utf8'),
+    readFileSync(
+      createRequire(assets.TYPESCRIPT_EXTRACTOR).resolve('typescript/package.json'),
+      'utf8',
+    ),
   ) as { readonly version: string };
-  return createHash('sha256')
-    .update(`typescript ${typescript.version}\0${extractorRelease()}`)
-    .digest('hex');
+  return assets.extractorVersion(typescript.version);
 };

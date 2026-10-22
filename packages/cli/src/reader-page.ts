@@ -5,7 +5,7 @@ import type { ReaderPageData, Sources } from '../page/data.ts';
 import type { Placement } from '../page/layout.ts';
 import { READER_VIEWS } from '../page/reader-views.ts';
 import type { Scene } from '../page/scene.ts';
-import { LAYOUT_WORKER, pageScript, pageStyle } from './clone-assets.ts';
+import { assets } from './assets.ts';
 
 const inlineScript = (code: string): string => code.replaceAll('</script', '<\\/script');
 
@@ -18,7 +18,7 @@ const pageOf = (data: ReaderPageData, script: string): string => `<!doctype html
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Callmap review</title>
 <style>
-${pageStyle()}
+${assets.pageStyle()}
 </style>
 </head>
 <body>
@@ -40,7 +40,7 @@ ${inlineScript(script)}
 
 const placementInWorkerOf = (scene: Scene): Promise<Placement> =>
   new Promise((resolve, reject) => {
-    const worker = new Worker(LAYOUT_WORKER, { workerData: scene });
+    const worker = new Worker(assets.LAYOUT_WORKER, { workerData: scene });
     worker.once('message', resolve);
     worker.once('error', reject);
   });
@@ -70,6 +70,6 @@ export const readerPageOf = async ({ sources, ...review }: PageReview): Promise<
     packedSources: packedSourcesOf(sources),
     placements: {},
   };
-  const [script, placements] = await Promise.all([pageScript(), placementsOf(data)]);
+  const [script, placements] = await Promise.all([assets.pageScript(), placementsOf(data)]);
   return pageOf({ ...data, placements }, script);
 };

@@ -33,6 +33,7 @@ npm run test:browser
 - `npm run lint` checks the format with Prettier, the types with `tsc` and the code with ESLint. `npm run format` fixes the format.
 - `npm test` runs the whole suite with Vitest.
 - `npm run test:browser` builds reader pages from the fixture repos and opens them in headless Chromium. It needs a Chromium. The "Checks" part of the README tells where the command finds one. Run it when you change `packages/cli`.
+- `npm run screenshots` makes the README screenshots again from the fixture repos, in light mode and in dark mode, and writes them to `docs/screenshots/`. It needs a Chromium too. Run it when you change the look of the reader page.
 
 ## The check on a pull request
 
