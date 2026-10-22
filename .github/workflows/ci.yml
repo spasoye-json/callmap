@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/extractor-go/go/go.mod
+          cache-dependency-path: packages/extractor-go/go/go.mod
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      # A shared runner has about 2 test workers, so the tests that load the
+      # full TypeScript compiler in a child process need more than the default.
+      - run: npm test -- --testTimeout=30000 --hookTimeout=60000
