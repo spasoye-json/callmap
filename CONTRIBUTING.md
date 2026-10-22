@@ -79,8 +79,8 @@ For example: `docs: the glossary moves from CONTEXT.md to GLOSSARY.md`.
 
 ## Words and decisions
 
-- `GLOSSARY.md` holds the words of the project. Use its words in code, tests, docs and commits.
-- `docs/adr/` holds the architectural decisions. Read the ADRs of the part that you change. A settled ADR is not rewritten, so a new decision gets a new ADR.
+- [GLOSSARY.md](GLOSSARY.md) holds the words of the project. Use its words in code, tests, docs and commits.
+- [docs/adr/](docs/adr/) holds the architectural decisions. Read the ADRs of the part that you change. A settled ADR is not rewritten, so a new decision gets a new ADR.
 
 ## License
 
