@@ -40,7 +40,10 @@
 }
 
 .zoom-controls .zoom-label {
-  min-width: 52px;
+  flex: none;
+  /* "Overview" is the longest label: 8 characters of the code font. */
+  width: calc(8ch + 2 * 8px + 2 * 1px);
+  padding: 0 8px;
   border-right: 1px solid var(--rule);
   border-left: 1px solid var(--rule);
   color: var(--ink);

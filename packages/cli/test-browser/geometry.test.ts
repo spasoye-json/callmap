@@ -12,7 +12,7 @@ import {
 } from '../test/fixture-repo.ts';
 import { reviewHtmlOf } from '../test/reader-page.ts';
 import { chromiumExecutable } from './chromium.ts';
-import { problemsOnPage } from './problems.ts';
+import { problemsOnPage, zoomLabelRoom } from './problems.ts';
 
 type Fixture = 'levels' | 'review' | 'long names';
 type Scheme = 'light' | 'dark';
@@ -99,16 +99,30 @@ const CASES = LOOKS.flatMap((look) =>
   SCHEMES.map((scheme) => ({ look, scheme, name: `${nameOf(look)} in ${scheme} mode` })),
 );
 
+const WIDE = { width: 1600, height: 1000 };
+
+const openPage = async (
+  look: Look,
+  scheme: Scheme,
+  viewport: { readonly width: number; readonly height: number } = WIDE,
+): Promise<Page> => {
+  if (browser === undefined) throw new Error('the browser did not start');
+  const page = await browser.newPage({ viewport, colorScheme: scheme });
+  await page.goto(pageFiles.get(look.fixture) ?? '');
+  await settled(page);
+  await openLook(page, look);
+  return page;
+};
+
+const zoomOutTo = async (page: Page, band: string): Promise<void> => {
+  for (let step = 0; step < MOST_ZOOM_STEPS && (await bandOf(page)) !== band; step++)
+    await page.getByRole('button', { name: 'Zoom out' }).click();
+  expect(await bandOf(page)).toBe(band);
+};
+
 describe('the labels of the reader page in Chromium', () => {
   it.each(CASES)('stay inside their boxes and frames in the $name', async ({ look, scheme }) => {
-    if (browser === undefined) throw new Error('the browser did not start');
-    const page = await browser.newPage({
-      viewport: { width: 1600, height: 1000 },
-      colorScheme: scheme,
-    });
-    await page.goto(pageFiles.get(look.fixture) ?? '');
-    await settled(page);
-    await openLook(page, look);
+    const page = await openPage(look, scheme);
     const bands = new Set<string>();
     const problems: string[] = [];
     for (let step = 0; step < MOST_ZOOM_STEPS; step++) {
@@ -124,4 +138,24 @@ describe('the labels of the reader page in Chromium', () => {
     expect(problems).toEqual([]);
     expect([...bands]).toEqual(BANDS);
   });
+});
+
+describe('the zoom controls in Chromium', () => {
+  it.each(SCHEMES)(
+    'give the zoom label room for "Overview" and keep one width at every zoom, in %s mode',
+    async (scheme) => {
+      const page = await openPage({ fixture: 'levels', view: 'Whole project' }, scheme);
+      const percent = await page.evaluate(zoomLabelRoom);
+      await zoomOutTo(page, 'map');
+      const overview = await page.evaluate(zoomLabelRoom);
+      await page.close();
+      expect(percent.text).toMatch(/%$/);
+      expect(overview.text).toBe('Overview');
+      expect(overview.controls).toBe(percent.controls);
+      for (const { text, left, right } of [percent, overview]) {
+        expect(left, `the room left of "${text}"`).toBeGreaterThanOrEqual(6);
+        expect(right, `the room right of "${text}"`).toBeGreaterThanOrEqual(6);
+      }
+    },
+  );
 });

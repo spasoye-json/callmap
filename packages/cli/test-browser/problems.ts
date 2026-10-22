@@ -61,3 +61,25 @@ export const problemsOnPage = (): string[] => {
 
   return problems.map((problem) => `zoom ${zoom}: ${problem}`);
 };
+
+export const zoomLabelRoom = (): {
+  text: string;
+  controls: number;
+  left: number;
+  right: number;
+} => {
+  const controls = document.querySelector('#graph .zoom-controls');
+  const label = controls?.querySelector('.zoom-label');
+  if (!controls || !label) throw new Error('the graph has no zoom label');
+  const words = document.createRange();
+  words.selectNodeContents(label);
+  const text = words.getBoundingClientRect();
+  const box = label.getBoundingClientRect();
+  const style = getComputedStyle(label);
+  return {
+    text: label.textContent,
+    controls: controls.getBoundingClientRect().width,
+    left: text.left - box.left - parseFloat(style.borderLeftWidth),
+    right: box.right - parseFloat(style.borderRightWidth) - text.right,
+  };
+};
