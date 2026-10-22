@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
+import type { SpawnSyncReturns } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,13 +36,17 @@ const PACKAGE_FILE = /^(package\.json|README\.md|LICENSE|dist\/[^/]+\.(js|css|sh
 
 let tarball: Tarball;
 
-const installedRepo = (): string => {
+const installedRepo = (tarballPath: string): string => {
   const repo = featureBranchRepo();
-  npm(repo, 'install', '--prefix', repo, '--no-save', '--no-audit', '--no-fund', tarball.path);
+  npm(repo, 'install', '--prefix', repo, '--no-save', '--no-audit', '--no-fund', tarballPath);
   return repo;
 };
 
-const runInstalledCallmap = (repo: string, out: string, cacheHome: string) =>
+const runInstalledCallmap = (
+  repo: string,
+  out: string,
+  cacheHome: string,
+): SpawnSyncReturns<string> =>
   spawnSync(join(repo, 'node_modules', '.bin', 'callmap'), ['review', '--no-open', '--out', out], {
     cwd: repo,
     encoding: 'utf8',
@@ -74,7 +79,14 @@ describe('the packed @callmap/cli', () => {
 
   it('carries the name, the version, the license and the license text of each bundled third-party package', () => {
     const notices = readFileSync(
-      join(installedRepo(), 'node_modules', '@callmap', 'cli', 'dist', 'THIRD-PARTY-NOTICES.txt'),
+      join(
+        installedRepo(tarball.path),
+        'node_modules',
+        '@callmap',
+        'cli',
+        'dist',
+        'THIRD-PARTY-NOTICES.txt',
+      ),
       'utf8',
     );
     expect(notices).toMatch(
@@ -85,7 +97,7 @@ describe('the packed @callmap/cli', () => {
   });
 
   it('installs in a TypeScript repo, and its callmap command writes the reader page of the review', () => {
-    const repo = installedRepo();
+    const repo = installedRepo(tarball.path);
     const out = join(tempDir('callmap-out-'), 'review.html');
     const finished = runInstalledCallmap(repo, out, tempDir('callmap-cache-'));
     expect(finished.stderr).toBe('');
@@ -104,7 +116,7 @@ describe('the packed @callmap/cli', () => {
   });
 
   it('reads the base again after a build from a changed extractor source', () => {
-    const repo = installedRepo();
+    const repo = installedRepo(tarball.path);
     const cacheHome = tempDir('callmap-cache-');
     const out = join(tempDir('callmap-out-'), 'review.html');
     expect(runInstalledCallmap(repo, out, cacheHome).status).toBe(0);
