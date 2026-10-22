@@ -1,6 +1,6 @@
 export interface Assets {
-  readonly TYPESCRIPT_EXTRACTOR: string;
-  readonly LAYOUT_WORKER: URL;
+  readonly typescriptExtractor: string;
+  readonly layoutWorker: URL;
   readonly pageScript: () => Promise<string>;
   readonly pageStyle: () => string;
   readonly extractorVersion: (typescript: string) => string;

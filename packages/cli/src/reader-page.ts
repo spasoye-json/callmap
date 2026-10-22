@@ -40,7 +40,7 @@ ${inlineScript(script)}
 
 const placementInWorkerOf = (scene: Scene): Promise<Placement> =>
   new Promise((resolve, reject) => {
-    const worker = new Worker(assets.LAYOUT_WORKER, { workerData: scene });
+    const worker = new Worker(assets.layoutWorker, { workerData: scene });
     worker.once('message', resolve);
     worker.once('error', reject);
   });

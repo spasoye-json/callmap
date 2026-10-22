@@ -51,7 +51,7 @@ const { output } = await build({
   input: {
     cli: join(PACKAGE, 'src', 'cli.ts'),
     'layout-worker': join(PACKAGE, 'src', 'layout-worker.ts'),
-    'extract-typescript': assets.TYPESCRIPT_EXTRACTOR,
+    'extract-typescript': assets.typescriptExtractor,
   },
   platform: 'node',
   external: ['typescript'],

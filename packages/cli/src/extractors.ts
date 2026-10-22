@@ -8,7 +8,7 @@ import { assets } from './assets.ts';
 
 const runExtractorProcess = (args: readonly string[]): Promise<string> =>
   new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [assets.TYPESCRIPT_EXTRACTOR, ...args], {
+    const child = spawn(process.execPath, [assets.typescriptExtractor, ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     const stdout: Buffer[] = [];
@@ -44,7 +44,7 @@ export const extractGraphDocumentOf = async (
 export const extractorVersionOf = (): string => {
   const typescript = JSON.parse(
     readFileSync(
-      createRequire(assets.TYPESCRIPT_EXTRACTOR).resolve('typescript/package.json'),
+      createRequire(assets.typescriptExtractor).resolve('typescript/package.json'),
       'utf8',
     ),
   ) as { readonly version: string };

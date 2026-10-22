@@ -29,8 +29,8 @@ export const extractorSourceFiles = (): readonly NamedFile[] => {
 };
 
 export const assets = {
-  TYPESCRIPT_EXTRACTOR,
-  LAYOUT_WORKER: new URL('layout-worker.ts', import.meta.url),
+  typescriptExtractor: TYPESCRIPT_EXTRACTOR,
+  layoutWorker: new URL('layout-worker.ts', import.meta.url),
   pageScript,
   pageStyle,
   extractorVersion: (typescript) =>

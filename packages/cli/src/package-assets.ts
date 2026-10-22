@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url';
 import type { Assets } from './assets.ts';
 
 export const assets = {
-  TYPESCRIPT_EXTRACTOR: fileURLToPath(new URL('extract-typescript.js', import.meta.url)),
-  LAYOUT_WORKER: new URL('layout-worker.js', import.meta.url),
+  typescriptExtractor: fileURLToPath(new URL('extract-typescript.js', import.meta.url)),
+  layoutWorker: new URL('layout-worker.js', import.meta.url),
   pageScript: () => Promise.resolve(readFileSync(new URL('page.js', import.meta.url), 'utf8')),
   pageStyle: () => readFileSync(new URL('page.css', import.meta.url), 'utf8'),
   extractorVersion: (typescript) => {
