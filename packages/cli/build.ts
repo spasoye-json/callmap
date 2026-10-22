@@ -2,6 +2,8 @@ import { chmodSync, copyFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { build } from 'rolldown';
 import { assets } from './src/assets.ts';
+import { extractorSourceFiles } from './src/clone-assets.ts';
+import { sha256OfFiles } from './src/file-hash.ts';
 
 const PACKAGE = import.meta.dirname;
 const ROOT = join(PACKAGE, '..', '..');
@@ -37,5 +39,6 @@ chmodSync(join(DIST, 'cli.js'), 0o755);
 
 writeFileSync(join(DIST, 'page.js'), await assets.pageScript());
 writeFileSync(join(DIST, 'page.css'), assets.pageStyle());
+writeFileSync(join(DIST, 'extractor-source.sha256'), sha256OfFiles(extractorSourceFiles()));
 
 for (const file of ['README.md', 'LICENSE']) copyFileSync(join(ROOT, file), join(PACKAGE, file));

@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { isAbsolute, join } from 'node:path';
@@ -49,7 +48,5 @@ export const extractorVersionOf = (): string => {
       'utf8',
     ),
   ) as { readonly version: string };
-  return createHash('sha256')
-    .update(`typescript ${typescript.version}\0${assets.extractorRelease()}`)
-    .digest('hex');
+  return assets.extractorVersion(typescript.version);
 };

@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -31,9 +31,27 @@ const packedCli = (): Tarball => {
   return { path: join(folder, report.filename), files: report.files.map(({ path }) => path) };
 };
 
-const PACKAGE_FILE = /^(package\.json|README\.md|LICENSE|dist\/[^/]+\.(js|css))$/;
+const PACKAGE_FILE = /^(package\.json|README\.md|LICENSE|dist\/[^/]+\.(js|css|sha256))$/;
 
 let tarball: Tarball;
+
+const installedRepo = (): string => {
+  const repo = featureBranchRepo();
+  npm(repo, 'install', '--prefix', repo, '--no-save', '--no-audit', '--no-fund', tarball.path);
+  return repo;
+};
+
+const runInstalledCallmap = (repo: string, out: string, cacheHome: string) =>
+  spawnSync(join(repo, 'node_modules', '.bin', 'callmap'), ['review', '--no-open', '--out', out], {
+    cwd: repo,
+    encoding: 'utf8',
+    env: { ...process.env, XDG_CACHE_HOME: cacheHome },
+  });
+
+const cacheEntriesOf = (cacheHome: string): readonly string[] =>
+  readdirSync(join(cacheHome, 'callmap'), { recursive: true, encoding: 'utf8' }).filter((entry) =>
+    entry.endsWith('.json'),
+  );
 
 beforeAll(() => {
   tarball = packedCli();
@@ -43,23 +61,20 @@ describe('the packed @callmap/cli', () => {
   it('holds only the manifest, the README, the LICENSE and the built files', () => {
     expect(tarball.files.filter((path) => !PACKAGE_FILE.test(path))).toEqual([]);
     expect(tarball.files).toEqual(
-      expect.arrayContaining(['package.json', 'README.md', 'LICENSE', 'dist/cli.js']),
+      expect.arrayContaining([
+        'package.json',
+        'README.md',
+        'LICENSE',
+        'dist/cli.js',
+        'dist/extractor-source.sha256',
+      ]),
     );
   });
 
   it('installs in a TypeScript repo, and its callmap command writes the reader page of the review', () => {
-    const repo = featureBranchRepo();
-    npm(repo, 'install', '--prefix', repo, '--no-save', '--no-audit', '--no-fund', tarball.path);
+    const repo = installedRepo();
     const out = join(tempDir('callmap-out-'), 'review.html');
-    const finished = spawnSync(
-      join(repo, 'node_modules', '.bin', 'callmap'),
-      ['review', '--no-open', '--out', out],
-      {
-        cwd: repo,
-        encoding: 'utf8',
-        env: { ...process.env, XDG_CACHE_HOME: tempDir('callmap-cache-') },
-      },
-    );
+    const finished = runInstalledCallmap(repo, out, tempDir('callmap-cache-'));
     expect(finished.stderr).toBe('');
     expect(finished.status).toBe(0);
     expect(finished.stdout.trim()).toBe(out);
@@ -73,5 +88,21 @@ describe('the packed @callmap/cli', () => {
         'removed src/cart.ts#legacyTotal',
       ]),
     );
+  });
+
+  it('reads the base again after a build from a changed extractor source', () => {
+    const repo = installedRepo();
+    const cacheHome = tempDir('callmap-cache-');
+    const out = join(tempDir('callmap-out-'), 'review.html');
+    expect(runInstalledCallmap(repo, out, cacheHome).status).toBe(0);
+    expect(runInstalledCallmap(repo, out, cacheHome).status).toBe(0);
+    expect(cacheEntriesOf(cacheHome)).toHaveLength(1);
+
+    writeFileSync(
+      join(repo, 'node_modules', '@callmap', 'cli', 'dist', 'extractor-source.sha256'),
+      '0'.repeat(64),
+    );
+    expect(runInstalledCallmap(repo, out, cacheHome).status).toBe(0);
+    expect(cacheEntriesOf(cacheHome)).toHaveLength(2);
   });
 });
