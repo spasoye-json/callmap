@@ -4,7 +4,7 @@ coverage/
 # The prose records are hand-written and settled. A formatter must not churn a
 # decision record, so prettier stays out of them.
 CLAUDE.md
-CONTEXT.md
+GLOSSARY.md
 README.md
 docs/
 
