@@ -151,7 +151,6 @@ const edgeOf = (line: SceneLine): ElkExtendedEdge => {
   };
 };
 
-// The model order sits on the root only. ELK fails on a frame that carries NODES_AND_EDGES.
 export const elkGraphOf = ({
   frames,
   boxes,
@@ -174,6 +173,7 @@ export const elkGraphOf = ({
     layoutOptions: {
       ...OPTIONS,
       ...CYCLE_BREAKING,
+      // ELK fails on a frame that carries NODES_AND_EDGES.
       'elk.layered.considerModelOrder.strategy': modelOrder,
     },
     children: [

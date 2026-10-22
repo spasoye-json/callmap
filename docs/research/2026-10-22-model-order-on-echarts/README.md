@@ -5,7 +5,7 @@ This check is for issue 44. It opens every level of the Whole project view of Ap
 ## The method
 
 - **The versions:** "before" is `master` at `4d45490`. "After" is the same commit with the change of issue 44. A worktree of `master` and the branch wrote the 2 pages on the same day, one after the other.
-- **The review:** the same as `docs/research/2026-10-19-levels-on-a-large-codebase/`. The branch `master` of `apache/echarts` at commit `34f4d927` against the base `b014e953`. The command ran with `--scope 'src/**'`, `--tsconfig tsconfig.json` and `--no-cache`, after `npm ci --ignore-scripts`.
+- **The review:** the same as `docs/research/2026-10-19-levels-on-a-large-codebase/`. The review compares the branch `master` of `apache/echarts` at commit `34f4d927` with the base `b014e953`. The command ran with `--scope 'src/**'`, `--tsconfig tsconfig.json` and `--no-cache`, after `npm ci --ignore-scripts`.
 - **The machine:** an Intel Core Ultra 9 185H with 22 threads and Node 22.23.1. The browser is headless Chrome for Testing 154 at 1600 by 1000 pixels.
 - **The repeats:** 3 page loads of each page, each in a fresh browser context. The loads of "before" and "after" ran in turn. Each number is the median of the 3 loads.
 - **The levels:** a script in the page clicks each folder box and each file box that is not an outside box. After each level, it clicks "Up one level". It opens all 546 levels on each page load: 74 folders and 472 files.
@@ -52,7 +52,8 @@ So the model order alone does not bring `src/chart` under 200 ms. The page work 
 ## Other findings
 
 - **The Diff view does not change.** On the review fixture and on the levels fixture, the Diff view keeps its places.
-- **ELK fails on a frame with `NODES_AND_EDGES`.** A first try put the model order on each frame too. ELK then stopped on the Diff view with "Cannot read properties of undefined (reading 'a')". So the model order sits on the root only. A frame takes the ELK default, which is `NONE`.
+- **ELK fails on a frame with `NODES_AND_EDGES`.** A first try put the model order on each frame too. ELK then stopped on the Diff view with "Cannot read properties of undefined (reading 'a')". So the model order sits on the root only.
+- **A frame takes the ELK default `NONE`, not the model order of the root.** A script in Node laid out 2,000 random graphs with elkjs 0.12.0 and `INCLUDE_CHILDREN`. Each graph had one frame with 5 to 12 boxes, and its root carried `NODES_AND_EDGES`. Each graph got 3 layouts: the frame with no model order, with `NONE` and with `NODES_AND_EDGES`. ELK failed on 1,969 graphs with `NODES_AND_EDGES` on the frame. ELK failed on no graph with no model order on the frame. On 20 graphs, `NONE` and `NODES_AND_EDGES` on the frame gave different places. On each of these 20, the frame with no model order gave the places of `NONE`.
 - **The drawing is looser.** The probe of issue 44 laid out `src/chart` in Node with each model order. With `NONE`, the lines are 16% longer and the drawing is 11% wider. The crossings are 3% more.
 - **The command time does not change.** The command took 6.97 s before and 6.86 s after. Each number is from one run.
 
