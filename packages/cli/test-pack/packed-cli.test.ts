@@ -31,7 +31,7 @@ const packedCli = (): Tarball => {
   return { path: join(folder, report.filename), files: report.files.map(({ path }) => path) };
 };
 
-const PACKAGE_FILE = /^(package\.json|README\.md|LICENSE|dist\/[^/]+\.(js|css|sha256))$/;
+const PACKAGE_FILE = /^(package\.json|README\.md|LICENSE|dist\/[^/]+\.(js|css|sha256|txt))$/;
 
 let tarball: Tarball;
 
@@ -67,8 +67,21 @@ describe('the packed @callmap/cli', () => {
         'LICENSE',
         'dist/cli.js',
         'dist/extractor-source.sha256',
+        'dist/THIRD-PARTY-NOTICES.txt',
       ]),
     );
+  });
+
+  it('carries the name, the version, the license and the license text of each bundled third-party package', () => {
+    const notices = readFileSync(
+      join(installedRepo(), 'node_modules', '@callmap', 'cli', 'dist', 'THIRD-PARTY-NOTICES.txt'),
+      'utf8',
+    );
+    expect(notices).toMatch(
+      /^elkjs \d+\.\d+\.\d+\nLicense: EPL-2\.0 OR GPL-3\.0-or-later\n\n# Eclipse Public License/m,
+    );
+    expect(notices).toMatch(/^@codemirror\/view \d+\.\d+\.\d+\nLicense: MIT\n\nMIT License/m);
+    expect(notices).not.toMatch(/^(@callmap\/|typescript )/m);
   });
 
   it('installs in a TypeScript repo, and its callmap command writes the reader page of the review', () => {

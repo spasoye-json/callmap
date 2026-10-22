@@ -22,7 +22,12 @@ const entrySource = (): string => {
   ].join('\n');
 };
 
-export const pageScript = async (): Promise<string> => {
+export interface PageBundle {
+  readonly script: string;
+  readonly moduleIds: readonly string[];
+}
+
+export const pageBundle = async (): Promise<PageBundle> => {
   const bundle = await rolldown({
     input: ENTRY,
     platform: 'browser',
@@ -37,11 +42,17 @@ export const pageScript = async (): Promise<string> => {
   });
   try {
     const { output } = await bundle.generate({ format: 'iife', minify: true });
-    return output.map((chunk) => (chunk.type === 'chunk' ? chunk.code : '')).join('\n');
+    const chunks = output.flatMap((chunk) => (chunk.type === 'chunk' ? [chunk] : []));
+    return {
+      script: chunks.map(({ code }) => code).join('\n'),
+      moduleIds: chunks.flatMap(({ moduleIds }) => moduleIds),
+    };
   } finally {
     await bundle.close();
   }
 };
+
+export const pageScript = async (): Promise<string> => (await pageBundle()).script;
 
 export const pageStyle = (): string =>
   [join(PAGE, 'page.css'), join(PAGE, 'drawing.css'), ...partsWith('.css')]
