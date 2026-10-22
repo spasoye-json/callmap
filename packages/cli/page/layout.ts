@@ -60,7 +60,6 @@ const OPTIONS: Readonly<Record<string, string>> = {
   'elk.json.shapeCoords': 'ROOT',
   'elk.json.edgeCoords': 'ROOT',
   'elk.edgeLabels.placement': 'CENTER',
-  'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
   'elk.layered.thoroughness': '3',
   'elk.layered.spacing.nodeNodeBetweenLayers': '56',
   'elk.layered.spacing.edgeNodeBetweenLayers': '16',
@@ -152,7 +151,7 @@ const edgeOf = (line: SceneLine): ElkExtendedEdge => {
   };
 };
 
-const graphOf = ({ frames, boxes, lines }: Scene): ElkNode => {
+const elkGraphOf = ({ frames, boxes, lines, modelOrder = 'NODES_AND_EDGES' }: Scene): ElkNode => {
   const childrenOf = new Map<string, ElkNode[]>();
   const frameIds = new Set(frames.map(({ id }) => id));
   for (const box of [...boxes].sort(byId)) {
@@ -166,7 +165,12 @@ const graphOf = ({ frames, boxes, lines }: Scene): ElkNode => {
     ]);
   return {
     id: 'root',
-    layoutOptions: { ...OPTIONS, ...CYCLE_BREAKING },
+    layoutOptions: {
+      ...OPTIONS,
+      ...CYCLE_BREAKING,
+      // ELK fails on a frame that carries NODES_AND_EDGES.
+      'elk.layered.considerModelOrder.strategy': modelOrder,
+    },
     children: [
       ...sorted.filter(({ parent }) => parent === undefined || !frameIds.has(parent)).map(nodeOf),
       ...(childrenOf.get('') ?? []),
@@ -225,7 +229,7 @@ let elk: InstanceType<typeof ELK> | undefined;
 
 export const placementOf = async (scene: Scene): Promise<Placement> => {
   elk ??= new ELK();
-  const laid = await elk.layout(graphOf(scene));
+  const laid = await elk.layout(elkGraphOf(scene));
   const placed = placedOf(laid);
   const placeFor = ({ id }: { readonly id: string }): Place => placed.get(id) ?? NOWHERE;
   const edges = new Map((laid.edges ?? []).map((edge) => [edge.id, edge]));

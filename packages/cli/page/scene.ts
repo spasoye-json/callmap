@@ -118,10 +118,13 @@ const countBadgeOf = (count: number): string | undefined => {
 export const lineLabelOf = ({ oneOf, calls }: SceneLine): string | undefined =>
   oneOf ?? (calls === undefined ? undefined : countBadgeOf(calls.length));
 
+export type ModelOrder = 'NODES_AND_EDGES' | 'NONE';
+
 export interface Scene {
   readonly frames: readonly SceneFrame[];
   readonly boxes: readonly SceneBox[];
   readonly lines: readonly SceneLine[];
+  readonly modelOrder?: ModelOrder;
 }
 
 const FRAME_PREFIX = 'frame:';
