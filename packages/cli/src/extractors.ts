@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { isAbsolute, join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
 import { assets } from './assets.ts';
+import { packageManifestAt } from './package-manifest.ts';
 
 const runExtractorProcess = (args: readonly string[]): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -42,11 +42,8 @@ export const extractGraphDocumentOf = async (
   readGraphDocument(JSON.parse(await runExtractorProcess(argumentsOf(repo, settings))));
 
 export const extractorVersionOf = (): string => {
-  const typescript = JSON.parse(
-    readFileSync(
-      createRequire(assets.typescriptExtractor).resolve('typescript/package.json'),
-      'utf8',
-    ),
-  ) as { readonly version: string };
+  const typescript = packageManifestAt(
+    createRequire(assets.typescriptExtractor).resolve('typescript/package.json'),
+  );
   return assets.extractorVersion(typescript.version);
 };

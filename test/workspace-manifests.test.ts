@@ -1,17 +1,13 @@
-import { globSync, readFileSync } from 'node:fs';
+import { globSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { packageManifestAt } from '../packages/cli/src/package-manifest.ts';
+import type { PackageManifest } from '../packages/cli/src/package-manifest.ts';
 
 const REPO_ROOT = join(import.meta.dirname, '..');
 
-interface Manifest {
-  readonly description?: string;
-  readonly license?: string;
-  readonly workspaces?: readonly string[];
-}
-
-const manifestAt = (directory: string): Manifest =>
-  JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')) as Manifest;
+const manifestAt = (directory: string): PackageManifest =>
+  packageManifestAt(join(directory, 'package.json'));
 
 const rootManifest = manifestAt(REPO_ROOT);
 

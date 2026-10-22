@@ -4,6 +4,7 @@ import { build } from 'rolldown';
 import { assets } from './src/assets.ts';
 import { extractorSourceFiles } from './src/clone-assets.ts';
 import { sha256OfFiles } from './src/file-hash.ts';
+import { packageManifestAt } from './src/package-manifest.ts';
 import { pageBundle } from './src/page-build.ts';
 
 const PACKAGE = import.meta.dirname;
@@ -23,9 +24,7 @@ interface Notice {
 }
 
 const noticeOf = (folder: string): Notice => {
-  const { name, version, license } = JSON.parse(
-    readFileSync(join(folder, 'package.json'), 'utf8'),
-  ) as { readonly name: string; readonly version: string; readonly license?: unknown };
+  const { name, version, license } = packageManifestAt(join(folder, 'package.json'));
   const file = readdirSync(folder).find((entry) => LICENSE_FILE.test(entry));
   if (typeof license !== 'string' || file === undefined)
     throw new Error(`${name} ${version} names no license or has no license file`);
