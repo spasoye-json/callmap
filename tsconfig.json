@@ -22,9 +22,12 @@
   "include": [
     "packages/*/src/**/*.ts",
     "packages/*/test/**/*.ts",
+    "packages/*/test-pack/**/*.ts",
+    "packages/cli/build.ts",
     "test/**/*.ts",
     "vitest.config.ts",
     "vitest.browser.config.ts",
+    "vitest.pack.config.ts",
     "vitest.screenshots.config.ts",
     "eslint.config.js"
   ]
