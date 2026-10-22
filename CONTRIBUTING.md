@@ -18,7 +18,7 @@ To try your change on another repo, link the `callmap` command to the clone:
 npm link -w @callmap/cli
 ```
 
-The link points at the clone, so the command runs your current code. `npm unlink -g @callmap/cli` removes it.
+The linked command runs the build in `packages/cli/dist/`, which `npm install` makes. So run `npm run build` after each change and each `git pull`. `npm unlink -g @callmap/cli` removes it.
 
 ## Check a change
 
@@ -37,6 +37,8 @@ npm run test:browser
 ## The check on a pull request
 
 Each pull request and each push to `master` runs the `lint and test` check in GitHub Actions. The workflow is `.github/workflows/ci.yml`. It runs `npm ci`, `npm run lint` and `npm test` on Node 22, with Go and Ruby installed. It does not run `npm run test:browser`, so run that check on your machine.
+
+The `packed cli` check in the same workflow runs `npm run test:pack`. It packs `@callmap/cli`, installs the tarball in a fixture repo and runs `callmap review` from that install. It fails when the tarball holds a file other than the manifest, the README, the LICENSE and the built files.
 
 ## Issues and triage
 
