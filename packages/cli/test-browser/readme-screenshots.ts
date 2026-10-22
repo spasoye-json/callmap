@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Page } from 'playwright-core';
 import { beforeAll, it } from 'vitest';
 import { featureBranchRepoWithUnchangedFiles, levelsRepo } from '../test/fixture-repo.ts';
-import { readerPagesOf, settled } from './problems.ts';
+import { readerPagesOf, settled } from './reader-pages.ts';
 
 type Fixture = 'levels' | 'review';
 type Scheme = 'light' | 'dark';

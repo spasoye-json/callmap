@@ -5,14 +5,8 @@ import {
   levelsRepo,
   longNamesRepo,
 } from '../test/fixture-repo.ts';
-import {
-  hintsOverBoxes,
-  mapBandProblems,
-  problemsOnPage,
-  readerPagesOf,
-  settled,
-  zoomLabelRoom,
-} from './problems.ts';
+import { hintsOverBoxes, mapBandProblems, problemsOnPage, zoomLabelRoom } from './problems.ts';
+import { readerPagesOf, settled } from './reader-pages.ts';
 
 type Fixture = 'levels' | 'review' | 'long names';
 type Scheme = 'light' | 'dark';
