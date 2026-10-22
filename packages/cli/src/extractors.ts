@@ -38,5 +38,3 @@ export const extractGraphDocumentOf = async (
   settings: ExtractorSettings,
 ): Promise<GraphDocument> =>
   readGraphDocument(JSON.parse(await runExtractorProcess(argumentsOf(repo, settings))));
-
-export const extractorVersionOf = (): string => assets.extractorVersion();
