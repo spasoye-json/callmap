@@ -2,7 +2,7 @@
   "name": "callmap",
   "version": "0.0.0",
   "private": true,
-  "description": "Callmap will read the call graph of a repo with its language's own tools and write one HTML page for a code review.",
+  "description": "Callmap is a call graph reader for an engineer who still reads code.",
   "license": "MIT",
   "type": "module",
   "workspaces": [

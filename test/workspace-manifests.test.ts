@@ -35,4 +35,10 @@ describe('the workspace manifests', () => {
   it.each(manifests)('%s carries the MIT license', (_path, manifest) => {
     expect(manifest.license).toBe('MIT');
   });
+
+  it('describes Callmap at the root with the sentence of the README', () => {
+    expect(rootManifest.description).toBe(
+      'Callmap is a call graph reader for an engineer who still reads code.',
+    );
+  });
 });
