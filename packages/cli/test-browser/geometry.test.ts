@@ -12,7 +12,7 @@ import {
 } from '../test/fixture-repo.ts';
 import { reviewHtmlOf } from '../test/reader-page.ts';
 import { chromiumExecutable } from './chromium.ts';
-import { hintsOverBoxes, problemsOnPage, zoomLabelRoom } from './problems.ts';
+import { hintsOverBoxes, mapBandProblems, problemsOnPage, zoomLabelRoom } from './problems.ts';
 
 type Fixture = 'levels' | 'review' | 'long names';
 type Scheme = 'light' | 'dark';
@@ -141,6 +141,7 @@ describe('the labels of the reader page in Chromium', () => {
   });
 });
 
+const DARK_BORDER_CONTRAST = 3;
 const PAN_STEP = 23;
 const PAN_STEPS = 12;
 
@@ -195,6 +196,24 @@ describe('the zoom controls in Chromium', () => {
         expect(left, `the room left of "${text}"`).toBeGreaterThanOrEqual(6);
         expect(right, `the room right of "${text}"`).toBeGreaterThanOrEqual(6);
       }
+    },
+  );
+});
+
+describe('the level boxes in the Map band in Chromium', () => {
+  it.each(SCHEMES)(
+    'keep their chips at their size at the reading floor and show their borders, in %s mode',
+    async (scheme) => {
+      const page = await openPage(
+        { fixture: 'levels', view: 'Whole project', level: 'src/orders' },
+        scheme,
+      );
+      await zoomOutTo(page, 'map');
+      const problems = await page.evaluate(mapBandProblems, {
+        borderContrast: scheme === 'dark' ? DARK_BORDER_CONTRAST : 0,
+      });
+      await page.close();
+      expect(problems).toEqual([]);
     },
   );
 });

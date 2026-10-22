@@ -28,10 +28,11 @@ export const svgChipOf = (
   x: number,
   y: number,
   size: number = CHIP_SIZE,
+  attributes: Readonly<Record<string, string>> = {},
 ): SVGGElement =>
   svgOf(
     'g',
-    { class: `chip ${mark}`, 'data-mark': mark, 'aria-hidden': 'true' },
+    { class: `chip ${mark}`, 'data-mark': mark, 'aria-hidden': 'true', ...attributes },
     svgOf('rect', { x, y, width: size, height: size, rx: 4 }),
     svgOf('text', { x: x + size / 2, y: y + size / 2 }, GLYPHS[mark]),
   );

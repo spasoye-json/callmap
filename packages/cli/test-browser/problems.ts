@@ -115,3 +115,56 @@ export const zoomLabelRoom = (): {
     right: box.right - parseFloat(style.borderRightWidth) - text.right,
   };
 };
+
+export const mapBandProblems = ({ borderContrast }: { borderContrast: number }): string[] => {
+  const TOLERANCE = 0.5;
+  const READING_FLOOR = 0.92;
+  const drawing = document.querySelector('#graph .drawing');
+  const zoom = drawing === null ? 1 : Number(getComputedStyle(drawing).getPropertyValue('--zoom'));
+  const shown = (element: Element): boolean =>
+    element.getBoundingClientRect().width > 0 &&
+    element.checkVisibility({ visibilityProperty: true });
+  const inside = (inner: DOMRect, outer: DOMRect): boolean =>
+    inner.left >= outer.left - TOLERANCE &&
+    inner.right <= outer.right + TOLERANCE &&
+    inner.top >= outer.top - TOLERANCE &&
+    inner.bottom <= outer.bottom + TOLERANCE;
+  const channelsOf = (colour: string): number[] =>
+    (colour.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+  const luminanceOf = (colour: string): number => {
+    const [red = 0, green = 0, blue = 0] = channelsOf(colour).map((channel) => {
+      const share = channel / 255;
+      return share <= 0.03928 ? share / 12.92 : ((share + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  };
+  const contrastOf = (one: string, other: string): number => {
+    const [dark, light] = [luminanceOf(one), luminanceOf(other)].sort((a, b) => a - b);
+    return ((light ?? 0) + 0.05) / ((dark ?? 0) + 0.05);
+  };
+
+  const problems: string[] = [];
+  for (const box of document.querySelectorAll('#graph .box.level')) {
+    const shape = box.querySelector(':scope > rect');
+    if (shape === null || !shown(shape)) continue;
+    const id = box.getAttribute('data-box') ?? '';
+    const boxRect = shape.getBoundingClientRect();
+    const style = getComputedStyle(shape);
+    const stroke =
+      parseFloat(style.strokeWidth) * (style.vectorEffect === 'non-scaling-stroke' ? 1 : zoom);
+    if (stroke < 1 - 0.01) problems.push(`the border of ${id} is ${stroke.toFixed(2)} px`);
+    const contrast = contrastOf(style.stroke, style.fill);
+    if (contrast < borderContrast)
+      problems.push(`the border of ${id} has a contrast of ${contrast.toFixed(2)}`);
+    for (const chip of box.querySelectorAll('.chip > rect')) {
+      if (!shown(chip)) continue;
+      const mark = chip.parentElement?.getAttribute('data-mark') ?? '';
+      const rect = chip.getBoundingClientRect();
+      const floor = Number(chip.getAttribute('height')) * READING_FLOOR;
+      if (rect.height < floor - TOLERANCE)
+        problems.push(`the ${mark} chip of ${id} is ${rect.height.toFixed(1)} px high`);
+      if (!inside(rect, boxRect)) problems.push(`the ${mark} chip runs past its box ${id}`);
+    }
+  }
+  return problems.map((problem) => `zoom ${String(zoom)}: ${problem}`);
+};

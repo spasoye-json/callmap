@@ -103,7 +103,7 @@ The zoom where the box names are 11 px on the screen: 92%. A box name is the sma
 _Avoid_: minimum zoom, readable zoom
 
 **Zoom band**:
-One range of zoom that decides what text the graph draws. Map, below 60%, draws the boxes and the chips only. Scan, from 60% to the reading floor, draws the names at 11 px on the screen. Read, from the reading floor up, draws all the text. The lines and the count badges keep their screen size in every band. A frame label keeps its screen size while it fits the header of its frame.
+One range of zoom that decides what text the graph draws. Map, below 60%, draws the boxes and the chips only. The chips of a box keep their screen size while they fit the box. Scan, from 60% to the reading floor, draws the names at 11 px on the screen. Read, from the reading floor up, draws all the text. The lines and the count badges keep their screen size in every band. A frame label keeps its screen size while it fits the header of its frame.
 _Avoid_: zoom level, detail level, level of detail
 
 **Selected path**:

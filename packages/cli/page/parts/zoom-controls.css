@@ -66,9 +66,20 @@
   display: none;
 }
 
+.drawing[data-band='map'] .box > .icon,
 .drawing[data-band='map'] .box > text,
 .drawing[data-band='map'] .count > text,
 .drawing[data-band='map'] .badge,
 .drawing[data-band='map'] .pill {
   display: none;
+}
+
+.drawing[data-band='map'] .box > rect {
+  vector-effect: non-scaling-stroke;
+}
+
+@media (prefers-color-scheme: dark) {
+  .drawing[data-band='map'] .box:not(.selected, .hovered, .removed, .open-end) > rect {
+    stroke: var(--edge);
+  }
 }

@@ -85,7 +85,7 @@ The zoom band of the zoom decides what text the graph draws:
 
 | Zoom             | Band | What the graph draws                                                           |
 | ---------------- | ---- | ------------------------------------------------------------------------------ |
-| Less than 60%    | Map  | The boxes and the chips. A tooltip names a box.                                |
+| Less than 60%    | Map  | The boxes and the chips, at their screen size while they fit. A tooltip names a box. |
 | 60% to under 92% | Scan | The names at 11 px on the screen, one count on a level box, badges on the path |
 | 92% or more      | Read | All the text                                                                   |
 
@@ -217,7 +217,7 @@ npm test       # the whole suite
 npm run test:browser
 ```
 
-`npm run test:browser` builds reader pages from the fixture repos and opens them in headless Chromium. It reads the place of each label on the screen. It fails when a label runs past its box or its frame. It also fails when a box name runs over its "N fn" count. It also fails when a frame label or a "one of" label runs over a box. It checks the Diff, Folder and Whole project views. It checks each view in the Read, Scan and Map bands, in light mode and in dark mode. Plain `npm test` does not run these checks.
+`npm run test:browser` builds reader pages from the fixture repos and opens them in headless Chromium. It reads the place of each label on the screen. It fails when a label runs past its box or its frame. It also fails when a box name runs over its "N fn" count. It also fails when a frame label or a "one of" label runs over a box. It checks the Diff, Folder and Whole project views. It checks each view in the Read, Scan and Map bands, in light mode and in dark mode. It also fails when an edge hint covers a box while the graph pans, when the zoom label has no room on either side or changes the width of the zoom controls, and when a chip of a level box in the Map band is smaller than at the reading floor or a box border is less than 1 px. In dark mode, it also fails when a box border in the Map band has a contrast below 3 to 1. Plain `npm test` does not run these checks.
 
 The command does not download a browser. It uses the first Chromium that it finds:
 

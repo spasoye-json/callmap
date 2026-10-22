@@ -1,4 +1,5 @@
 import { FRAME_HEADER_HEIGHT, SMALL_CHARACTER_WIDTH } from './box-sizes.ts';
+import type { Point, Rect } from './layout.ts';
 
 const KEEP_SIZE = 'data-keep-size';
 const IN_HEADER = 'data-in-header';
@@ -85,5 +86,50 @@ export const keepScreenSize = (root: Element, scale: number): void => {
       (Number(label.getAttribute(ROOM)) * scale) / sizeOf(label, scale) -
       Number(label.getAttribute('x'));
     label.textContent = nameThatFits(label.getAttribute(PATH) ?? '', room);
+  }
+};
+
+const MAP_PLACE = 'data-map-place';
+const MAP_FIT = 'data-map-fit';
+const MAP_INSET = 3;
+
+export interface ChipRow {
+  readonly width: number;
+  readonly height: number;
+}
+
+export const mapChipAttributes = (
+  box: Rect,
+  row: ChipRow,
+  offset: number,
+  [chipX, chipY]: Point,
+): Readonly<Record<string, string>> => ({
+  [MAP_PLACE]: [
+    box.x + box.width / 2,
+    box.y + box.height / 2,
+    offset - row.width / 2 - chipX,
+    -row.height / 2 - chipY,
+  ].join(','),
+  [MAP_FIT]: [box.width - 2 * MAP_INSET, box.height - 2 * MAP_INSET, row.width, row.height].join(
+    ',',
+  ),
+});
+
+const numbersOf = (element: Element, name: string): readonly number[] =>
+  (element.getAttribute(name) ?? '').split(',').map(Number);
+
+export const placeChipsForMap = (root: Element, scale: number, map: boolean): void => {
+  for (const chip of root.querySelectorAll(`[${MAP_PLACE}]`)) {
+    if (!map) {
+      chip.removeAttribute('transform');
+      continue;
+    }
+    const [x = 0, y = 0, shiftX = 0, shiftY = 0] = numbersOf(chip, MAP_PLACE);
+    const [roomWidth = 0, roomHeight = 0, width = 1, height = 1] = numbersOf(chip, MAP_FIT);
+    const size = Math.min(1, (scale * roomWidth) / width, (scale * roomHeight) / height);
+    chip.setAttribute(
+      'transform',
+      `translate(${String(x)},${String(y)}) scale(${String(size / scale)}) translate(${String(shiftX)},${String(shiftY)})`,
+    );
   }
 };

@@ -5,7 +5,7 @@ import type { SteeredCamera } from './camera.ts';
 import type { Laid, LaidBox, LaidFunction, LaidLevelBox, LaidLine } from './layout.ts';
 import { isLevelBox } from './scene.ts';
 import { arrowsOf, boxOf, endMarksOf, frameOf, lineOf } from './shapes.ts';
-import { fitNames, keepScreenSize } from './screen-size.ts';
+import { fitNames, keepScreenSize, placeChipsForMap } from './screen-size.ts';
 import { svgOf } from './svg.ts';
 
 export interface Drawing {
@@ -49,6 +49,7 @@ export const drawingOf = (container: HTMLElement): Drawing => {
     (scale) => {
       keepScreenSize(viewport, scale);
       fitNames(viewport, scale, bandOf(scale) === 'scan');
+      placeChipsForMap(viewport, scale, bandOf(scale) === 'map');
     },
   );
   const levelHandlers: ((level: Laid) => void)[] = [];

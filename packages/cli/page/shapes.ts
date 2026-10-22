@@ -14,13 +14,20 @@ import {
 import type { LaidBox, LaidFrame, LaidLine, Point, Rect } from './layout.ts';
 import { chipMarkOf, hasChanges, isLevelBox, markCountsOf } from './scene.ts';
 import type { FunctionBox, LevelBox, LevelCounts } from './scene.ts';
-import { keptInHeaderAt, keptSizeAt, nameAttributes, pathLabelAttributes } from './screen-size.ts';
+import {
+  keptInHeaderAt,
+  keptSizeAt,
+  mapChipAttributes,
+  nameAttributes,
+  pathLabelAttributes,
+} from './screen-size.ts';
 import { svgOf } from './svg.ts';
 
 const ARROWS = ['kept', 'added', 'removed', 'focus'] as const;
 const FOCUS_RING_GAP = 4;
 const BOX_PADDING = 10;
 const CHIP_GAP = 8;
+const MAP_CHIP_GAP = 4;
 
 const rectOf = ({ x, y, width, height }: Rect, rounding: number): SVGRectElement =>
   svgOf('rect', { x, y, width, height, rx: rounding });
@@ -102,16 +109,28 @@ export const frameOf = (frame: LaidFrame): SVGGElement =>
       : []),
   );
 
-const countsRowOf = (counts: LevelCounts, x: number, middle: number): SVGGElement => {
+const countsRowOf = (box: Rect, counts: LevelCounts, x: number, middle: number): SVGGElement => {
+  const marks = markCountsOf(counts);
+  const mapRow = {
+    width: marks.length * (COUNT_CHIP_SIZE + MAP_CHIP_GAP) - MAP_CHIP_GAP,
+    height: COUNT_CHIP_SIZE,
+  };
   let left = x;
   return svgOf(
     'g',
     { class: 'counts' },
-    ...markCountsOf(counts).map(({ mark, count }) => {
+    ...marks.map(({ mark, count }, index) => {
+      const top = middle - COUNT_CHIP_SIZE / 2;
       const entry = svgOf(
         'g',
         { class: `count ${mark}`, 'data-mark': mark, 'data-count': count },
-        svgChipOf(mark, left, middle - COUNT_CHIP_SIZE / 2, COUNT_CHIP_SIZE),
+        svgChipOf(
+          mark,
+          left,
+          top,
+          COUNT_CHIP_SIZE,
+          mapChipAttributes(box, mapRow, index * (COUNT_CHIP_SIZE + MAP_CHIP_GAP), [left, top]),
+        ),
         svgOf('text', { x: left + COUNT_CHIP_SIZE + COUNT_GAP, y: middle }, String(count)),
       );
       left += countWidthOf(count) + COUNTS_GAP;
@@ -171,7 +190,7 @@ const levelBoxOf = (box: LevelBox & Rect): SVGGElement => {
         ]),
     words.length === 0
       ? svgOf('text', { class: 'no-changes', x: left, y: countsMiddle }, NO_CHANGES)
-      : countsRowOf(box.counts, left, countsMiddle),
+      : countsRowOf(box, box.counts, left, countsMiddle),
     svgOf('title', {}, `${box.label}\n${words.length === 0 ? NO_CHANGES : words.join(', ')}`),
     focusRingOf(box, 8),
   );
@@ -182,6 +201,7 @@ const functionBoxOf = (box: FunctionBox & Rect): SVGGElement => {
   const marks = mark === undefined ? [] : [mark];
   const chip = chipMarkOf(box);
   const middle = box.y + box.height / 2;
+  const chipTop = middle - CHIP_SIZE / 2;
   const left = box.x + BOX_PADDING;
   const nameLeft = chip === undefined ? left : left + CHIP_SIZE + CHIP_GAP;
   return svgOf(
@@ -205,7 +225,17 @@ const functionBoxOf = (box: FunctionBox & Rect): SVGGElement => {
       },
       box.label,
     ),
-    ...(chip === undefined ? [] : [svgChipOf(chip, left, middle - CHIP_SIZE / 2)]),
+    ...(chip === undefined
+      ? []
+      : [
+          svgChipOf(
+            chip,
+            left,
+            chipTop,
+            CHIP_SIZE,
+            mapChipAttributes(box, { width: CHIP_SIZE, height: CHIP_SIZE }, 0, [left, chipTop]),
+          ),
+        ]),
     svgOf('title', {}, box.label),
     focusRingOf(box, 6),
   );
