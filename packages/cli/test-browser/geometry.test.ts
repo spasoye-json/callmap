@@ -12,7 +12,7 @@ import {
 } from '../test/fixture-repo.ts';
 import { reviewHtmlOf } from '../test/reader-page.ts';
 import { chromiumExecutable } from './chromium.ts';
-import { problemsOnPage, zoomLabelRoom } from './problems.ts';
+import { hintsOverBoxes, problemsOnPage, zoomLabelRoom } from './problems.ts';
 
 type Fixture = 'levels' | 'review' | 'long names';
 type Scheme = 'light' | 'dark';
@@ -100,6 +100,7 @@ const CASES = LOOKS.flatMap((look) =>
 );
 
 const WIDE = { width: 1600, height: 1000 };
+const NARROW = { width: 900, height: 560 };
 
 const openPage = async (
   look: Look,
@@ -137,6 +138,44 @@ describe('the labels of the reader page in Chromium', () => {
     await page.close();
     expect(problems).toEqual([]);
     expect([...bands]).toEqual(BANDS);
+  });
+});
+
+const PAN_STEP = 23;
+const PAN_STEPS = 12;
+
+const dragGraph = async (page: Page, dx: number, dy: number): Promise<void> => {
+  const graph = await page.locator('#graph').boundingBox();
+  if (graph === null) throw new Error('the graph has no box');
+  const x = graph.x + graph.width / 2;
+  const y = graph.y + graph.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y + dy, { steps: 2 });
+  await page.mouse.up();
+};
+
+describe('the edge hints in Chromium', () => {
+  it.each(SCHEMES)('cover no box while the graph pans, in %s mode', async (scheme) => {
+    const page = await openPage({ fixture: 'review', view: 'Diff' }, scheme, NARROW);
+    const problems: string[] = [];
+    let hintsSeen = 0;
+    for (const [dx, dy] of [
+      [0, PAN_STEP],
+      [PAN_STEP, 0],
+      [0, -PAN_STEP],
+      [-PAN_STEP, 0],
+    ] as const) {
+      for (let step = 0; step < PAN_STEPS; step++) {
+        const { hints, covers } = await page.evaluate(hintsOverBoxes);
+        hintsSeen += hints;
+        problems.push(...covers);
+        await dragGraph(page, dx, dy);
+      }
+    }
+    await page.close();
+    expect(hintsSeen).toBeGreaterThan(0);
+    expect(problems).toEqual([]);
   });
 });
 

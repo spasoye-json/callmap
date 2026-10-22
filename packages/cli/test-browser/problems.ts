@@ -62,6 +62,38 @@ export const problemsOnPage = (): string[] => {
   return problems.map((problem) => `zoom ${zoom}: ${problem}`);
 };
 
+export const hintsOverBoxes = (): { hints: number; covers: string[] } => {
+  const CLEARANCE = 2;
+  const shown = (element: Element): boolean =>
+    element.getBoundingClientRect().width > 0 &&
+    element.checkVisibility({ visibilityProperty: true });
+  const meets = (one: DOMRect, other: DOMRect): boolean =>
+    one.left < other.right + CLEARANCE &&
+    other.left < one.right + CLEARANCE &&
+    one.top < other.bottom + CLEARANCE &&
+    other.top < one.bottom + CLEARANCE;
+  const graph = document.querySelector('#graph')?.getBoundingClientRect();
+  const hints = [...document.querySelectorAll('#graph .edge-hint')].filter(shown);
+  const boxes = [...document.querySelectorAll('#graph .box')].flatMap((box) => {
+    const shape = box.querySelector(':scope > rect');
+    if (shape === null || !shown(shape) || graph === undefined) return [];
+    const rect = shape.getBoundingClientRect();
+    const onScreen =
+      rect.right > graph.left &&
+      rect.left < graph.right &&
+      rect.bottom > graph.top &&
+      rect.top < graph.bottom;
+    return onScreen ? [{ id: box.getAttribute('data-box') ?? '', rect }] : [];
+  });
+  const covers = hints.flatMap((hint) => {
+    const rect = hint.getBoundingClientRect();
+    return boxes
+      .filter((box) => meets(rect, box.rect))
+      .map((box) => `the edge hint "${hint.textContent}" covers the box ${box.id}`);
+  });
+  return { hints: hints.length, covers };
+};
+
 export const zoomLabelRoom = (): {
   text: string;
   controls: number;

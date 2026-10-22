@@ -127,7 +127,7 @@ The small drawing at the bottom right of the graph that shows every box of the l
 _Avoid_: minimap, map
 
 **Edge hint**:
-A button at one edge of the graph that counts the boxes past that edge, for example "2 more →". A click pans to the nearest of them. "Edge" here is the edge of the graph, not a call.
+A button at one edge of the graph that counts the boxes past that edge, for example "2 more →". A click pans to the nearest of them. The hint moves along its edge to the place nearest the middle where it covers no box. "Edge" here is the edge of the graph, not a call.
 _Avoid_: scroll hint, more indicator
 
 ### Review

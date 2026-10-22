@@ -93,7 +93,7 @@ The lines, the count badges and the "one of" labels keep their screen size at ev
 
 The zoom controls sit at the bottom right of the graph. They are "Zoom out", "Zoom in", "Fit" and the zoom in percent. The label says "Overview" below 92%. Fit shows the whole level, up to 150%. Drag the graph to pan it, and use the mouse wheel to zoom, from 5% to 150%.
 
-When a level is larger than the graph, an overview map shows at the bottom right. The map shows all the boxes of the level and a frame around the part on the screen. A click or a drag on the map moves the graph to that place. An edge hint on each side of the graph counts the boxes past that edge, such as "171 more". A click on a hint moves to the nearest of them. The hints do not count the boxes of a hidden mark.
+When a level is larger than the graph, an overview map shows at the bottom right. The map shows all the boxes of the level and a frame around the part on the screen. A click or a drag on the map moves the graph to that place. An edge hint on each side of the graph counts the boxes past that edge, such as "171 more". A click on a hint moves to the nearest of them. A hint moves along its edge to the place nearest the middle where it covers no box, the overview map or the zoom controls. If its edge has no such place, the hint stays at the middle. The hints do not count the boxes of a hidden mark.
 
 The keys work when the focus is in the graph. A click on the graph gives it the focus.
 
