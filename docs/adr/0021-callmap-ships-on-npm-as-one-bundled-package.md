@@ -25,6 +25,14 @@ Before this change, every package was private at version `0.0.0`, and every `bin
 
 The command reads 4 things from disk: the extractor, the layout worker, the page script and the page style. The code imports them from `src/assets.ts`, which also holds the `Assets` type. `src/clone-assets.ts` finds them in a clone: the extractor source through its package export, the worker as `layout-worker.ts`, and the page through `rolldown` at each run. `src/package-assets.ts` finds them next to itself in `dist/`, as `.js` and `.css` files. `src/assets.ts` takes its values from the first module, and the build swaps it for the second, so `dist/` never imports `rolldown` and the tests never need a build. Each module checks its values with `satisfies Assets`, so the typecheck fails if one has a gap.
 
+## Why the package carries third-party notices
+
+The package holds `dist/THIRD-PARTY-NOTICES.txt`, so this ADR changes 2 records. Issue 52 put "a third-party license report" out of scope, and Seam 1 of spec 70 lets the tarball hold no doc other than the README and the LICENSE.
+
+- Issue 52 added the license of the repo, when no copy of Callmap went to npm. A user who installs the package gets a copy of the bundled code of `elkjs` under `EPL-2.0 OR GPL-3.0-or-later` and of the CodeMirror packages under MIT.
+- Each of these licenses asks that a copy of the code keeps its copyright and license notice. The bundles drop the license files of the packages, so the notices file carries them.
+- So the tarball holds the README, the LICENSE, the notices and the other files of `dist/`, and `npm run test:pack` checks that list.
+
 ## Why `elkjs` is bundled
 
 The brief named `elkjs` as an example of an external dependency. The build bundles it.
