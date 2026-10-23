@@ -32,7 +32,8 @@ const distancePast = (edge: Edge, box: Rect, visible: Rect): number => {
 const EDGE_GAP = 12;
 const BOTTOM_GAP = 14;
 const CLEARANCE = 4;
-const FLOATING_CONTROLS = ':scope > .overview-map:not([hidden]), :scope > .zoom-controls';
+const ZOOM_CONTROLS = ':scope > .zoom-controls';
+const FLOATING_CONTROLS = `:scope > .overview-map:not([hidden]), ${ZOOM_CONTROLS}`;
 
 interface Span {
   readonly start: number;
@@ -80,6 +81,8 @@ const edgeHints: PagePart = ({
   level: levelOf,
   hiddenMarks,
   onHiddenMarksChange,
+  overviewMapCollapsed,
+  onOverviewMapToggle,
 }) => {
   const edges = Object.keys(EDGES) as Edge[];
   const hints = new Map(edges.map((edge) => [edge, hintOf(edge)]));
@@ -130,9 +133,9 @@ const edgeHints: PagePart = ({
     const bounds = graph.getBoundingClientRect();
     const obstacles = [
       ...shown.map((box) => screenRectOf(box, view)),
-      ...[...graph.querySelectorAll(FLOATING_CONTROLS)].map((element) =>
-        relativeRectOf(element, bounds),
-      ),
+      ...[
+        ...graph.querySelectorAll(overviewMapCollapsed() ? ZOOM_CONTROLS : FLOATING_CONTROLS),
+      ].map((element) => relativeRectOf(element, bounds)),
     ];
     const top = view.coveredTop + EDGE_GAP;
     for (const [edge, hint] of shownHints) {
@@ -178,6 +181,9 @@ const edgeHints: PagePart = ({
   show(camera.view());
   camera.onChange(show);
   onHiddenMarksChange(() => {
+    show(camera.view());
+  });
+  onOverviewMapToggle(() => {
     show(camera.view());
   });
 };

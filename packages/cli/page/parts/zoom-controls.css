@@ -51,8 +51,13 @@
   text-align: center;
 }
 
-.zoom-controls .zoom-fit {
+.zoom-controls .zoom-fit,
+.zoom-controls .map-toggle {
   border-left: 1px solid var(--rule);
+}
+
+#graph:not([data-overview-map]) .map-toggle {
+  display: none;
 }
 
 .drawing[data-band='scan'] .box > text,

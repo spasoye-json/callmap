@@ -1,9 +1,12 @@
+import { coverCornerOfGraph } from '../camera.ts';
 import type { CameraView } from '../camera.ts';
 import type { PagePart } from '../reader-page.ts';
 import { svgOf } from '../svg.ts';
+import { OVERVIEW_MAP_ID } from './overview-map.ts';
 
 const ZOOM_OUT_ICON = 'M3 8h10';
 const ZOOM_IN_ICON = 'M3 8h10M8 3v10';
+const MAP_ICON = 'M2 4.5l4-2 4 2 4-2v9l-4 2-4-2-4 2zM6 2.5v9M10 4.5v9';
 
 const labelOf = ({ scale, band }: CameraView): string =>
   band === 'read' ? `${String(Math.round(scale * 100))}%` : 'Overview';
@@ -27,20 +30,31 @@ const buttonOf = (name: string, act: () => void, icon?: string): HTMLButtonEleme
   return button;
 };
 
-const zoomControls: PagePart = ({ graph, camera }) => {
+const zoomControls: PagePart = ({
+  graph,
+  camera,
+  overviewMapCollapsed,
+  toggleOverviewMap,
+  onOverviewMapToggle,
+}) => {
   const controls = document.createElement('div');
   controls.className = 'zoom-controls';
+  coverCornerOfGraph(controls);
   controls.setAttribute('role', 'group');
   controls.setAttribute('aria-label', 'Zoom');
   const label = document.createElement('span');
   label.className = 'zoom-label';
   const fit = buttonOf('Fit', camera.fit);
   fit.className = 'zoom-fit';
+  const mapToggle = buttonOf('Overview map', toggleOverviewMap, MAP_ICON);
+  mapToggle.className = 'map-toggle';
+  mapToggle.setAttribute('aria-controls', OVERVIEW_MAP_ID);
   controls.append(
     buttonOf('Zoom out', camera.zoomOut, ZOOM_OUT_ICON),
     label,
     buttonOf('Zoom in', camera.zoomIn, ZOOM_IN_ICON),
     fit,
+    mapToggle,
   );
   graph.append(controls);
 
@@ -49,6 +63,12 @@ const zoomControls: PagePart = ({ graph, camera }) => {
   };
   show(camera.view());
   camera.onChange(show);
+
+  const showMapState = (collapsed: boolean): void => {
+    mapToggle.setAttribute('aria-expanded', String(!collapsed));
+  };
+  showMapState(overviewMapCollapsed());
+  onOverviewMapToggle(showMapState);
 };
 
 export default zoomControls;

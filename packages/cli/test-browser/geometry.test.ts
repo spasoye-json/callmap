@@ -1,11 +1,19 @@
 import type { Page } from 'playwright-core';
+import type { CornerLook } from './problems.ts';
 import { describe, expect, it } from 'vitest';
 import {
   featureBranchRepoWithUnchangedFiles,
   levelsRepo,
   longNamesRepo,
 } from '../test/fixture-repo.ts';
-import { hintsOverBoxes, mapBandProblems, problemsOnPage, zoomLabelRoom } from './problems.ts';
+import {
+  cornerLookOf,
+  cornerPlaceOf,
+  hintsOverBoxes,
+  mapBandProblems,
+  problemsOnPage,
+  zoomLabelRoom,
+} from './problems.ts';
 import { readerPagesOf, settled } from './reader-pages.ts';
 
 type Fixture = 'levels' | 'review' | 'long names';
@@ -182,6 +190,106 @@ describe('the level boxes in the Map band in Chromium', () => {
       });
       await page.close();
       expect(problems).toEqual([]);
+    },
+  );
+});
+
+describe('the corner of the graph in Chromium', () => {
+  const RECEIPT = 'src/cart.ts#receipt';
+  const SMALLEST = { width: 536, height: 460 };
+  const MAP_STATES = ['open', 'collapsed'] as const;
+
+  const openWithMap = async (
+    map: (typeof MAP_STATES)[number],
+    viewport: { readonly width: number; readonly height: number },
+  ): Promise<Page> => {
+    const page = await openPage({ fixture: 'review', view: 'Diff' }, 'light', viewport);
+    if (map === 'collapsed') await page.getByRole('button', { name: 'Overview map' }).click();
+    return page;
+  };
+
+  it.each(MAP_STATES)('keeps a clicked box clear of it, with the map %s', async (map) => {
+    const page = await openWithMap(map, NARROW);
+    const { corner } = await page.evaluate(cornerPlaceOf, RECEIPT);
+    const box = await page.locator(`#graph [data-box="${RECEIPT}"] > rect`).boundingBox();
+    if (box === null) throw new Error(`the graph shows no box ${RECEIPT}`);
+    await dragGraph(page, corner.x - (box.x + box.width / 2), corner.y - (box.y + box.height / 2));
+    const before = await page.evaluate(cornerPlaceOf, RECEIPT);
+    await page.mouse.click(before.free.x, before.free.y);
+    await settled(page);
+    const after = await page.evaluate(cornerPlaceOf, RECEIPT);
+    await page.close();
+    expect(before.under).toBe(true);
+    expect(after).toMatchObject({ under: false, inGraph: true });
+  });
+
+  it.each(MAP_STATES)(
+    'opens a level with the anchor box clear of it, in the smallest graph, with the map %s',
+    async (map) => {
+      const page = await openWithMap(map, SMALLEST);
+      const first = await page.evaluate(cornerPlaceOf, RECEIPT);
+      await page.getByRole('tab', { name: 'Whole project', exact: true }).click();
+      await settled(page);
+      await page.getByRole('tab', { name: 'Diff', exact: true }).click();
+      await settled(page);
+      const again = await page.evaluate(cornerPlaceOf, RECEIPT);
+      await page.close();
+      expect(first).toMatchObject({ under: false, inGraph: true });
+      expect(again).toMatchObject({ under: false, inGraph: true });
+    },
+  );
+
+  const SHORT = { width: 900, height: 348 };
+
+  interface Rect {
+    readonly left: number;
+    readonly top: number;
+    readonly right: number;
+    readonly bottom: number;
+  }
+
+  const meets = (one: Rect, other: Rect): boolean =>
+    one.left < other.right &&
+    other.left < one.right &&
+    one.top < other.bottom &&
+    other.top < one.bottom;
+
+  const toggleProblems = ({ controls, label, toggle, map }: CornerLook): string[] => [
+    ...(meets(toggle, label) ? ['the map toggle meets the zoom label'] : []),
+    ...(toggle.right > controls.right || toggle.left < controls.left
+      ? ['the map toggle runs past the zoom controls']
+      : []),
+    ...(map.width > 0 && meets(controls, map) ? ['the zoom controls meet the map'] : []),
+  ];
+
+  it.each(SCHEMES)(
+    'shows the map toggle in the zoom controls, and drops the controls to the bottom after a collapse, in %s mode',
+    async (scheme) => {
+      const page = await openPage({ fixture: 'review', view: 'Diff' }, scheme, SHORT);
+      const toggle = page.getByRole('button', { name: 'Overview map' });
+      const open = await page.evaluate(cornerLookOf);
+      await toggle.click();
+      const collapsed = await page.evaluate(cornerLookOf);
+      await toggle.click();
+      const reopened = await page.evaluate(cornerLookOf);
+      await page.close();
+      expect(toggleProblems(open)).toEqual([]);
+      expect(toggleProblems(collapsed)).toEqual([]);
+      expect(collapsed.map.width).toBe(0);
+      expect(collapsed.controls.bottom).toBe(collapsed.graphBottom - 16);
+      expect(open.controls.bottom).toBeLessThan(open.map.top);
+      expect(reopened.controls).toEqual(open.controls);
+      expect(open.hints.length).toBeGreaterThan(0);
+      for (const hint of open.hints) {
+        expect(meets(hint, open.map), 'a hint meets the open map').toBe(false);
+        expect(meets(hint, open.controls), 'a hint meets the zoom controls').toBe(false);
+      }
+      for (const hint of collapsed.hints)
+        expect(meets(hint, collapsed.controls), 'a hint meets the zoom controls').toBe(false);
+      expect(
+        collapsed.hints.some((hint) => meets(hint, open.map)),
+        'a hint takes the place of the collapsed map',
+      ).toBe(true);
     },
   );
 });

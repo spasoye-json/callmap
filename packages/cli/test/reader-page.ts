@@ -153,18 +153,40 @@ export interface GraphSize {
 }
 
 export const COVER_HEIGHT = 40;
+const ZOOM_CONTROLS_WIDTH = 212;
 
-const sizeOf = (element: HTMLElement, graph: GraphSize): GraphSize => {
-  if (element.id === 'graph') return graph;
+interface PlacedRect extends GraphSize {
+  readonly x: number;
+  readonly y: number;
+}
+
+const NO_RECT: PlacedRect = { x: 0, y: 0, width: 0, height: 0 };
+
+const cornerRectOf = (element: HTMLElement, graph: GraphSize): PlacedRect => {
+  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  if (style === undefined || style.display === 'none') return NO_RECT;
+  const width = parseFloat(style.width) || ZOOM_CONTROLS_WIDTH;
+  const height = parseFloat(style.height);
+  return {
+    x: graph.width - parseFloat(style.right) - width,
+    y: graph.height - parseFloat(style.bottom) - height,
+    width,
+    height,
+  };
+};
+
+const rectOfElement = (element: HTMLElement, graph: GraphSize): PlacedRect => {
+  if (element.id === 'graph') return { x: 0, y: 0, ...graph };
   if (element.matches('[data-covers="top"]:not([hidden])'))
-    return { width: graph.width, height: COVER_HEIGHT };
-  return { width: 0, height: 0 };
+    return { x: 0, y: 0, width: graph.width, height: COVER_HEIGHT };
+  if (element.matches('[data-covers="corner"]:not([hidden])')) return cornerRectOf(element, graph);
+  return NO_RECT;
 };
 
 const giveGraphSize = (window: JSDOM['window'], size: GraphSize): void => {
   window.HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement): DOMRect {
-    const { width, height } = sizeOf(this, size);
-    const box = { x: 0, y: 0, top: 0, left: 0, right: width, bottom: height, width, height };
+    const { x, y, width, height } = rectOfElement(this, size);
+    const box = { x, y, top: y, left: x, right: x + width, bottom: y + height, width, height };
     return { ...box, toJSON: () => box };
   };
 };
