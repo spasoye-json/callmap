@@ -7,11 +7,11 @@ Issue 62 asked 2 open questions:
 - Should the camera keep the anchor box and the selected box out of the corner?
 - Should the overview map collapse, or move, when a box is under it?
 
-The owner answered both in the triage of issue 62 on 2026-10-22. The camera moves the box, and the reader collapses the overview map with the map toggle. The triage put a move or a fade of the overview map out of scope.
+The triage of issue 62 on 2026-10-22 answered both. The camera moves the box, and the reader collapses the overview map with the map toggle. The triage put a move or a fade of the overview map out of scope.
 
 ## Decisions
 
-1. **The corner is one rect.** It is the bounding box of the zoom controls and the overview map, as they show at that moment. The camera reads it as a second cover of the graph, next to the level bar at the top (`coverCornerOfGraph` in `packages/cli/page/camera.ts`). `CameraView` carries it, so the edge hints do not query the zoom controls and the overview map themselves. The edge hints read it in the handlers of an apply, before the overview map part shows or hides the overview map for that apply. The old query of the edge hints had the same timing.
+1. **The corner is one rect.** It is the bounding box of the zoom controls and the overview map, as they show at that moment. The camera reads it as a second cover of the graph, next to the level bar at the top (`coverCornerOfGraph` in `packages/cli/page/camera.ts`). `CameraView` carries it, so the edge hints do not query the zoom controls and the overview map themselves. The edge hints read it in the handlers of an apply. These handlers run before the overview map part shows or hides the overview map. The old query of the edge hints had the same timing.
 2. **The camera moves the box, not the controls.** `open`, `focus` and `keepInView` move the box out of the corner after they place it. The camera takes the shorter move, left or up. It takes a move only if the box stays in view. If neither move keeps the box in view, the camera leaves the box where it is.
 3. **The camera measures the corner after an apply.** An apply shows or hides the overview map for the new zoom and the new graph size. So the camera applies first, then measures the corner, then applies again if it moved the box. Before this order, a panel change after a resize measured an old overview map.
 4. **The reader collapses the overview map by hand.** The map toggle shows only when the overview map can show. The overview map opens by default, and a reload opens it again. The page does not store the choice. The triage records no reason for the choice of a toggle over a move or a fade.
