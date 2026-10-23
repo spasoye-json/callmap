@@ -153,7 +153,7 @@ export interface GraphSize {
 }
 
 export const COVER_HEIGHT = 40;
-const ZOOM_CONTROLS_WIDTH = 212;
+const UNSIZED_CORNER_COVER_WIDTH = 212;
 
 interface PlacedRect extends GraphSize {
   readonly x: number;
@@ -165,7 +165,7 @@ const NO_RECT: PlacedRect = { x: 0, y: 0, width: 0, height: 0 };
 const cornerRectOf = (element: HTMLElement, graph: GraphSize): PlacedRect => {
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
   if (style === undefined || style.display === 'none') return NO_RECT;
-  const width = parseFloat(style.width) || ZOOM_CONTROLS_WIDTH;
+  const width = parseFloat(style.width) || UNSIZED_CORNER_COVER_WIDTH;
   const height = parseFloat(style.height);
   return {
     x: graph.width - parseFloat(style.right) - width,
@@ -189,6 +189,10 @@ const giveGraphSize = (window: JSDOM['window'], size: GraphSize): void => {
     const box = { x, y, top: y, left: x, right: x + width, bottom: y + height, width, height };
     return { ...box, toJSON: () => box };
   };
+};
+
+export const resizeGraph = ({ window }: LoadedPage, size: GraphSize): void => {
+  giveGraphSize(window, size);
 };
 
 const withBrowserApis = (

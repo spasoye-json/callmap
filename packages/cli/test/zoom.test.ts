@@ -9,10 +9,13 @@ import {
   hoverBox,
   loadReaderPage,
   openTab,
+  resizeGraph,
   reviewHtmlOf,
   settled,
 } from './reader-page.ts';
 import type { GraphSize, LoadedPage, Point } from './reader-page.ts';
+import { boundsOf, meets } from './screen-rect.ts';
+import type { ScreenRect } from './screen-rect.ts';
 
 const CART = 'src/cart.ts';
 const RECEIPT = `${CART}#receipt`;
@@ -413,26 +416,12 @@ describe('the level bar over the graph', () => {
 });
 
 describe('the zoom controls and the overview map over the graph', () => {
-  interface ScreenRect {
-    readonly left: number;
-    readonly top: number;
-    readonly right: number;
-    readonly bottom: number;
-  }
-
-  const cornerOf = ({ window }: LoadedPage): ScreenRect => {
-    const shown = [
-      ...window.document.querySelectorAll('#graph > .zoom-controls, #graph > .overview-map'),
-    ]
-      .map((element) => element.getBoundingClientRect())
-      .filter(({ width }) => width > 0);
-    return {
-      left: Math.min(...shown.map(({ left }) => left)),
-      top: Math.min(...shown.map(({ top }) => top)),
-      right: Math.max(...shown.map(({ right }) => right)),
-      bottom: Math.max(...shown.map(({ bottom }) => bottom)),
-    };
-  };
+  const cornerOf = ({ window }: LoadedPage): ScreenRect =>
+    boundsOf(
+      [...window.document.querySelectorAll('#graph > .zoom-controls, #graph > .overview-map')]
+        .map((element) => element.getBoundingClientRect())
+        .filter(({ width }) => width > 0),
+    );
 
   const screenRectOf = (page: LoadedPage, id: string): ScreenRect => {
     const box = boxesOf(page).find((candidate) => candidate.id === id);
@@ -445,12 +434,6 @@ describe('the zoom controls and the overview map over the graph', () => {
       bottom: y + scale * (box.y + box.height),
     };
   };
-
-  const meets = (one: ScreenRect, other: ScreenRect): boolean =>
-    one.left < other.right &&
-    other.left < one.right &&
-    one.top < other.bottom &&
-    other.top < one.bottom;
 
   const inGraph = (rect: ScreenRect, size: GraphSize): boolean =>
     rect.left >= 0 && rect.top >= 0 && rect.right <= size.width && rect.bottom <= size.height;
@@ -476,38 +459,50 @@ describe('the zoom controls and the overview map over the graph', () => {
     (top + bottom) / 2,
   ];
 
-  const toggleMap = (page: LoadedPage): void => {
+  const toggleOverviewMap = (page: LoadedPage): void => {
     press(page, 'Overview map');
+  };
+
+  const overviewMapPlaceOf = ({ window }: LoadedPage): DOMRect => {
+    const place = window.document.querySelector('#graph > .overview-map')?.getBoundingClientRect();
+    if (place === undefined) throw new Error('the page shows no overview map');
+    return place;
+  };
+
+  const moveBoxToRightEdge = (
+    page: LoadedPage,
+    id: string,
+    graphWidth: number,
+    top: number,
+  ): void => {
+    const box = screenRectOf(page, id);
+    moveBoxTo(page, id, [
+      graphWidth - 30 - (box.right - box.left) / 2,
+      top + 4 + (box.bottom - box.top) / 2,
+    ]);
   };
 
   it('pans a clicked box out from under the overview map', async () => {
     const page = await loadReaderPage(html, undefined, undefined, DENSE);
-    const map = page.window.document.querySelector('#graph > .overview-map');
-    if (map === null) throw new Error('the page shows no overview map');
-    moveBoxTo(page, RECEIPT, middleOf(map.getBoundingClientRect()));
+    moveBoxTo(page, RECEIPT, middleOf(overviewMapPlaceOf(page)));
     expect(meets(screenRectOf(page, RECEIPT), cornerOf(page))).toBe(true);
     await clickBox(page, RECEIPT);
     expect(meets(screenRectOf(page, RECEIPT), cornerOf(page))).toBe(false);
     expect(inGraph(screenRectOf(page, RECEIPT), DENSE)).toBe(true);
   });
 
-  it('leaves a clicked box where the collapsed map was, and pans it out when the map opens', async () => {
+  it('leaves a clicked box where the collapsed overview map was, and pans it out when the overview map opens', async () => {
     const page = await loadReaderPage(html, undefined, undefined, DENSE);
     await clickBox(page, RECEIPT);
-    const mapPlace = page.window.document
-      .querySelector('#graph > .overview-map')
-      ?.getBoundingClientRect();
-    if (mapPlace === undefined) throw new Error('the page shows no overview map');
-    toggleMap(page);
-    const { left, top, right, bottom } = screenRectOf(page, RECEIPT);
-    const [width, height] = [right - left, bottom - top];
-    moveBoxTo(page, RECEIPT, [DENSE.width - 30 - width / 2, mapPlace.top + 4 + height / 2]);
+    const mapPlace = overviewMapPlaceOf(page);
+    toggleOverviewMap(page);
+    moveBoxToRightEdge(page, RECEIPT, DENSE.width, mapPlace.top);
     expect(meets(screenRectOf(page, RECEIPT), mapPlace)).toBe(true);
     expect(meets(screenRectOf(page, RECEIPT), cornerOf(page))).toBe(false);
     const before = cameraOf(page);
     await clickBox(page, RECEIPT);
     expect(cameraOf(page)).toEqual(before);
-    toggleMap(page);
+    toggleOverviewMap(page);
     expect(meets(screenRectOf(page, RECEIPT), cornerOf(page))).toBe(false);
     expect(inGraph(screenRectOf(page, RECEIPT), DENSE)).toBe(true);
   });
@@ -540,13 +535,27 @@ describe('the zoom controls and the overview map over the graph', () => {
     expect(inGraph(screenRectOf(page, MAIL), SMALL)).toBe(true);
   });
 
-  it('pans a clicked box out from under the zoom controls while the map is collapsed', async () => {
+  it('pans a clicked box out from under the zoom controls while the overview map is collapsed', async () => {
     const page = await loadReaderPage(html, undefined, undefined, DENSE);
-    toggleMap(page);
+    toggleOverviewMap(page);
     moveBoxTo(page, RECEIPT, middleOf(cornerOf(page)));
     expect(meets(screenRectOf(page, RECEIPT), cornerOf(page))).toBe(true);
     await clickBox(page, RECEIPT);
     expect(meets(screenRectOf(page, RECEIPT), cornerOf(page))).toBe(false);
     expect(inGraph(screenRectOf(page, RECEIPT), DENSE)).toBe(true);
+  });
+
+  it('measures the corner for the new graph size after a panel change', async () => {
+    const page = await loadReaderPage(html, undefined, undefined, DENSE);
+    await clickBox(page, RECEIPT);
+    const overviewMapTopInRoomy = overviewMapPlaceOf(page).top + ROOMY.height - DENSE.height;
+    moveBoxToRightEdge(page, RECEIPT, ROOMY.width, overviewMapTopInRoomy);
+    resizeGraph(page, ROOMY);
+    const before = cameraOf(page);
+    fireEvent.click(
+      within(page.window.document.body).getByRole('button', { name: 'Collapse the left panel' }),
+    );
+    expect(page.window.document.querySelector('#graph > .overview-map:not([hidden])')).toBeNull();
+    expect(cameraOf(page)).toEqual(before);
   });
 });

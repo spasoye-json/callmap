@@ -39,6 +39,7 @@ export interface CameraView {
   readonly scale: number;
   readonly band: ZoomBand;
   readonly coveredTop: number;
+  readonly corner: Rect | undefined;
   readonly visible: Rect;
 }
 
@@ -89,10 +90,15 @@ interface GraphRoom {
   readonly width: number;
   readonly height: number;
   readonly top: number;
-  readonly corner: Rect | undefined;
 }
 
-const cornerOf = (container: HTMLElement, graph: DOMRect): Rect | undefined => {
+const lazily = <T>(measure: () => T): (() => T) => {
+  let measured: { readonly value: T } | undefined;
+  return () => (measured ??= { value: measure() }).value;
+};
+
+const cornerOf = (container: HTMLElement): Rect | undefined => {
+  const graph = container.getBoundingClientRect();
   const shown = [...container.querySelectorAll(`:scope > [${COVERS}="corner"]`)]
     .map((cover) => cover.getBoundingClientRect())
     .filter(({ width, height }) => width > 0 && height > 0);
@@ -121,31 +127,29 @@ export const cameraOf = (
   const handlers: ((view: CameraView) => void)[] = [];
 
   const sizeOf = (): GraphRoom => {
-    const graph = container.getBoundingClientRect();
+    const { width, height } = container.getBoundingClientRect();
     const top = [...container.querySelectorAll(`:scope > [${COVERS}="top"]`)].reduce(
       (covered, cover) => Math.max(covered, cover.getBoundingClientRect().height),
       0,
     );
-    return {
-      width: graph.width,
-      height: Math.max(0, graph.height - top),
-      top,
-      corner: cornerOf(container, graph),
-    };
+    return { width, height: Math.max(0, height - top), top };
   };
 
   const view = (): CameraView => {
     const at = { scale, x, y };
-    let room: GraphRoom | undefined;
-    const measured = (): GraphRoom => (room ??= sizeOf());
+    const room = lazily(sizeOf);
+    const corner = lazily(() => cornerOf(container));
     return {
       scale,
       band: bandOf(scale),
       get coveredTop() {
-        return measured().top;
+        return room().top;
+      },
+      get corner() {
+        return corner();
       },
       get visible() {
-        const { width, height, top } = measured();
+        const { width, height, top } = room();
         return {
           x: -at.x / at.scale,
           y: (top - at.y) / at.scale,
@@ -202,7 +206,8 @@ export const cameraOf = (
   const fitsOnAxis = (room: number, size: number): boolean => size * scale <= room - FIT_MARGIN;
 
   const moveOutOfCorner = (box: LaidBox): boolean => {
-    const { top, corner } = sizeOf();
+    const { top } = sizeOf();
+    const corner = cornerOf(container);
     if (corner === undefined) return false;
     const left = x + box.x * scale;
     const upper = y + box.y * scale;
@@ -227,6 +232,12 @@ export const cameraOf = (
     return true;
   };
 
+  const applyClearOfCorner = (box: LaidBox): void => {
+    // The first apply shows or hides the overview map for the new view, so the corner is current.
+    apply();
+    if (moveOutOfCorner(box)) apply();
+  };
+
   const open = (selected?: string): void => {
     if (!hasRoom()) return;
     scale = openZoomOf(fitZoom());
@@ -244,8 +255,7 @@ export const cameraOf = (
       const lowest = height - level.height * scale - VIEW_MARGIN;
       y = top + Math.max(lowest, Math.min(VIEW_MARGIN, height / 2 - anchorY * scale));
     }
-    apply();
-    if (moveOutOfCorner(anchor)) apply();
+    applyClearOfCorner(anchor);
   };
 
   const zoomAround = (next: number, [atX, atY]: Point): void => {
@@ -276,8 +286,7 @@ export const cameraOf = (
   const focus = (id: string): void => {
     const box = boxOfId(id);
     if (box === undefined || !centreAt(centreOf(box))) return;
-    moveOutOfCorner(box);
-    apply();
+    applyClearOfCorner(box);
   };
 
   const keepInView = (id: string): void => {
@@ -293,8 +302,7 @@ export const cameraOf = (
     const dy = shift(y - top + box.y * scale, box.height * scale, height);
     x += dx;
     y += dy;
-    if (!moveOutOfCorner(box) && dx === 0 && dy === 0) return;
-    apply();
+    applyClearOfCorner(box);
   };
 
   const showNewLevel = (steady?: SteadyBox): void => {

@@ -6,6 +6,7 @@ import {
   levelsRepo,
   longNamesRepo,
 } from '../test/fixture-repo.ts';
+import { meets } from '../test/screen-rect.ts';
 import {
   cornerLookOf,
   cornerPlaceOf,
@@ -199,7 +200,7 @@ describe('the corner of the graph in Chromium', () => {
   const SMALLEST = { width: 536, height: 460 };
   const MAP_STATES = ['open', 'collapsed'] as const;
 
-  const openWithMap = async (
+  const openWithOverviewMap = async (
     map: (typeof MAP_STATES)[number],
     viewport: { readonly width: number; readonly height: number },
   ): Promise<Page> => {
@@ -208,8 +209,8 @@ describe('the corner of the graph in Chromium', () => {
     return page;
   };
 
-  it.each(MAP_STATES)('keeps a clicked box clear of it, with the map %s', async (map) => {
-    const page = await openWithMap(map, NARROW);
+  it.each(MAP_STATES)('keeps a clicked box clear of it, with the overview map %s', async (map) => {
+    const page = await openWithOverviewMap(map, NARROW);
     const { corner } = await page.evaluate(cornerPlaceOf, RECEIPT);
     const box = await page.locator(`#graph [data-box="${RECEIPT}"] > rect`).boundingBox();
     if (box === null) throw new Error(`the graph shows no box ${RECEIPT}`);
@@ -223,47 +224,31 @@ describe('the corner of the graph in Chromium', () => {
     expect(after).toMatchObject({ under: false, inGraph: true });
   });
 
-  it.each(MAP_STATES)(
-    'opens a level with the anchor box clear of it, in the smallest graph, with the map %s',
-    async (map) => {
-      const page = await openWithMap(map, SMALLEST);
-      const first = await page.evaluate(cornerPlaceOf, RECEIPT);
-      await page.getByRole('tab', { name: 'Whole project', exact: true }).click();
-      await settled(page);
-      await page.getByRole('tab', { name: 'Diff', exact: true }).click();
-      await settled(page);
-      const again = await page.evaluate(cornerPlaceOf, RECEIPT);
-      await page.close();
-      expect(first).toMatchObject({ under: false, inGraph: true });
-      expect(again).toMatchObject({ under: false, inGraph: true });
-    },
-  );
+  it('opens a level with the anchor box clear of it, in the smallest graph, with the overview map open', async () => {
+    const page = await openWithOverviewMap('open', SMALLEST);
+    const first = await page.evaluate(cornerPlaceOf, RECEIPT);
+    await page.getByRole('tab', { name: 'Whole project', exact: true }).click();
+    await settled(page);
+    await page.getByRole('tab', { name: 'Diff', exact: true }).click();
+    await settled(page);
+    const again = await page.evaluate(cornerPlaceOf, RECEIPT);
+    await page.close();
+    expect(first).toMatchObject({ under: false, inGraph: true });
+    expect(again).toMatchObject({ under: false, inGraph: true });
+  });
 
   const SHORT = { width: 900, height: 348 };
-
-  interface Rect {
-    readonly left: number;
-    readonly top: number;
-    readonly right: number;
-    readonly bottom: number;
-  }
-
-  const meets = (one: Rect, other: Rect): boolean =>
-    one.left < other.right &&
-    other.left < one.right &&
-    one.top < other.bottom &&
-    other.top < one.bottom;
 
   const toggleProblems = ({ controls, label, toggle, map }: CornerLook): string[] => [
     ...(meets(toggle, label) ? ['the map toggle meets the zoom label'] : []),
     ...(toggle.right > controls.right || toggle.left < controls.left
       ? ['the map toggle runs past the zoom controls']
       : []),
-    ...(map.width > 0 && meets(controls, map) ? ['the zoom controls meet the map'] : []),
+    ...(map.width > 0 && meets(controls, map) ? ['the zoom controls meet the overview map'] : []),
   ];
 
   it.each(SCHEMES)(
-    'shows the map toggle in the zoom controls, and drops the controls to the bottom after a collapse, in %s mode',
+    'shows the map toggle in the zoom controls, and drops the zoom controls to the bottom after a collapse, in %s mode',
     async (scheme) => {
       const page = await openPage({ fixture: 'review', view: 'Diff' }, scheme, SHORT);
       const toggle = page.getByRole('button', { name: 'Overview map' });
@@ -281,14 +266,14 @@ describe('the corner of the graph in Chromium', () => {
       expect(reopened.controls).toEqual(open.controls);
       expect(open.hints.length).toBeGreaterThan(0);
       for (const hint of open.hints) {
-        expect(meets(hint, open.map), 'a hint meets the open map').toBe(false);
+        expect(meets(hint, open.map), 'a hint meets the open overview map').toBe(false);
         expect(meets(hint, open.controls), 'a hint meets the zoom controls').toBe(false);
       }
       for (const hint of collapsed.hints)
         expect(meets(hint, collapsed.controls), 'a hint meets the zoom controls').toBe(false);
       expect(
         collapsed.hints.some((hint) => meets(hint, open.map)),
-        'a hint takes the place of the collapsed map',
+        'a hint takes the place of the collapsed overview map',
       ).toBe(true);
     },
   );

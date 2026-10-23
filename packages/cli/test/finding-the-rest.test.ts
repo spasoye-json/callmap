@@ -160,7 +160,7 @@ const shownToggleOf = (page: LoadedPage): HTMLElement => {
 };
 
 describe('the map toggle', () => {
-  it('shows as the last zoom button only when the overview map can show, and controls the open map', async () => {
+  it('shows as the last zoom button only when the overview map can show, and controls the open overview map', async () => {
     const page = await loadReaderPage(html, undefined, undefined, DENSE);
     const toggle = shownToggleOf(page);
     const buttons = within(bodyOf(page).getByRole('group', { name: 'Zoom' })).getAllByRole(
@@ -172,7 +172,7 @@ describe('the map toggle', () => {
     expect(mapToggleOf(await loadReaderPage(html, undefined, undefined, ROOMY))).toBeNull();
   });
 
-  it('collapses the map and drops the zoom controls to the bottom, and opens the map again after a second click', async () => {
+  it('collapses the overview map and drops the zoom controls to the bottom, and opens the overview map again after a second click', async () => {
     const page = await loadReaderPage(html, undefined, undefined, DENSE);
     const zoomBottom = (): string =>
       page.window.getComputedStyle(bodyOf(page).getByRole('group', { name: 'Zoom' })).bottom;
@@ -186,7 +186,7 @@ describe('the map toggle', () => {
     expect(zoomBottom()).toBe('164px');
   });
 
-  it('opens the map again after a reload', async () => {
+  it('opens the overview map again after a reload', async () => {
     const page = await loadReaderPage(html, {}, undefined, DENSE);
     fireEvent.click(shownToggleOf(page));
     const next = await loadReaderPage(html, storedItemsOf(page), undefined, DENSE);
