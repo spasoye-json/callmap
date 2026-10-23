@@ -61,8 +61,15 @@ describe('the model order of the ELK layout', () => {
     });
   });
 
+  it('is NONE on the root of the Diff view, and its frames take the ELK default NONE', async () => {
+    const graph = await graphSentToElkOf(diffView.sceneOf(review, new Set(), undefined));
+    const [root, ...frames] = Object.entries(modelOrdersOf(graph));
+    expect(root).toEqual(['root', 'NONE']);
+    expect(frames.length).toBeGreaterThan(0);
+    expect(frames.filter(([, order]) => order !== undefined)).toEqual([]);
+  });
+
   it.each<{ readonly view: View; readonly choice?: Choice }>([
-    { view: diffView },
     { view: folderView, choice: { kind: 'folder', folder: 'src' } },
     { view: routeView },
   ])(

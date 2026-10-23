@@ -9,7 +9,19 @@ export interface EmptyState {
   readonly icon: readonly SVGElement[];
 }
 
-export const emptyStateOf = ({ name, title, line, action, act, icon }: EmptyState): HTMLElement => {
+export interface EmptyStateElements {
+  readonly state: HTMLElement;
+  readonly text: HTMLParagraphElement;
+}
+
+export const emptyStateOf = ({
+  name,
+  title,
+  line,
+  action,
+  act,
+  icon,
+}: EmptyState): EmptyStateElements => {
   const titleId = `${name}-title`;
   const state = document.createElement('section');
   state.className = `empty-state ${name}`;
@@ -40,5 +52,10 @@ export const emptyStateOf = ({ name, title, line, action, act, icon }: EmptyStat
     text,
     button,
   );
-  return state;
+  return { state, text };
+};
+
+export const coverGraph = (graph: HTMLElement, message: HTMLElement, covered: boolean): void => {
+  message.hidden = !covered;
+  graph.hidden = graph.parentElement?.querySelector(':scope > .empty-state:not([hidden])') !== null;
 };

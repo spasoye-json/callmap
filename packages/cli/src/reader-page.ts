@@ -5,6 +5,9 @@ import type { ReaderPageData, Sources } from '../page/data.ts';
 import type { Placement } from '../page/layout.ts';
 import { READER_VIEWS } from '../page/reader-views.ts';
 import type { Scene } from '../page/scene.ts';
+import { openingOf, overLimitOf } from '../page/view.ts';
+import type { OverLimit, View } from '../page/view.ts';
+import { callsWordsOf, functionsAndCallsOf } from '../page/words.ts';
 import { assets } from './assets.ts';
 
 const inlineScript = (code: string): string => code.replaceAll('</script', '<\\/script');
@@ -45,17 +48,45 @@ const placementInWorkerOf = (scene: Scene): Promise<Placement> =>
     worker.once('error', reject);
   });
 
-const placementsOf = async (data: ReaderPageData): Promise<Readonly<Record<string, Placement>>> =>
+interface FirstScene {
+  readonly view: View;
+  readonly scene: Scene;
+  readonly over: OverLimit | undefined;
+}
+
+const firstScenesOf = (data: ReaderPageData): readonly FirstScene[] =>
+  READER_VIEWS.filter(({ laidOutByCommand }) => laidOutByCommand === true).map((view) => {
+    const scene = view.sceneOf(data, new Set(), view.firstChoice?.(data));
+    return { view, scene, over: overLimitOf(view, data, scene) };
+  });
+
+const placementsOf = async (
+  firstScenes: readonly FirstScene[],
+): Promise<Readonly<Record<string, Placement>>> =>
   Object.fromEntries(
     await Promise.all(
-      READER_VIEWS.filter(({ laidOutByCommand }) => laidOutByCommand === true).map(
-        async (view): Promise<[string, Placement]> => [
+      firstScenes
+        .filter(({ over }) => over === undefined)
+        .map(async ({ view, scene }): Promise<[string, Placement]> => [
           view.name,
-          await placementInWorkerOf(view.sceneOf(data, new Set(), view.firstChoice?.(data))),
-        ],
-      ),
+          await placementInWorkerOf(scene),
+        ]),
     ),
   );
+
+const notesOf = (firstScenes: readonly FirstScene[]): readonly string[] => {
+  const overNames = new Set(
+    firstScenes.flatMap(({ view, over }) => (over === undefined ? [] : [view.name])),
+  );
+  const opening = openingOf(READER_VIEWS, ({ name }) => overNames.has(name)).name;
+  return firstScenes.flatMap(({ view, over }) =>
+    over === undefined
+      ? []
+      : [
+          `The ${view.name} view holds ${functionsAndCallsOf(over)}, over the ${view.name} limit of ${callsWordsOf(over.limit)}. The page opens on the ${opening} view.`,
+        ],
+  );
+};
 
 type PageReview = Omit<ReaderPageData, 'packedSources' | 'placements'> & {
   readonly sources: Sources;
@@ -64,12 +95,21 @@ type PageReview = Omit<ReaderPageData, 'packedSources' | 'placements'> & {
 const packedSourcesOf = (sources: Sources): string =>
   gzipSync(JSON.stringify(sources), { level: 9 }).toString('base64');
 
-export const readerPageOf = async ({ sources, ...review }: PageReview): Promise<string> => {
+export interface BuiltReaderPage {
+  readonly html: string;
+  readonly notes: readonly string[];
+}
+
+export const readerPageOf = async ({
+  sources,
+  ...review
+}: PageReview): Promise<BuiltReaderPage> => {
   const data: ReaderPageData = {
     ...review,
     packedSources: packedSourcesOf(sources),
     placements: {},
   };
-  const [script, placements] = await Promise.all([assets.pageScript(), placementsOf(data)]);
-  return pageOf({ ...data, placements }, script);
+  const firstScenes = firstScenesOf(data);
+  const [script, placements] = await Promise.all([assets.pageScript(), placementsOf(firstScenes)]);
+  return { html: pageOf({ ...data, placements }, script), notes: notesOf(firstScenes) };
 };

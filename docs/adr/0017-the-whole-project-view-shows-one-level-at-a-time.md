@@ -1,5 +1,7 @@
 # The Whole project view shows one level at a time
 
+> Superseded in part by ADR-0023. The Diff view also lays out with the model order `NONE`.
+
 The Whole project view shows one level of the folder tree at a time, not the whole project in one layout. A level is one folder of the scope or one file. The level of a folder shows its child folders and its files as boxes, and the level of a file shows its functions. A bundled line between 2 boxes stands for the calls from one box to the other, with their count. A call to code outside the open level ends at an outside box. The view opens at the top level, and a click on a box opens its level.
 
 The CLI lays out only the top level. The page lays out each other level the first time that the reader opens it, and keeps that layout. Each layout in the page records a `performance.measure`.
@@ -64,4 +66,4 @@ The check of `docs/research/2026-10-22-model-order-on-echarts/` ran on 2026-10-2
 - A click on a level that the page did not lay out yet waits for ELK. The page keeps each layout, so a second visit to a level does not wait.
 - After issue 44, no level of ECharts lays out in 200 ms or more. But `src/chart` still waits 224 ms from the click on its box to its drawing. The scene and the drawing add about 60 ms to its layout of 163 ms. The check is `docs/research/2026-10-22-model-order-on-echarts/`. The other 545 levels wait less than 200 ms.
 - A repo with denser levels than ECharts can still take more than 200 ms. The layout time follows the lines of a level, and the model order `NONE` makes each line cheaper, not fewer.
-- The levels do not change the Diff view. On ECharts, a review of 50 commits gives a Diff view of 2,584 boxes and 6,356 lines, and the command did not end in 10 minutes.
+- The levels do not change the Diff view. On ECharts, a review of 50 commits gives a Diff view of 2,584 boxes and 6,356 lines, and the command did not end in 10 minutes. ADR-0023 adds the Diff limit for this case.

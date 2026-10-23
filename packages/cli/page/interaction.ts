@@ -8,8 +8,8 @@ import type { ReaderPage } from './reader-page.ts';
 import { isHiddenBy } from './scene.ts';
 import type { FunctionBox, Scene } from './scene.ts';
 import { tabBarOf } from './tabs.ts';
-import { choiceKeyOf } from './view.ts';
-import type { Choice, View } from './view.ts';
+import { choiceKeyOf, openingOf, overLimitOf } from './view.ts';
+import type { Choice, OverLimit, View } from './view.ts';
 
 export interface Interaction {
   readonly page: Omit<ReaderPage, 'sources'>;
@@ -68,6 +68,7 @@ export const interactionOf = (
   const boxHandlers: ((box: FunctionBox) => void)[] = [];
   const viewHandlers: ((view: View) => void)[] = [];
   const choiceHandlers: ((view: View, choice: Choice) => void)[] = [];
+  const overLimitHandlers: ((over: OverLimit | undefined) => void)[] = [];
   const hiddenMarkHandlers: ((hidden: ReadonlySet<FunctionMark>) => void)[] = [];
   const hiddenMarks = new Set<FunctionMark>();
   const overviewMapHandlers: ((collapsed: boolean) => void)[] = [];
@@ -80,7 +81,6 @@ export const interactionOf = (
     laid: undefined,
     kept: new Map(),
   })) as [ViewState, ...ViewState[]];
-  let current = states[0];
   let selected: FunctionId | undefined;
   let hovered: string | undefined;
   let drawn: ViewState | undefined;
@@ -98,8 +98,23 @@ export const interactionOf = (
     return done;
   };
 
+  const sceneOf = (target: ViewState): Scene => {
+    target.scene ??= target.view.sceneOf(data, target.opened, target.choice);
+    return target.scene;
+  };
+
+  const overLimitAt = (target: ViewState): OverLimit | undefined =>
+    overLimitOf(target.view, data, sceneOf(target));
+
+  let current = openingOf(states, (state) => overLimitAt(state) !== undefined);
+
+  const tellOverLimit = (over: OverLimit | undefined): void => {
+    for (const handler of overLimitHandlers) handler(over);
+  };
+
   const paint = (target: ViewState, laid: Laid, anchor?: FunctionId): void => {
     if (target !== current) return;
+    tellOverLimit(undefined);
     drawing.draw(laid, anchor);
     hovered = undefined;
     drawing.highlight(selected, hovered);
@@ -107,9 +122,10 @@ export const interactionOf = (
     drawn = target;
   };
 
-  const sceneOf = (target: ViewState): Scene => {
-    target.scene ??= target.view.sceneOf(data, target.opened, target.choice);
-    return target.scene;
+  const leaveUndrawn = (target: ViewState, over: OverLimit): void => {
+    if (target !== current) return;
+    drawn = undefined;
+    tellOverLimit(over);
   };
 
   const functionBoxOf = (id: FunctionId): FunctionBox | undefined =>
@@ -143,6 +159,14 @@ export const interactionOf = (
 
   const render = (target: ViewState, anchor?: FunctionId): Promise<void> => {
     target.scene = undefined;
+    const over = overLimitAt(target);
+    if (over !== undefined) {
+      target.laid = undefined;
+      return queued(() => {
+        leaveUndrawn(target, over);
+        return Promise.resolve();
+      });
+    }
     const layout = layoutFor(target, sceneOf(target));
     target.laid = layout;
     return queued(async () => {
@@ -257,6 +281,7 @@ export const interactionOf = (
     current = target;
     tabBar.select(name);
     for (const handler of viewHandlers) handler(target.view);
+    tellOverLimit(undefined);
     const { laid } = target;
     if (laid === undefined) return render(target);
     return queued(async () => {
@@ -272,6 +297,7 @@ export const interactionOf = (
       void showView(name);
     },
   );
+  tabBar.select(current.view.name);
 
   const page: Omit<ReaderPage, 'sources'> = {
     data,
@@ -292,6 +318,9 @@ export const interactionOf = (
       choiceHandlers.push(handler);
     },
     currentView: () => current.view,
+    onOverLimitChange: (handler) => {
+      overLimitHandlers.push(handler);
+    },
     hiddenMarks: () => hiddenMarks,
     toggleMark,
     onHiddenMarksChange: (handler) => {

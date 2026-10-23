@@ -12,7 +12,7 @@ const allHidden: PagePart = ({
   toggleMark,
   onHiddenMarksChange,
 }) => {
-  const message = emptyStateOf({
+  const { state: message } = emptyStateOf({
     name: 'all-hidden',
     title: 'All marks are hidden',
     line: 'The legend hides every box of this view.',

@@ -2,6 +2,8 @@
 
 > Superseded in part by ADR-0017. The Whole project view shows one level at a time. The CLI lays out only its top level, and the page lays out the other levels.
 
+> Superseded in part by ADR-0023. The CLI does not lay out a Diff view over the Diff limit.
+
 The `callmap review` command lays out the Diff view and the Whole project view in Node, and writes the places into the page data as `placements`. The page draws these 2 views from the places and does not call ELK for them. The Folder view and the Route view still lay out in the page, on demand, because they are small and there are many of them. A next hop or a search that opens more functions in the Diff view lays out the view again in the page.
 
 This supersedes the decision of ADR-0013 and spec 24 that the layout runs in the page, for these 2 views only. ADR-0013 expected a layout of less than 0.7 s in the browser. On a review of a private app with 301 functions, a profile in Chromium showed the cost (issue 35):

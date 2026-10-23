@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { GraphDocument } from '@callmap/graph-document';
 import { reviewOf } from '@callmap/review';
+import { DIFF_LIMIT } from '../page/views/diff.ts';
 import type { ReviewInvocation } from './arguments.ts';
 import { throughBaseCache } from './base-cache.ts';
 import { openInBrowser } from './browser.ts';
@@ -55,7 +56,19 @@ const settled = <T>(result: PromiseSettledResult<T>): T => {
   return result.value;
 };
 
-export const runReview = async (invocation: ReviewInvocation): Promise<string> => {
+export interface ReviewSettings {
+  readonly diffLimit: number;
+}
+
+export interface FinishedReview {
+  readonly out: string;
+  readonly notes: readonly string[];
+}
+
+export const runReview = async (
+  invocation: ReviewInvocation,
+  { diffLimit }: ReviewSettings = { diffLimit: DIFF_LIMIT },
+): Promise<FinishedReview> => {
   const root = repoRootOf(resolve(invocation.repo));
   const base =
     invocation.base === undefined
@@ -81,17 +94,18 @@ export const runReview = async (invocation: ReviewInvocation): Promise<string> =
   const branchGraph = settled(branchRead);
   const baseGraph = settled(baseRead);
   const review = reviewOf({ base: baseGraph, branch: branchGraph });
-  const html = await readerPageOf({
+  const { html, notes } = await readerPageOf({
     review,
     branchGraph,
     sources: sourcesOf(root, base, review, branchGraph),
     basePlaces: basePlacesOf(review, baseGraph),
     editor: { name: invocation.editor, repoRoot: root },
+    diffLimit,
   });
 
   const out = resolve(invocation.out ?? defaultOutOf(root));
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, html);
   if (invocation.open) openInBrowser(out);
-  return out;
+  return { out, notes };
 };
