@@ -2,3 +2,5 @@ node_modules/
 dist/
 out/
 .env
+packages/cli/README.md
+packages/cli/LICENSE

@@ -14,7 +14,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
-import { extractorVersionOf } from './extractors.ts';
+import { assets } from './assets.ts';
 import type { ExtractorSettings } from './extractors.ts';
 import { sha256OfFiles } from './file-hash.ts';
 
@@ -51,7 +51,13 @@ const lockHashOf = (checkout: string): string =>
 
 const entryNameOf = ({ checkout, commit, scope, tsconfig }: BaseKey): string =>
   sha256(
-    JSON.stringify([commit, scope, tsconfig ?? null, lockHashOf(checkout), extractorVersionOf()]),
+    JSON.stringify([
+      commit,
+      scope,
+      tsconfig ?? null,
+      lockHashOf(checkout),
+      assets.extractorVersion(),
+    ]),
   );
 
 const cachedAt = (entry: string): GraphDocument | undefined => {

@@ -2,18 +2,23 @@
   "name": "callmap",
   "version": "0.0.0",
   "private": true,
-  "description": "Callmap will read the call graph of a repo with its language's own tools and write one HTML page for a code review.",
+  "description": "Callmap is a call graph reader for an engineer who still reads code.",
+  "license": "MIT",
   "type": "module",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
+    "build": "npm run build --workspace @callmap/cli",
+    "prepare": "npm run build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p packages/cli/page && tsc --noEmit -p packages/cli/test-browser",
     "lint": "npm run format:check && npm run typecheck && eslint .",
     "test": "vitest run",
-    "test:browser": "vitest run --config vitest.browser.config.ts"
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "test:pack": "vitest run --config vitest.pack.config.ts",
+    "screenshots": "vitest run --config vitest.screenshots.config.ts"
   },
   "engines": {
     "node": ">=22.18"
