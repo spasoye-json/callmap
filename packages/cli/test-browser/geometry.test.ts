@@ -129,7 +129,7 @@ const dragGraph = async (page: Page, dx: number, dy: number): Promise<void> => {
   const y = graph.y + graph.height / 2;
   await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(x + dx, y + dy, { steps: 2 });
+  await page.mouse.move(x + dx, y + dy, { steps: 10 });
   await page.mouse.up();
 };
 

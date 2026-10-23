@@ -21,6 +21,7 @@ export const choiceKeyOf = (choice: Choice): string => {
 export interface View {
   readonly name: string;
   readonly laidOutByCommand?: boolean;
+  readonly callLimitOf?: (data: ReaderPageData) => number;
   readonly countOf?: (data: ReaderPageData) => { readonly count: number; readonly words: string };
   readonly firstChoice?: (data: ReaderPageData) => Choice;
   readonly sceneOf: (
@@ -30,3 +31,21 @@ export interface View {
   ) => Scene;
   readonly choiceShowing?: (data: ReaderPageData, id: FunctionId) => Choice;
 }
+
+export interface OverLimit {
+  readonly functions: number;
+  readonly calls: number;
+  readonly limit: number;
+}
+
+export const overLimitOf = (
+  view: View,
+  data: ReaderPageData,
+  { boxes, lines }: Scene,
+): OverLimit | undefined => {
+  const limit = view.callLimitOf?.(data);
+  if (limit === undefined) return undefined;
+  const calls = lines.length;
+  if (calls <= limit) return undefined;
+  return { functions: boxes.filter(({ kind }) => kind === 'function').length, calls, limit };
+};

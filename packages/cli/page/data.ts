@@ -29,4 +29,5 @@ export interface ReaderPageData {
   readonly basePlaces: Readonly<Record<FunctionId, LineSpan>>;
   readonly editor: EditorChoice;
   readonly placements: Readonly<Partial<Record<string, Placement>>>;
+  readonly diffLimit: number;
 }
