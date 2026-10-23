@@ -1,18 +1,21 @@
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { chromium } from 'playwright-core';
-import type { Browser, Page } from 'playwright-core';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { tempDir } from '../../../test/temp-dir.ts';
+import type { Page } from 'playwright-core';
+import type { CornerLook } from './problems.ts';
+import { describe, expect, it } from 'vitest';
 import {
   featureBranchRepoWithUnchangedFiles,
   levelsRepo,
   longNamesRepo,
 } from '../test/fixture-repo.ts';
-import { reviewHtmlOf } from '../test/reader-page.ts';
-import { chromiumExecutable } from './chromium.ts';
-import { hintsOverBoxes, mapBandProblems, problemsOnPage, zoomLabelRoom } from './problems.ts';
+import { meets } from '../test/screen-rect.ts';
+import {
+  cornerLookOf,
+  cornerPlaceOf,
+  hintsOverBoxes,
+  mapBandProblems,
+  problemsOnPage,
+  zoomLabelRoom,
+} from './problems.ts';
+import { readerPagesOf, settled } from './reader-pages.ts';
 
 type Fixture = 'levels' | 'review' | 'long names';
 type Scheme = 'light' | 'dark';
@@ -44,34 +47,11 @@ const SCHEMES: readonly Scheme[] = ['light', 'dark'];
 const BANDS = ['read', 'scan', 'map'];
 const MOST_ZOOM_STEPS = 20;
 
-const pageFiles = new Map<Fixture, string>();
-let browser: Browser | undefined;
-
-const pageFileOf = (repo: string): string => {
-  const file = join(tempDir('callmap-browser-'), 'review.html');
-  writeFileSync(file, reviewHtmlOf(repo));
-  return pathToFileURL(file).href;
-};
-
-beforeAll(async () => {
-  const executablePath = chromiumExecutable();
-  pageFiles.set('levels', pageFileOf(levelsRepo()));
-  pageFiles.set('review', pageFileOf(featureBranchRepoWithUnchangedFiles()));
-  pageFiles.set('long names', pageFileOf(longNamesRepo()));
-  browser = await chromium.launch({ executablePath });
-}, 120_000);
-
-afterAll(async () => {
-  await browser?.close();
+const readerPageOf = readerPagesOf<Fixture>({
+  levels: levelsRepo,
+  review: featureBranchRepoWithUnchangedFiles,
+  'long names': longNamesRepo,
 });
-
-const settled = async (page: Page): Promise<void> => {
-  await page.waitForFunction(
-    () =>
-      document.getElementById('graph')?.getAttribute('aria-busy') === 'false' &&
-      document.querySelector('[aria-busy="true"]') === null,
-  );
-};
 
 const openLook = async (page: Page, look: Look): Promise<void> => {
   await page.getByRole('tab', { name: look.view, exact: true }).click();
@@ -107,10 +87,7 @@ const openPage = async (
   scheme: Scheme,
   viewport: { readonly width: number; readonly height: number } = WIDE,
 ): Promise<Page> => {
-  if (browser === undefined) throw new Error('the browser did not start');
-  const page = await browser.newPage({ viewport, colorScheme: scheme });
-  await page.goto(pageFiles.get(look.fixture) ?? '');
-  await settled(page);
+  const page = await readerPageOf(look.fixture, { viewport, colorScheme: scheme });
   await openLook(page, look);
   return page;
 };
@@ -214,6 +191,100 @@ describe('the level boxes in the Map band in Chromium', () => {
       });
       await page.close();
       expect(problems).toEqual([]);
+    },
+  );
+});
+
+describe('the corner of the graph in Chromium', () => {
+  const RECEIPT = 'src/cart.ts#receipt';
+  const SMALLEST = { width: 536, height: 460 };
+  const OVERVIEW_MAP_STATES = ['open', 'collapsed'] as const;
+
+  const openWithOverviewMap = async (
+    overviewMap: (typeof OVERVIEW_MAP_STATES)[number],
+    viewport: { readonly width: number; readonly height: number },
+  ): Promise<Page> => {
+    const page = await openPage({ fixture: 'review', view: 'Diff' }, 'light', viewport);
+    if (overviewMap === 'collapsed')
+      await page.getByRole('button', { name: 'Overview map' }).click();
+    return page;
+  };
+
+  it.each(OVERVIEW_MAP_STATES)(
+    'keeps a clicked box clear of it, with the overview map %s',
+    async (overviewMap) => {
+      const page = await openWithOverviewMap(overviewMap, NARROW);
+      const { corner } = await page.evaluate(cornerPlaceOf, RECEIPT);
+      const box = await page.locator(`#graph [data-box="${RECEIPT}"] > rect`).boundingBox();
+      if (box === null) throw new Error(`the graph shows no box ${RECEIPT}`);
+      await dragGraph(
+        page,
+        corner.x - (box.x + box.width / 2),
+        corner.y - (box.y + box.height / 2),
+      );
+      const before = await page.evaluate(cornerPlaceOf, RECEIPT);
+      await page.mouse.click(before.free.x, before.free.y);
+      await settled(page);
+      const after = await page.evaluate(cornerPlaceOf, RECEIPT);
+      await page.close();
+      expect(before.under).toBe(true);
+      expect(after).toMatchObject({ under: false, inGraph: true });
+    },
+  );
+
+  it('opens a level with the anchor box clear of it, in the smallest graph, with the overview map open', async () => {
+    const page = await openWithOverviewMap('open', SMALLEST);
+    const first = await page.evaluate(cornerPlaceOf, RECEIPT);
+    await page.getByRole('tab', { name: 'Whole project', exact: true }).click();
+    await settled(page);
+    await page.getByRole('tab', { name: 'Diff', exact: true }).click();
+    await settled(page);
+    const again = await page.evaluate(cornerPlaceOf, RECEIPT);
+    await page.close();
+    expect(first).toMatchObject({ under: false, inGraph: true });
+    expect(again).toMatchObject({ under: false, inGraph: true });
+  });
+
+  const SHORT = { width: 900, height: 348 };
+
+  const toggleProblems = ({ controls, label, toggle, overviewMap }: CornerLook): string[] => [
+    ...(meets(toggle, label) ? ['the map toggle meets the zoom label'] : []),
+    ...(toggle.right > controls.right || toggle.left < controls.left
+      ? ['the map toggle runs past the zoom controls']
+      : []),
+    ...(overviewMap.width > 0 && meets(controls, overviewMap)
+      ? ['the zoom controls meet the overview map']
+      : []),
+  ];
+
+  it.each(SCHEMES)(
+    'shows the map toggle in the zoom controls, and drops the zoom controls to the bottom after a collapse, in %s mode',
+    async (scheme) => {
+      const page = await openPage({ fixture: 'review', view: 'Diff' }, scheme, SHORT);
+      const toggle = page.getByRole('button', { name: 'Overview map' });
+      const open = await page.evaluate(cornerLookOf);
+      await toggle.click();
+      const collapsed = await page.evaluate(cornerLookOf);
+      await toggle.click();
+      const reopened = await page.evaluate(cornerLookOf);
+      await page.close();
+      expect(toggleProblems(open)).toEqual([]);
+      expect(toggleProblems(collapsed)).toEqual([]);
+      expect(collapsed.overviewMap.width).toBe(0);
+      expect(collapsed.controls.bottom).toBe(collapsed.graphBottom - 16);
+      expect(open.controls.bottom).toBeLessThan(open.overviewMap.top);
+      expect(reopened.controls).toEqual(open.controls);
+      expect(open.hints.length).toBeGreaterThan(0);
+      for (const hint of open.hints) {
+        expect(meets(hint, open.overviewMap), 'a hint meets the open overview map').toBe(false);
+        expect(meets(hint, open.controls), 'a hint meets the zoom controls').toBe(false);
+      }
+      for (const hint of collapsed.hints)
+        expect(meets(hint, collapsed.controls), 'a hint meets the zoom controls').toBe(false);
+      expect(
+        collapsed.hints.some((hint) => meets(hint, open.overviewMap)),
+        'a hint takes the place of the collapsed overview map',
+      ).toBe(true);
     },
   );
 });

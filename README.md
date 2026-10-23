@@ -4,14 +4,30 @@ Callmap is a call graph reader for an engineer who still reads code. It reads a 
 
 ## Install
 
-Callmap needs Node 22.18 or later. Install the `callmap` command from a clone of this repo:
+Callmap needs Node 22.18 or later. Run it in the repo of the branch, with no install:
+
+```sh
+npx @callmap/cli review
+```
+
+To keep the `callmap` command, install the package once:
+
+```sh
+npm install --global @callmap/cli
+```
+
+The examples below use `callmap`. With `npx`, write `npx @callmap/cli` in its place.
+
+### From a clone
+
+To try a change to Callmap on another repo, install the `callmap` command from a clone of this repo:
 
 ```sh
 npm install
 npm link -w @callmap/cli
 ```
 
-The link points at the clone, so a `git pull` updates the command. `npm unlink -g @callmap/cli` removes it.
+`npm install` builds the command into `packages/cli/dist/`, and the link points at that build. So run `npm run build` after each `git pull` or change. `npm unlink -g @callmap/cli` removes the command. The tests run the source in `packages/cli/src/`, so they need no build.
 
 ## Review a branch
 
@@ -35,7 +51,7 @@ callmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>
 
 The default branch is the head of `origin`, then the head of any other remote, then `main`, then `master`. The review reads the base commit in a temporary git worktree and removes it at the end, so the checkout and the uncommitted files never move. The worktree links to the `node_modules` folders of the checkout, so the library types resolve on the base too. The command prints the path of the page when it ends.
 
-The command caches the graph of the base, so a second review of the same base reads only the branch. The cache is in `$XDG_CACHE_HOME/callmap/`, or in `~/.cache/callmap/` when the variable is not set. A cache entry belongs to one base commit, one set of scope globs, one tsconfig, one lock file in the checkout and one version of the extractor. A change of any of them reads the base again. The cache never holds the graph of the branch. It keeps the 20 newest entries for each repo. A cache file that cannot be read gives a fresh read of the base. You can delete the folder at any time.
+The command caches the graph of the base, so a second review of the same base reads only the branch. The cache is in `$XDG_CACHE_HOME/callmap/`, or in `~/.cache/callmap/` when the variable is not set. A cache entry belongs to one base commit, one set of scope globs, one tsconfig, one lock file in the checkout and one version of the extractor. A change of any of them reads the base again. The version of the extractor is the version of `@callmap/cli`, the version of its `typescript` and a hash of the extractor source that the build saw, so a new release starts with an empty cache. A run of the source in a clone uses the version of `typescript` and a hash of the extractor source. The cache never holds the graph of the branch. It keeps the 20 newest entries for each repo. A cache file that cannot be read gives a fresh read of the base. You can delete the folder at any time.
 
 A scope glob matches a whole path from the repo root. `*` matches inside one folder, `**` matches across folders, and `?` matches one character. A glob that starts with `!` leaves files out. Quote each glob, so that the shell does not expand it.
 
@@ -115,6 +131,11 @@ A busy line with "Laying out" shows only when a layout takes more than 150 ms. A
 
 The tabs above the graph choose the view. Each view keeps the marks for added, removed, changed and neighbour. Only a function one hop from a changed function gets the neighbour mark. Other functions get no mark.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/diff-view-dark.png">
+  <img alt="The Diff view of the review fixture, with the changed function receipt selected and its diff in the code panel." src="docs/screenshots/diff-view-light.png">
+</picture>
+
 - **Diff:** the changed functions and one hop around each, inside file frames. This view opens first. A click on a function that the branch did not change opens its own callers and callees. In the other views, a click on a function only shows its code.
 - **Whole project:** one level of the folder tree at a time, with a line between 2 boxes for the calls between them. The next part tells how the levels work.
 - **Folder:** a folder tree beside the graph. A click on a folder draws its functions, the calls between them, and the functions one hop outside the folder. The view draws these outside functions greyed, and it draws only the calls that touch a function of the folder.
@@ -138,11 +159,21 @@ top level                          after a click on src/orders
 
 A level is one folder of the scope or one file. The view opens at the top level: the deepest folder that holds every file in scope. Each child folder and each file of a folder level is a box. A chain of folders with one child each shows as one box, such as `src/orders/api`. A folder with only one file shows as the box of that file, such as `src/tax/rate.ts`. So a level never holds a single box.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/whole-project-top-level-dark.png">
+  <img alt="The top level src/ of the Whole project view of the levels fixture." src="docs/screenshots/whole-project-top-level-light.png">
+</picture>
+
 A line between 2 boxes stands for every call from the code in one box to the code in the other box, with their count. It points from the caller box to the callee box, so 2 boxes that call each other get 2 lines. A call inside one box makes no line at that level. The lines come only from the calls that the type checker proved, so an import of a type or a constant makes no line. A line shows its count only for 2 calls or more, and "999+" above 999. The count sits at the middle of the longest straight part of the line. If no part is 32 px long, the count sits next to the caller. A click on a line opens a list of its calls next to the pointer. The added and removed calls come first, then the calls of a changed caller. The list shows 5 calls and a button for the rest. A click on a call shows the code of the caller.
 
 A box shows its folder or file icon and the count of its functions, such as "12 fn". Below its name, a chip with a count stands for each mark inside it. The marks are the changed, added and removed functions, and the open ends of its functions. A box with none of them says "No changes". The tooltip of a box gives the counts in words, for example "3 changed, 1 added". A line shows the added or removed mark when it holds an added or a removed call.
 
 A click on a folder box opens the level of that folder, inside its folder frame. A call between the open folder and code outside it ends at an outside box. The outside box is the first folder on the path of that code that does not hold the open folder. With `src/orders` open, a call to `src/money/format.ts` ends at the box `src/money`, and a call to `lib/a.ts` ends at `lib`. An outside box collapses by the same rules as the boxes of a level, so a call to `src/shipping/carriers/post.ts` ends at `src/shipping/carriers` when `src/shipping` holds only `carriers`. A click on an outside box opens the level of that outside code.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/whole-project-src-orders-dark.png">
+  <img alt="The level src/orders of the Whole project view of the levels fixture, inside its folder frame, with its outside boxes." src="docs/screenshots/whole-project-src-orders-light.png">
+</picture>
 
 A click on a file box opens the file level. It shows the functions of the file in a file frame, and each call between them has its own line, as in the Diff view. A caller or a callee in another file ends at an outside box, by the same rule. The calls between one function and one outside box share one line with their count. The open ends, the one-of groups, the selection and the code panel work on the file level as in the other views. The level bar at the top of the graph holds the breadcrumb and the button "Up one level". It also counts the boxes and the lines of the level. The breadcrumb names each level from the top level down to the open one. A click on a name opens that level again. The search opens the file level of the function that it finds and selects its box.
 
@@ -192,7 +223,9 @@ The host runs the extractors and the core, and writes the reader page.
 | -------------- | ----------------------------------------------------------------------------------------- |
 | `@callmap/cli` | The `callmap` command: git, the extractor processes, and the reader page with ELK inlined |
 
-The page script lives in `packages/cli/page/`. The CLI bundles it with `elkjs` into the page at each run. The command lays out the Diff view and the top level of the Whole project view in worker threads with the same layout module, `page/layout.ts`, and writes the places into the page data. `page/levels.ts` builds the boxes and the lines of each level. The page lays out the other views in the browser, and draws every view as SVG. A view is one module in `packages/cli/page/views/`: a pure function from the page data to frames, boxes and lines. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.
+The page script lives in `packages/cli/page/`. `npm run build` bundles it with `elkjs` once, into `packages/cli/dist/page.js`, and the command inlines that file into each page. A run of the source in `packages/cli/src/` bundles the page script at each run, so a test always sees the current page. The command lays out the Diff view and the top level of the Whole project view in worker threads with the same layout module, `page/layout.ts`, and writes the places into the page data. `page/levels.ts` builds the boxes and the lines of each level. The page lays out the other views in the browser, and draws every view as SVG. A view is one module in `packages/cli/page/views/`: a pure function from the page data to frames, boxes and lines. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.
+
+Only `@callmap/cli` goes to npm. `npm run build` writes it to `packages/cli/dist/`: the command, the layout worker, the TypeScript extractor, and the page script and style. The build bundles the other `@callmap/*` packages and `elkjs` into these files. `typescript` stays a dependency of the package, at a pinned version. ADR-0021 records why.
 
 `test/core-is-language-blind-and-pure.test.ts` reads the imports of every package. It holds the core away from the filesystem and from any language name. It holds each extractor to the opposite. It holds the host to its own list, and keeps the page script off every Node built-in.
 
@@ -215,7 +248,10 @@ npm install
 npm run lint   # formatting, types, and eslint
 npm test       # the whole suite
 npm run test:browser
+npm run test:pack
 ```
+
+`npm run test:pack` packs `@callmap/cli` with `npm pack` and installs the tarball in a fixture repo. Then it runs `callmap review` from that install and reads the page. It also fails when the tarball holds a file other than the manifest, the README, the LICENSE and the built files in `dist/`. The install fetches `typescript` from npm. Plain `npm test` does not run this check. The CI runs it on each pull request, and the release workflow runs it before it publishes.
 
 `npm run test:browser` builds reader pages from the fixture repos and opens them in headless Chromium. It reads the place of each label on the screen. It fails when a label runs past its box or its frame. It also fails when a box name runs over its "N fn" count. It also fails when a frame label or a "one of" label runs over a box. It checks the Diff, Folder and Whole project views. It checks each view in the Read, Scan and Map bands, in light mode and in dark mode. It also fails when an edge hint covers a box while the graph pans, when the zoom label has no room on either side or changes the width of the zoom controls, and when a chip of a level box in the Map band is smaller than at the reading floor or a box border is less than 1 px. In dark mode, it also fails when a box border in the Map band has a contrast below 3 to 1. Plain `npm test` does not run these checks.
 
@@ -226,3 +262,5 @@ The command does not download a browser. It uses the first Chromium that it find
 3. `chromium-browser` or `chromium` on the `PATH`.
 
 If it finds no Chromium, the command fails and tells you how to get one.
+
+The screenshots in this README come from the fixture repos of `packages/cli`. `npm run screenshots` makes them again in light mode and in dark mode, and writes them to `docs/screenshots/`. It finds Chromium in the same way.

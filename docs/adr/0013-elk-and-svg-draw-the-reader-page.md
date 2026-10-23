@@ -6,7 +6,7 @@
 
 The reader page draws its graph with `elkjs` and SVG. ELK lays out the boxes and the file frames with the `layered` algorithm from left to right. It routes each call with `elk.edgeRouting: ORTHOGONAL` and `hierarchyHandling: INCLUDE_CHILDREN`, so a line turns only at 90 degrees and goes around the boxes. The page draws the boxes, the frames and the bend points of each line as SVG, and has its own pan and zoom. Cytoscape leaves the page and the dependencies.
 
-The page of spec 15 drew each call with Cytoscape as a straight or curved line. On a real review of a private app, the lines crossed boxes and each other, and the owner could not follow one call from its caller to its callee. A prototype on the branch `prototype/orthogonal-lines`, commit `bb840b4`, compared 3 methods on the project view of that review, with 375 boxes and 360 calls:
+The page of spec 15 drew each call with Cytoscape as a straight or curved line. On a real review of a private app, the lines crossed boxes and each other, and the owner could not follow one call from its caller to its callee. A prototype at commit `bb840b4` on the branch `prototype/orthogonal-lines` of the archive repo `spasoye-json/callmap-archive` compared 3 methods on the project view of that review, with 375 boxes and 360 calls:
 
 | Variant | Method                                                 | Lines through boxes | Crossings | Layout time |
 | ------- | ------------------------------------------------------ | ------------------- | --------- | ----------- |

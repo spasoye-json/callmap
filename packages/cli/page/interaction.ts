@@ -70,6 +70,8 @@ export const interactionOf = (
   const choiceHandlers: ((view: View, choice: Choice) => void)[] = [];
   const hiddenMarkHandlers: ((hidden: ReadonlySet<FunctionMark>) => void)[] = [];
   const hiddenMarks = new Set<FunctionMark>();
+  const overviewMapHandlers: ((collapsed: boolean) => void)[] = [];
+  let overviewMapCollapsed = false;
   const states = views.map((view): ViewState => ({
     view,
     opened: new Set(),
@@ -208,6 +210,18 @@ export const interactionOf = (
     for (const handler of hiddenMarkHandlers) handler(hiddenMarks);
   };
 
+  const keepSelectionInView = (): void => {
+    if (selected !== undefined) drawing.camera.keepInView(selected);
+  };
+
+  const toggleOverviewMap = (): void => {
+    overviewMapCollapsed = !overviewMapCollapsed;
+    // The CSS reads this attribute, so the map and the zoom controls move before any handler measures them.
+    graph.toggleAttribute('data-overview-map-collapsed', overviewMapCollapsed);
+    for (const handler of overviewMapHandlers) handler(overviewMapCollapsed);
+    if (!overviewMapCollapsed) keepSelectionInView();
+  };
+
   const show = (ids: readonly FunctionId[], anchor?: FunctionId): Promise<void> => {
     const fresh = ids.filter((id) => !current.opened.has(id) && functionBoxOf(id) === undefined);
     if (fresh.length === 0) return queue;
@@ -283,11 +297,14 @@ export const interactionOf = (
     onHiddenMarksChange: (handler) => {
       hiddenMarkHandlers.push(handler);
     },
+    overviewMapCollapsed: () => overviewMapCollapsed,
+    toggleOverviewMap,
+    onOverviewMapToggle: (handler) => {
+      overviewMapHandlers.push(handler);
+    },
     show,
     open,
-    keepSelectionInView: () => {
-      if (selected !== undefined) drawing.camera.keepInView(selected);
-    },
+    keepSelectionInView,
     showView,
     choose,
   };

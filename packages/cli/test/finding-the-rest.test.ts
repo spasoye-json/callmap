@@ -1,7 +1,14 @@
 import { fireEvent, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { featureBranchRepo } from './fixture-repo.ts';
-import { boxesOf, clickBox, loadReaderPage, reviewHtmlOf, settled } from './reader-page.ts';
+import {
+  boxesOf,
+  clickBox,
+  loadReaderPage,
+  reviewHtmlOf,
+  settled,
+  storedItemsOf,
+} from './reader-page.ts';
 import type { GraphSize, LoadedPage, Point } from './reader-page.ts';
 
 const CART = 'src/cart.ts';
@@ -121,9 +128,10 @@ describe('the overview map', () => {
     });
     if (target === undefined) throw new Error('every box is on the screen');
     const { left, top, width, height } = placeOf(mapBoxOf(page, target.id));
+    const map = shownMapOf(page).getBoundingClientRect();
     fireEvent.pointerDown(shownMapOf(page), {
-      clientX: left + width / 2,
-      clientY: top + height / 2,
+      clientX: map.left + left + width / 2,
+      clientY: map.top + top + height / 2,
       pointerId: 1,
     });
     fireEvent.pointerUp(shownMapOf(page), { pointerId: 1 });
@@ -137,6 +145,53 @@ describe('the overview map', () => {
       page.window.getComputedStyle(bodyOf(page).getByRole('group', { name: 'Zoom' })).bottom;
     expect(bottomOf(await loadReaderPage(html, undefined, undefined, DENSE))).toBe('164px');
     expect(bottomOf(await loadReaderPage(html, undefined, undefined, ROOMY))).toBe('16px');
+  });
+});
+
+const mapToggleOf = (page: LoadedPage): HTMLElement | null =>
+  within(bodyOf(page).getByRole('group', { name: 'Zoom' })).queryByRole('button', {
+    name: 'Overview map',
+  });
+
+const shownToggleOf = (page: LoadedPage): HTMLElement => {
+  const toggle = mapToggleOf(page);
+  if (toggle === null) throw new Error('the zoom controls show no map toggle');
+  return toggle;
+};
+
+describe('the map toggle', () => {
+  it('shows as the last zoom button only when the overview map can show, and controls the open overview map', async () => {
+    const page = await loadReaderPage(html, undefined, undefined, DENSE);
+    const toggle = shownToggleOf(page);
+    const buttons = within(bodyOf(page).getByRole('group', { name: 'Zoom' })).getAllByRole(
+      'button',
+    );
+    expect(buttons.at(-1)).toBe(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle.getAttribute('aria-controls')).toBe(shownMapOf(page).id);
+    expect(mapToggleOf(await loadReaderPage(html, undefined, undefined, ROOMY))).toBeNull();
+  });
+
+  it('collapses the overview map and drops the zoom controls to the bottom, and opens the overview map again after a second click', async () => {
+    const page = await loadReaderPage(html, undefined, undefined, DENSE);
+    const zoomBottom = (): string =>
+      page.window.getComputedStyle(bodyOf(page).getByRole('group', { name: 'Zoom' })).bottom;
+    fireEvent.click(shownToggleOf(page));
+    expect(overviewMapOf(page)).toBeNull();
+    expect(shownToggleOf(page).getAttribute('aria-expanded')).toBe('false');
+    expect(zoomBottom()).toBe('16px');
+    fireEvent.click(shownToggleOf(page));
+    expect(overviewMapOf(page)).not.toBeNull();
+    expect(shownToggleOf(page).getAttribute('aria-expanded')).toBe('true');
+    expect(zoomBottom()).toBe('164px');
+  });
+
+  it('opens the overview map again after a reload', async () => {
+    const page = await loadReaderPage(html, {}, undefined, DENSE);
+    fireEvent.click(shownToggleOf(page));
+    const next = await loadReaderPage(html, storedItemsOf(page), undefined, DENSE);
+    expect(overviewMapOf(next)).not.toBeNull();
+    expect(shownToggleOf(next).getAttribute('aria-expanded')).toBe('true');
   });
 });
 

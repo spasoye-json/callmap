@@ -24,6 +24,9 @@ export interface ReaderPage {
   readonly hiddenMarks: () => ReadonlySet<FunctionMark>;
   readonly toggleMark: (mark: FunctionMark) => void;
   readonly onHiddenMarksChange: (handler: (hidden: ReadonlySet<FunctionMark>) => void) => void;
+  readonly overviewMapCollapsed: () => boolean;
+  readonly toggleOverviewMap: () => void;
+  readonly onOverviewMapToggle: (handler: (collapsed: boolean) => void) => void;
   readonly show: (ids: readonly FunctionId[], anchor?: FunctionId) => Promise<void>;
   readonly open: (id: FunctionId) => Promise<void>;
   readonly keepSelectionInView: () => void;
