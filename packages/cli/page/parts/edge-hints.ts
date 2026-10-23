@@ -32,7 +32,6 @@ const distancePast = (edge: Edge, box: Rect, visible: Rect): number => {
 const EDGE_GAP = 12;
 const BOTTOM_GAP = 14;
 const CLEARANCE = 4;
-const FLOATING_CONTROLS = ':scope > .overview-map:not([hidden]), :scope > .zoom-controls';
 
 interface Span {
   readonly start: number;
@@ -61,11 +60,6 @@ const screenRectOf = (box: Rect, view: CameraView): Rect => ({
   height: box.height * view.scale,
 });
 
-const relativeRectOf = (element: Element, graph: DOMRect): Rect => {
-  const { left, top, width, height } = element.getBoundingClientRect();
-  return { x: left - graph.left, y: top - graph.top, width, height };
-};
-
 const hintOf = (edge: Edge): HTMLButtonElement => {
   const hint = document.createElement('button');
   hint.type = 'button';
@@ -80,6 +74,7 @@ const edgeHints: PagePart = ({
   level: levelOf,
   hiddenMarks,
   onHiddenMarksChange,
+  onOverviewMapToggle,
 }) => {
   const edges = Object.keys(EDGES) as Edge[];
   const hints = new Map(edges.map((edge) => [edge, hintOf(edge)]));
@@ -130,9 +125,7 @@ const edgeHints: PagePart = ({
     const bounds = graph.getBoundingClientRect();
     const obstacles = [
       ...shown.map((box) => screenRectOf(box, view)),
-      ...[...graph.querySelectorAll(FLOATING_CONTROLS)].map((element) =>
-        relativeRectOf(element, bounds),
-      ),
+      ...(view.corner === undefined ? [] : [view.corner]),
     ];
     const top = view.coveredTop + EDGE_GAP;
     for (const [edge, hint] of shownHints) {
@@ -178,6 +171,9 @@ const edgeHints: PagePart = ({
   show(camera.view());
   camera.onChange(show);
   onHiddenMarksChange(() => {
+    show(camera.view());
+  });
+  onOverviewMapToggle(() => {
     show(camera.view());
   });
 };

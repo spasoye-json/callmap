@@ -14,7 +14,8 @@
   touch-action: none;
 }
 
-.overview-map[hidden] {
+.overview-map[hidden],
+#graph[data-overview-map-collapsed] > .overview-map {
   display: none;
 }
 
@@ -48,6 +49,6 @@
   background: var(--focus-ring);
 }
 
-#graph[data-overview-map] .zoom-controls {
+#graph[data-overview-map]:not([data-overview-map-collapsed]) .zoom-controls {
   bottom: 164px;
 }

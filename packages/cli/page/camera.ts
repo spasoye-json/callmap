@@ -13,6 +13,7 @@ const MAX_SCALE = 1.5;
 const ZOOM_STEP = 1.25;
 const FIT_MARGIN = 40;
 const VIEW_MARGIN = 24;
+const CORNER_GAP = 8;
 const ANCHOR_SHARE = 1 / 3;
 const DRAG_THRESHOLD = 4;
 
@@ -30,10 +31,15 @@ export const coverTopOfGraph = (element: HTMLElement): void => {
   element.setAttribute(COVERS, 'top');
 };
 
+export const coverCornerOfGraph = (element: HTMLElement): void => {
+  element.setAttribute(COVERS, 'corner');
+};
+
 export interface CameraView {
   readonly scale: number;
   readonly band: ZoomBand;
   readonly coveredTop: number;
+  readonly corner: Rect | undefined;
   readonly visible: Rect;
 }
 
@@ -86,6 +92,27 @@ interface GraphRoom {
   readonly top: number;
 }
 
+const lazily = <T>(measure: () => T): (() => T) => {
+  let measured: { readonly value: T } | undefined;
+  return () => (measured ??= { value: measure() }).value;
+};
+
+const cornerOf = (container: HTMLElement): Rect | undefined => {
+  const graph = container.getBoundingClientRect();
+  const shown = [...container.querySelectorAll(`:scope > [${COVERS}="corner"]`)]
+    .map((cover) => cover.getBoundingClientRect())
+    .filter(({ width, height }) => width > 0 && height > 0);
+  if (shown.length === 0) return undefined;
+  const left = Math.min(...shown.map((rect) => rect.left));
+  const top = Math.min(...shown.map((rect) => rect.top));
+  return {
+    x: left - graph.left,
+    y: top - graph.top,
+    width: Math.max(...shown.map((rect) => rect.right)) - left,
+    height: Math.max(...shown.map((rect) => rect.bottom)) - top,
+  };
+};
+
 export const cameraOf = (
   container: HTMLElement,
   svg: SVGSVGElement,
@@ -99,27 +126,33 @@ export const cameraOf = (
   let textScale: number | undefined;
   const handlers: ((view: CameraView) => void)[] = [];
 
-  const sizeOf = (): GraphRoom => {
-    const { width, height } = container.getBoundingClientRect();
-    const top = [...container.querySelectorAll(`:scope > [${COVERS}="top"]`)].reduce(
+  const coveredTopOf = (): number =>
+    [...container.querySelectorAll(`:scope > [${COVERS}="top"]`)].reduce(
       (covered, cover) => Math.max(covered, cover.getBoundingClientRect().height),
       0,
     );
+
+  const sizeOf = (): GraphRoom => {
+    const { width, height } = container.getBoundingClientRect();
+    const top = coveredTopOf();
     return { width, height: Math.max(0, height - top), top };
   };
 
   const view = (): CameraView => {
     const at = { scale, x, y };
-    let room: GraphRoom | undefined;
-    const measured = (): GraphRoom => (room ??= sizeOf());
+    const room = lazily(sizeOf);
+    const corner = lazily(() => cornerOf(container));
     return {
       scale,
       band: bandOf(scale),
       get coveredTop() {
-        return measured().top;
+        return room().top;
+      },
+      get corner() {
+        return corner();
       },
       get visible() {
-        const { width, height, top } = measured();
+        const { width, height, top } = room();
         return {
           x: -at.x / at.scale,
           y: (top - at.y) / at.scale,
@@ -175,22 +208,57 @@ export const cameraOf = (
 
   const fitsOnAxis = (room: number, size: number): boolean => size * scale <= room - FIT_MARGIN;
 
+  const moveOutOfCorner = (box: LaidBox): boolean => {
+    const top = coveredTopOf();
+    const corner = cornerOf(container);
+    if (corner === undefined) return false;
+    const left = x + box.x * scale;
+    const upper = y + box.y * scale;
+    const right = left + box.width * scale;
+    const lower = upper + box.height * scale;
+    const under =
+      left < corner.x + corner.width &&
+      corner.x < right &&
+      upper < corner.y + corner.height &&
+      corner.y < lower;
+    if (!under) return false;
+    const leftward = corner.x - CORNER_GAP - right;
+    const upward = corner.y - CORNER_GAP - lower;
+    const moves: Point[] = [
+      ...(left + leftward >= VIEW_MARGIN ? [[leftward, 0] as const] : []),
+      ...(upper + upward >= top + VIEW_MARGIN ? [[0, upward] as const] : []),
+    ];
+    const [shortest] = moves.sort((one, other) => Math.hypot(...one) - Math.hypot(...other));
+    if (shortest === undefined) return false;
+    x += shortest[0];
+    y += shortest[1];
+    return true;
+  };
+
+  const applyClearOfCorner = (box: LaidBox): void => {
+    // The first apply shows or hides the overview map for the new view, so the corner is current.
+    apply();
+    if (moveOutOfCorner(box)) apply();
+  };
+
   const open = (selected?: string): void => {
     if (!hasRoom()) return;
     scale = openZoomOf(fitZoom());
     centreLevel();
     const level = levelOf();
     const anchor = anchorOf(level.boxes, selected);
-    if (anchor !== undefined) {
-      const { width, height, top } = sizeOf();
-      const [anchorX, anchorY] = centreOf(anchor);
-      if (!fitsOnAxis(width, level.width)) x = width * ANCHOR_SHARE - anchorX * scale;
-      if (!fitsOnAxis(height, level.height)) {
-        const lowest = height - level.height * scale - VIEW_MARGIN;
-        y = top + Math.max(lowest, Math.min(VIEW_MARGIN, height / 2 - anchorY * scale));
-      }
+    if (anchor === undefined) {
+      apply();
+      return;
     }
-    apply();
+    const { width, height, top } = sizeOf();
+    const [anchorX, anchorY] = centreOf(anchor);
+    if (!fitsOnAxis(width, level.width)) x = width * ANCHOR_SHARE - anchorX * scale;
+    if (!fitsOnAxis(height, level.height)) {
+      const lowest = height - level.height * scale - VIEW_MARGIN;
+      y = top + Math.max(lowest, Math.min(VIEW_MARGIN, height / 2 - anchorY * scale));
+    }
+    applyClearOfCorner(anchor);
   };
 
   const zoomAround = (next: number, [atX, atY]: Point): void => {
@@ -206,17 +274,22 @@ export const cameraOf = (
     zoomAround(scale * factor, [width / 2, top + height / 2]);
   };
 
-  const centreOn = ([atX, atY]: Point): void => {
+  const centreAt = ([atX, atY]: Point): boolean => {
     const { width, height, top } = sizeOf();
-    if (width === 0) return;
+    if (width === 0) return false;
     x = width / 2 - atX * scale;
     y = top + height / 2 - atY * scale;
-    apply();
+    return true;
+  };
+
+  const centreOn = (point: Point): void => {
+    if (centreAt(point)) apply();
   };
 
   const focus = (id: string): void => {
     const box = boxOfId(id);
-    if (box !== undefined) centreOn(centreOf(box));
+    if (box === undefined || !centreAt(centreOf(box))) return;
+    applyClearOfCorner(box);
   };
 
   const keepInView = (id: string): void => {
@@ -230,10 +303,9 @@ export const cameraOf = (
     };
     const dx = shift(x + box.x * scale, box.width * scale, width);
     const dy = shift(y - top + box.y * scale, box.height * scale, height);
-    if (dx === 0 && dy === 0) return;
     x += dx;
     y += dy;
-    apply();
+    applyClearOfCorner(box);
   };
 
   const showNewLevel = (steady?: SteadyBox): void => {

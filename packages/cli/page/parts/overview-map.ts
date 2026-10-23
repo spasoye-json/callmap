@@ -1,3 +1,4 @@
+import { coverCornerOfGraph } from '../camera.ts';
 import type { CameraView } from '../camera.ts';
 import { hiddenIdsOf } from '../hidden-parts.ts';
 import type { SelectedPath } from '../highlight.ts';
@@ -8,6 +9,8 @@ import type { PagePart } from '../reader-page.ts';
 const MAP_WIDTH = 200;
 const MAP_HEIGHT = 136;
 const MAP_PADDING = 8;
+
+export const OVERVIEW_MAP_ID = 'overview-map';
 
 interface MapScale {
   readonly scale: number;
@@ -55,7 +58,9 @@ const overviewMap: PagePart = ({
   onHiddenMarksChange,
 }) => {
   const map = document.createElement('div');
+  map.id = OVERVIEW_MAP_ID;
   map.className = 'overview-map';
+  coverCornerOfGraph(map);
   map.setAttribute('role', 'img');
   map.setAttribute('aria-label', 'Overview map');
   const rectangle = document.createElement('div');

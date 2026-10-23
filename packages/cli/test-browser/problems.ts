@@ -168,3 +168,60 @@ export const mapBandProblems = ({ borderContrast }: { borderContrast: number }):
   }
   return problems.map((problem) => `zoom ${String(zoom)}: ${problem}`);
 };
+
+export interface CornerPlace {
+  readonly under: boolean;
+  readonly inGraph: boolean;
+  readonly free: { readonly x: number; readonly y: number };
+  readonly corner: { readonly x: number; readonly y: number };
+}
+
+export const cornerPlaceOf = (id: string): CornerPlace => {
+  const graph = document.querySelector('#graph')?.getBoundingClientRect();
+  const box = document.querySelector(`#graph [data-box="${id}"] > rect`)?.getBoundingClientRect();
+  if (graph === undefined || box === undefined) throw new Error(`the graph shows no box ${id}`);
+  const covers = [...document.querySelectorAll('#graph > .zoom-controls, #graph > .overview-map')]
+    .map((element) => element.getBoundingClientRect())
+    .filter(({ width }) => width > 0);
+  const left = Math.min(...covers.map((rect) => rect.left));
+  const top = Math.min(...covers.map((rect) => rect.top));
+  const right = Math.max(...covers.map((rect) => rect.right));
+  const bottom = Math.max(...covers.map((rect) => rect.bottom));
+  return {
+    under: box.left < right && left < box.right && box.top < bottom && top < box.bottom,
+    inGraph:
+      box.left >= graph.left &&
+      box.top >= graph.top &&
+      box.right <= graph.right &&
+      box.bottom <= graph.bottom,
+    free: { x: box.left + box.width / 4, y: box.top + box.height / 4 },
+    corner: { x: left, y: top },
+  };
+};
+
+export interface CornerLook {
+  readonly graphBottom: number;
+  readonly controls: DOMRect;
+  readonly label: DOMRect;
+  readonly toggle: DOMRect;
+  readonly overviewMap: DOMRect;
+  readonly hints: readonly DOMRect[];
+}
+
+export const cornerLookOf = (): CornerLook => {
+  const rectOf = (selector: string): DOMRect => {
+    const element = document.querySelector(selector);
+    if (element === null) throw new Error(`the graph has no ${selector}`);
+    return element.getBoundingClientRect();
+  };
+  return {
+    graphBottom: rectOf('#graph').bottom,
+    controls: rectOf('#graph > .zoom-controls'),
+    label: rectOf('#graph .zoom-label'),
+    toggle: rectOf('#graph .map-toggle'),
+    overviewMap: rectOf('#graph > .overview-map'),
+    hints: [...document.querySelectorAll('#graph .edge-hint')]
+      .map((hint) => hint.getBoundingClientRect())
+      .filter(({ width }) => width > 0),
+  };
+};

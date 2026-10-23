@@ -131,8 +131,16 @@ The bar at the top of the graph on a level of the Whole project view. It holds t
 _Avoid_: toolbar, header
 
 **Overview map**:
-The small drawing at the bottom right of the graph that shows every box of the level, when the level is larger than the graph. It shows the selected path in blue and the visible part as a rectangle. A click or a drag on it moves the visible part.
+The small drawing at the bottom right of the graph that shows every box of the level, when the level is larger than the graph. It shows the selected path in blue and the visible part as a rectangle. A click or a drag on it moves the visible part. The map toggle of the zoom controls collapses it and opens it again. It opens by default, and a reload opens it again. The camera keeps the selected box clear of the overview map and the zoom controls.
 _Avoid_: minimap, map
+
+**Zoom controls**:
+The group of buttons at the bottom right of the graph: "Zoom out", the zoom label, "Zoom in", "Fit" and the map toggle. The zoom label shows the zoom in percent, or "Overview" below the reading floor. The map toggle shows only when the overview map can show. The zoom controls sit above the overview map, and they drop to the bottom when the overview map collapses.
+_Avoid_: toolbar, zoom bar
+
+**Corner**:
+The bottom right part of the graph under the zoom controls and the overview map, as they show at that moment. It is the bounding box of the two. When the overview map collapses or does not show, the corner is the zoom controls only. The camera moves the anchor box and the selected box out of the corner, and the edge hints keep clear of it.
+_Avoid_: corner controls, floating controls
 
 **Edge hint**:
 A button at one edge of the graph that counts the boxes past that edge, for example "2 more →". A click pans to the nearest of them. The hint moves along its edge to the place nearest the middle where it covers no box. "Edge" here is the edge of the graph, not a call.
