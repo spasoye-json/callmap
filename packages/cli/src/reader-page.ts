@@ -5,7 +5,7 @@ import type { ReaderPageData, Sources } from '../page/data.ts';
 import type { Placement } from '../page/layout.ts';
 import { READER_VIEWS } from '../page/reader-views.ts';
 import type { Scene } from '../page/scene.ts';
-import { overLimitOf } from '../page/view.ts';
+import { openingOf, overLimitOf } from '../page/view.ts';
 import type { OverLimit, View } from '../page/view.ts';
 import { callsWordsOf, functionsAndCallsOf } from '../page/words.ts';
 import { assets } from './assets.ts';
@@ -78,12 +78,12 @@ const notesOf = (firstScenes: readonly FirstScene[]): readonly string[] => {
   const overNames = new Set(
     firstScenes.flatMap(({ view, over }) => (over === undefined ? [] : [view.name])),
   );
-  const opening = READER_VIEWS.find(({ name }) => !overNames.has(name))?.name;
+  const opening = openingOf(READER_VIEWS, ({ name }) => overNames.has(name)).name;
   return firstScenes.flatMap(({ view, over }) =>
     over === undefined
       ? []
       : [
-          `The ${view.name} view holds ${functionsAndCallsOf(over)}, over the ${view.name} limit of ${callsWordsOf(over.limit)}. The page opens on the ${opening ?? view.name} view.`,
+          `The ${view.name} view holds ${functionsAndCallsOf(over)}, over the ${view.name} limit of ${callsWordsOf(over.limit)}. The page opens on the ${opening} view.`,
         ],
   );
 };

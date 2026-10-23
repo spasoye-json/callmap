@@ -49,3 +49,6 @@ export const overLimitOf = (
   if (calls <= limit) return undefined;
   return { functions: boxes.filter(({ kind }) => kind === 'function').length, calls, limit };
 };
+
+export const openingOf = <T>(items: readonly [T, ...T[]], isOver: (item: T) => boolean): T =>
+  items.find((item) => !isOver(item)) ?? items[0];

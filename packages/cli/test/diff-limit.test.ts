@@ -45,6 +45,12 @@ const reviewWithLimit = async (diffLimit: number) => {
   return { html: readFileSync(out, 'utf8'), notes };
 };
 
+const withDiffLimit = (diffLimit: number): string =>
+  withPageData(html, { ...pageDataOf(html), diffLimit });
+
+const ONE_MORE_HOP_OVER_LIMIT =
+  'This review holds 12 functions and 13 calls. The Diff view draws up to 11 calls, so it draws none of them.';
+
 const selectedTabOf = ({ window }: LoadedPage): string =>
   within(window.document.body).getByRole('tab', { selected: true }).firstChild?.textContent ?? '';
 
@@ -105,15 +111,31 @@ describe('a review at exactly the Diff limit', () => {
 
 describe('a next hop that takes the Diff view over the Diff limit', () => {
   it('shows the message with the new counts, and does not lay out the Diff view', async () => {
-    const page = await loadReaderPage(
-      withPageData(html, { ...pageDataOf(html), diffLimit: DIFF_CALLS }),
-    );
+    const page = await loadReaderPage(withDiffLimit(DIFF_CALLS));
     expect(diffLimitMessageOf(page)).toBeNull();
 
     await clickBox(page, `${MONEY}#format`);
-    expect(diffLimitMessageOf(page)?.textContent).toContain(
-      'This review holds 12 functions and 13 calls. The Diff view draws up to 11 calls, so it draws none of them.',
+    expect(diffLimitMessageOf(page)?.textContent).toContain(ONE_MORE_HOP_OVER_LIMIT);
+    expect(page.layouts).toEqual([]);
+  });
+});
+
+describe('a search that takes the Diff view over the Diff limit', () => {
+  it('shows the message with the new counts, and does not lay out the Diff view', async () => {
+    const page = await loadReaderPage(withDiffLimit(DIFF_CALLS));
+    expect(diffLimitMessageOf(page)).toBeNull();
+
+    const body = within(page.window.document.body);
+    fireEvent.input(body.getByRole('searchbox', { name: 'Find a function' }), {
+      target: { value: 'round' },
+    });
+    fireEvent.click(
+      within(body.getByRole('region', { name: 'Search' })).getByRole('button', {
+        name: `round ${MONEY}`,
+      }),
     );
+    await settled(page);
+    expect(diffLimitMessageOf(page)?.textContent).toContain(ONE_MORE_HOP_OVER_LIMIT);
     expect(page.layouts).toEqual([]);
   });
 });

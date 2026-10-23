@@ -1,4 +1,4 @@
-import { emptyStateOf } from '../empty-state.ts';
+import { coverGraph, emptyStateOf } from '../empty-state.ts';
 import type { PagePart } from '../reader-page.ts';
 import { svgOf } from '../svg.ts';
 import type { OverLimit } from '../view.ts';
@@ -9,7 +9,7 @@ const lineOf = (over: OverLimit): string =>
   `This review holds ${functionsAndCallsOf(over)}. The Diff view draws up to ${callsWordsOf(over.limit)}, so it draws none of them. Open the Whole project view to read the changes level by level.`;
 
 const diffLimit: PagePart = (page) => {
-  const message = emptyStateOf({
+  const { state: message, text } = emptyStateOf({
     name: 'diff-limit',
     title: 'Over the Diff limit',
     line: '',
@@ -24,15 +24,10 @@ const diffLimit: PagePart = (page) => {
   });
   message.hidden = true;
   page.graph.before(message);
-  const line = message.querySelector('p');
 
-  let shown = false;
   page.onOverLimitChange((over) => {
-    if (over !== undefined && line !== null) line.textContent = lineOf(over);
-    if (shown === (over !== undefined)) return;
-    shown = over !== undefined;
-    message.hidden = !shown;
-    page.graph.hidden = shown;
+    if (over !== undefined) text.textContent = lineOf(over);
+    coverGraph(page.graph, message, over !== undefined);
   });
 };
 

@@ -8,7 +8,7 @@ import type { ReaderPage } from './reader-page.ts';
 import { isHiddenBy } from './scene.ts';
 import type { FunctionBox, Scene } from './scene.ts';
 import { tabBarOf } from './tabs.ts';
-import { choiceKeyOf, overLimitOf } from './view.ts';
+import { choiceKeyOf, openingOf, overLimitOf } from './view.ts';
 import type { Choice, OverLimit, View } from './view.ts';
 
 export interface Interaction {
@@ -106,7 +106,7 @@ export const interactionOf = (
   const overLimitAt = (target: ViewState): OverLimit | undefined =>
     overLimitOf(target.view, data, sceneOf(target));
 
-  let current = states.find((state) => overLimitAt(state) === undefined) ?? states[0];
+  let current = openingOf(states, (state) => overLimitAt(state) !== undefined);
 
   const tellOverLimit = (over: OverLimit | undefined): void => {
     for (const handler of overLimitHandlers) handler(over);

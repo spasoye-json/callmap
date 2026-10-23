@@ -1,4 +1,4 @@
-import { emptyStateOf } from '../empty-state.ts';
+import { coverGraph, emptyStateOf } from '../empty-state.ts';
 import type { PagePart } from '../reader-page.ts';
 import { svgOf } from '../svg.ts';
 import { diffView } from '../views/diff.ts';
@@ -6,7 +6,7 @@ import { wholeProjectView } from '../views/whole-project.ts';
 
 const noChange: PagePart = (page) => {
   if (page.data.review.functions.length > 0) return;
-  const message = emptyStateOf({
+  const { state: message } = emptyStateOf({
     name: 'no-change',
     title: 'No changed functions',
     line: 'The branch changes no function against its base.',
@@ -22,13 +22,9 @@ const noChange: PagePart = (page) => {
   });
   page.graph.before(message);
 
-  const show = (empty: boolean): void => {
-    message.hidden = !empty;
-    page.graph.hidden = empty;
-  };
-  show(page.currentView() === diffView);
+  coverGraph(page.graph, message, page.currentView() === diffView);
   page.onViewChange((view) => {
-    show(view === diffView);
+    coverGraph(page.graph, message, view === diffView);
   });
 };
 
