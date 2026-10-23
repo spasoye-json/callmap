@@ -204,7 +204,7 @@ export interface CornerLook {
   readonly controls: DOMRect;
   readonly label: DOMRect;
   readonly toggle: DOMRect;
-  readonly map: DOMRect;
+  readonly overviewMap: DOMRect;
   readonly hints: readonly DOMRect[];
 }
 
@@ -219,7 +219,7 @@ export const cornerLookOf = (): CornerLook => {
     controls: rectOf('#graph > .zoom-controls'),
     label: rectOf('#graph .zoom-label'),
     toggle: rectOf('#graph .map-toggle'),
-    map: rectOf('#graph > .overview-map'),
+    overviewMap: rectOf('#graph > .overview-map'),
     hints: [...document.querySelectorAll('#graph .edge-hint')]
       .map((hint) => hint.getBoundingClientRect())
       .filter(({ width }) => width > 0),

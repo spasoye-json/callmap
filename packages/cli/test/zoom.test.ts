@@ -494,10 +494,10 @@ describe('the zoom controls and the overview map over the graph', () => {
   it('leaves a clicked box where the collapsed overview map was, and pans it out when the overview map opens', async () => {
     const page = await loadReaderPage(html, undefined, undefined, DENSE);
     await clickBox(page, RECEIPT);
-    const mapPlace = overviewMapPlaceOf(page);
+    const overviewMapPlace = overviewMapPlaceOf(page);
     toggleOverviewMap(page);
-    moveBoxToRightEdge(page, RECEIPT, DENSE.width, mapPlace.top);
-    expect(meets(screenRectOf(page, RECEIPT), mapPlace)).toBe(true);
+    moveBoxToRightEdge(page, RECEIPT, DENSE.width, overviewMapPlace.top);
+    expect(meets(screenRectOf(page, RECEIPT), overviewMapPlace)).toBe(true);
     expect(meets(screenRectOf(page, RECEIPT), cornerOf(page))).toBe(false);
     const before = cameraOf(page);
     await clickBox(page, RECEIPT);

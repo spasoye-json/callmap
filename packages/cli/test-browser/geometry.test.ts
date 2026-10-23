@@ -198,31 +198,39 @@ describe('the level boxes in the Map band in Chromium', () => {
 describe('the corner of the graph in Chromium', () => {
   const RECEIPT = 'src/cart.ts#receipt';
   const SMALLEST = { width: 536, height: 460 };
-  const MAP_STATES = ['open', 'collapsed'] as const;
+  const OVERVIEW_MAP_STATES = ['open', 'collapsed'] as const;
 
   const openWithOverviewMap = async (
-    map: (typeof MAP_STATES)[number],
+    overviewMap: (typeof OVERVIEW_MAP_STATES)[number],
     viewport: { readonly width: number; readonly height: number },
   ): Promise<Page> => {
     const page = await openPage({ fixture: 'review', view: 'Diff' }, 'light', viewport);
-    if (map === 'collapsed') await page.getByRole('button', { name: 'Overview map' }).click();
+    if (overviewMap === 'collapsed')
+      await page.getByRole('button', { name: 'Overview map' }).click();
     return page;
   };
 
-  it.each(MAP_STATES)('keeps a clicked box clear of it, with the overview map %s', async (map) => {
-    const page = await openWithOverviewMap(map, NARROW);
-    const { corner } = await page.evaluate(cornerPlaceOf, RECEIPT);
-    const box = await page.locator(`#graph [data-box="${RECEIPT}"] > rect`).boundingBox();
-    if (box === null) throw new Error(`the graph shows no box ${RECEIPT}`);
-    await dragGraph(page, corner.x - (box.x + box.width / 2), corner.y - (box.y + box.height / 2));
-    const before = await page.evaluate(cornerPlaceOf, RECEIPT);
-    await page.mouse.click(before.free.x, before.free.y);
-    await settled(page);
-    const after = await page.evaluate(cornerPlaceOf, RECEIPT);
-    await page.close();
-    expect(before.under).toBe(true);
-    expect(after).toMatchObject({ under: false, inGraph: true });
-  });
+  it.each(OVERVIEW_MAP_STATES)(
+    'keeps a clicked box clear of it, with the overview map %s',
+    async (overviewMap) => {
+      const page = await openWithOverviewMap(overviewMap, NARROW);
+      const { corner } = await page.evaluate(cornerPlaceOf, RECEIPT);
+      const box = await page.locator(`#graph [data-box="${RECEIPT}"] > rect`).boundingBox();
+      if (box === null) throw new Error(`the graph shows no box ${RECEIPT}`);
+      await dragGraph(
+        page,
+        corner.x - (box.x + box.width / 2),
+        corner.y - (box.y + box.height / 2),
+      );
+      const before = await page.evaluate(cornerPlaceOf, RECEIPT);
+      await page.mouse.click(before.free.x, before.free.y);
+      await settled(page);
+      const after = await page.evaluate(cornerPlaceOf, RECEIPT);
+      await page.close();
+      expect(before.under).toBe(true);
+      expect(after).toMatchObject({ under: false, inGraph: true });
+    },
+  );
 
   it('opens a level with the anchor box clear of it, in the smallest graph, with the overview map open', async () => {
     const page = await openWithOverviewMap('open', SMALLEST);
@@ -239,12 +247,14 @@ describe('the corner of the graph in Chromium', () => {
 
   const SHORT = { width: 900, height: 348 };
 
-  const toggleProblems = ({ controls, label, toggle, map }: CornerLook): string[] => [
+  const toggleProblems = ({ controls, label, toggle, overviewMap }: CornerLook): string[] => [
     ...(meets(toggle, label) ? ['the map toggle meets the zoom label'] : []),
     ...(toggle.right > controls.right || toggle.left < controls.left
       ? ['the map toggle runs past the zoom controls']
       : []),
-    ...(map.width > 0 && meets(controls, map) ? ['the zoom controls meet the overview map'] : []),
+    ...(overviewMap.width > 0 && meets(controls, overviewMap)
+      ? ['the zoom controls meet the overview map']
+      : []),
   ];
 
   it.each(SCHEMES)(
@@ -260,19 +270,19 @@ describe('the corner of the graph in Chromium', () => {
       await page.close();
       expect(toggleProblems(open)).toEqual([]);
       expect(toggleProblems(collapsed)).toEqual([]);
-      expect(collapsed.map.width).toBe(0);
+      expect(collapsed.overviewMap.width).toBe(0);
       expect(collapsed.controls.bottom).toBe(collapsed.graphBottom - 16);
-      expect(open.controls.bottom).toBeLessThan(open.map.top);
+      expect(open.controls.bottom).toBeLessThan(open.overviewMap.top);
       expect(reopened.controls).toEqual(open.controls);
       expect(open.hints.length).toBeGreaterThan(0);
       for (const hint of open.hints) {
-        expect(meets(hint, open.map), 'a hint meets the open overview map').toBe(false);
+        expect(meets(hint, open.overviewMap), 'a hint meets the open overview map').toBe(false);
         expect(meets(hint, open.controls), 'a hint meets the zoom controls').toBe(false);
       }
       for (const hint of collapsed.hints)
         expect(meets(hint, collapsed.controls), 'a hint meets the zoom controls').toBe(false);
       expect(
-        collapsed.hints.some((hint) => meets(hint, open.map)),
+        collapsed.hints.some((hint) => meets(hint, open.overviewMap)),
         'a hint takes the place of the collapsed overview map',
       ).toBe(true);
     },

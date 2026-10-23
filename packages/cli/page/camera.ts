@@ -126,12 +126,15 @@ export const cameraOf = (
   let textScale: number | undefined;
   const handlers: ((view: CameraView) => void)[] = [];
 
-  const sizeOf = (): GraphRoom => {
-    const { width, height } = container.getBoundingClientRect();
-    const top = [...container.querySelectorAll(`:scope > [${COVERS}="top"]`)].reduce(
+  const coveredTopOf = (): number =>
+    [...container.querySelectorAll(`:scope > [${COVERS}="top"]`)].reduce(
       (covered, cover) => Math.max(covered, cover.getBoundingClientRect().height),
       0,
     );
+
+  const sizeOf = (): GraphRoom => {
+    const { width, height } = container.getBoundingClientRect();
+    const top = coveredTopOf();
     return { width, height: Math.max(0, height - top), top };
   };
 
@@ -206,7 +209,7 @@ export const cameraOf = (
   const fitsOnAxis = (room: number, size: number): boolean => size * scale <= room - FIT_MARGIN;
 
   const moveOutOfCorner = (box: LaidBox): boolean => {
-    const { top } = sizeOf();
+    const top = coveredTopOf();
     const corner = cornerOf(container);
     if (corner === undefined) return false;
     const left = x + box.x * scale;
