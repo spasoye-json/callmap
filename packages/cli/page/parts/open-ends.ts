@@ -5,7 +5,7 @@ import { moreButtonOf, sectionHeadOf, spanOf } from '../panel-elements.ts';
 import type { PagePart, ReaderPage } from '../reader-page.ts';
 import { byLine } from '../scene.ts';
 import { svgOf } from '../svg.ts';
-import { countTextOf, countWordsOf } from '../words.ts';
+import { countTextOf, countWordsOf, OPEN_END_REASON_WORDS } from '../words.ts';
 
 const FILES_SHOWN = 5;
 const OPEN_CHEVRON = 'M4 6l4 4 4-4';
@@ -35,7 +35,10 @@ const filesOf = (page: ReaderPage): readonly FileOpenEnds[] => {
     );
 };
 
-const openEndRowOf = (page: ReaderPage, { caller, line, expression }: OpenEnd): HTMLElement => {
+const openEndRowOf = (
+  page: ReaderPage,
+  { caller, line, expression, reason }: OpenEnd,
+): HTMLElement => {
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'open-end';
@@ -44,7 +47,7 @@ const openEndRowOf = (page: ReaderPage, { caller, line, expression }: OpenEnd): 
   code.textContent = expression;
   const where = document.createElement('span');
   where.className = 'where';
-  where.textContent = `line ${String(line)}`;
+  where.textContent = `line ${String(line)} · ${OPEN_END_REASON_WORDS[reason]}`;
   row.append(code, ' ', where);
   row.addEventListener('click', () => {
     void page.open(caller);

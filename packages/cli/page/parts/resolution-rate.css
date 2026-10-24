@@ -2,8 +2,9 @@
   order: -3;
 }
 
-.resolution-rate .eyebrow {
-  margin-bottom: 8px;
+.resolution-rate .checker {
+  color: var(--muted);
+  font: 11px var(--font-code);
 }
 
 .resolution-rate p {

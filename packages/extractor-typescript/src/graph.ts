@@ -13,7 +13,7 @@ import type { ExtractOptions } from './config.ts';
 import { implementationsOf } from './implementations.ts';
 import type { Member } from './implementations.ts';
 import { resolverOf } from './resolution.ts';
-import type { CallSite } from './resolution.ts';
+import type { CallSite } from './nodes.ts';
 import { sourceFilesInScope, TYPESCRIPT } from './walk.ts';
 
 interface NamedFunction {
@@ -197,12 +197,25 @@ export const extractGraphDocument = (options: ExtractOptions): GraphDocument => 
     const resolution = resolutionOf(site);
     if (resolution.kind === 'call') calls.push({ caller, callee: resolution.callee, line });
     if (resolution.kind === 'open-end') {
-      openEnds.push({ caller, line, expression: site.expression.getText() });
+      openEnds.push({
+        caller,
+        line,
+        expression: site.expression.getText(),
+        reason: resolution.reason,
+      });
     }
     if (resolution.kind === 'one-of') {
       for (const callee of resolution.callees) calls.push({ caller, callee, line, group });
     }
   }
 
-  return { language: TYPESCRIPT, scope, files, functions, calls, openEnds };
+  return {
+    language: TYPESCRIPT,
+    checker: { name: 'TypeScript', version: ts.version },
+    scope,
+    files,
+    functions,
+    calls,
+    openEnds,
+  };
 };

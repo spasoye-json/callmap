@@ -1,3 +1,5 @@
+import type { OpenEndReason } from '@callmap/graph-document';
+
 export const countTextOf = (count: number): string =>
   String(count).replace(/\B(?=(\d{3})+$)/g, ',');
 
@@ -16,3 +18,12 @@ export const functionsAndCallsOf = ({
   readonly functions: number;
   readonly calls: number;
 }): string => `${countTextWordsOf(functions, 'function', 'functions')} and ${callsWordsOf(calls)}`;
+
+export const OPEN_END_REASON_WORDS: Readonly<Record<OpenEndReason, string>> = {
+  'missing-module': 'code not found',
+  'dynamic-key': 'dynamic key',
+  untyped: 'untyped value',
+  'function-value': 'function value',
+  'no-implementation': 'no implementation in scope',
+  other: 'not resolved',
+};

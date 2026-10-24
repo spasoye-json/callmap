@@ -14,6 +14,7 @@ const graph = (
   calls: readonly Call[] = [],
 ): GraphDocument => ({
   language: 'example',
+  checker: { name: 'Example', version: '1.0.0' },
   scope: [],
   files: [...new Set(functions.map(({ file }) => file))],
   functions,

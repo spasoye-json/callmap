@@ -13,6 +13,7 @@ const graph = (ids: readonly string[], calls: readonly Call[] = []): GraphDocume
   const functions = ids.map(fn);
   return {
     language: 'example',
+    checker: { name: 'Example', version: '1.0.0' },
     scope: [],
     files: [...new Set(functions.map(({ file }) => file))],
     functions,

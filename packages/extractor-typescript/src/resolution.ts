@@ -1,13 +1,14 @@
 import { relative, sep } from 'node:path';
 import * as ts from 'typescript';
-import type { FunctionId } from '@callmap/graph-document';
-
-export type CallSite = ts.CallExpression | ts.NewExpression;
+import type { FunctionId, OpenEndReason } from '@callmap/graph-document';
+import { isAbstractMember, symbolOf } from './nodes.ts';
+import type { CallSite } from './nodes.ts';
+import { reasonOf } from './open-end-reason.ts';
 
 export type Resolution =
   | { readonly kind: 'call'; readonly callee: FunctionId }
   | { readonly kind: 'one-of'; readonly callees: readonly FunctionId[] }
-  | { readonly kind: 'open-end' }
+  | { readonly kind: 'open-end'; readonly reason: OpenEndReason }
   | { readonly kind: 'outside' };
 
 export interface ResolverInput {
@@ -19,14 +20,9 @@ export interface ResolverInput {
 }
 
 const OUTSIDE: Resolution = { kind: 'outside' };
-const OPEN_END: Resolution = { kind: 'open-end' };
 
 const calleeNameOf = (expression: ts.Expression): ts.Node =>
   ts.isPropertyAccessExpression(expression) ? expression.name : expression;
-
-const isAbstractMember = (node: ts.Node): boolean =>
-  (ts.isMethodDeclaration(node) || ts.isPropertyDeclaration(node)) &&
-  (ts.getModifiers(node) ?? []).some(({ kind }) => kind === ts.SyntaxKind.AbstractKeyword);
 
 export const memberOf = (declaration: ts.Node): ts.Node | undefined => {
   if (ts.isMethodSignature(declaration) || ts.isPropertySignature(declaration)) return declaration;
@@ -43,17 +39,10 @@ export const resolverOf = ({
   idOfCallable,
   implementations,
 }: ResolverInput): ((site: CallSite) => Resolution) => {
-  const symbolOf = (node: ts.Node): ts.Symbol | undefined => {
-    const symbol = checker.getSymbolAtLocation(node);
-    return symbol !== undefined && symbol.flags & ts.SymbolFlags.Alias
-      ? checker.getAliasedSymbol(symbol)
-      : symbol;
-  };
-
   const declarationOf = (site: CallSite): ts.Node | undefined => {
     const declaration = checker.getResolvedSignature(site)?.declaration;
     if (declaration !== undefined && !ts.isJSDocSignature(declaration)) return declaration;
-    return symbolOf(calleeNameOf(site.expression))?.declarations?.[0];
+    return symbolOf(checker, calleeNameOf(site.expression))?.declarations?.[0];
   };
 
   const isClaimed = (node: ts.Node): boolean => {
@@ -65,21 +54,24 @@ export const resolverOf = ({
     const direct = idOfCallable.get(declaration);
     if (direct !== undefined) return direct;
     const name = ts.getNameOfDeclaration(declaration as ts.Declaration);
-    const overloads = name === undefined ? [] : (symbolOf(name)?.declarations ?? []);
+    const overloads = name === undefined ? [] : (symbolOf(checker, name)?.declarations ?? []);
     return overloads.map((overload) => idOfCallable.get(overload)).find((id) => id !== undefined);
   };
 
+  const reasonAt = reasonOf(checker);
+  const openEndAt = (site: CallSite): Resolution => ({ kind: 'open-end', reason: reasonAt(site) });
+
   return (site) => {
     const declaration = declarationOf(site);
-    if (declaration === undefined) return OPEN_END;
+    if (declaration === undefined) return openEndAt(site);
     if (!isClaimed(declaration)) return OUTSIDE;
     const member = memberOf(declaration);
     if (member !== undefined) {
       const callees = implementations.get(member) ?? [];
-      return callees.length === 0 ? OPEN_END : { kind: 'one-of', callees };
+      return callees.length === 0 ? openEndAt(site) : { kind: 'one-of', callees };
     }
     const callee = implementationOf(declaration);
     if (callee !== undefined) return { kind: 'call', callee };
-    return ts.isClassLike(declaration) ? OUTSIDE : OPEN_END;
+    return ts.isClassLike(declaration) ? OUTSIDE : openEndAt(site);
   };
 };
