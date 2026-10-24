@@ -1,6 +1,6 @@
 # Callmap
 
-Callmap is a code reader for an engineer who still reads code. It builds the call graph of a repo with each language's own tools, with no AI, and writes it as one HTML page, so a reviewer can see where each change sits and how the changed files talk to each other. `docs/adr/` holds the architectural decisions and `docs/product.md` holds the product record.
+Callmap is a code reader for an engineer who still reads code. It builds the call graph of a repo with static rules that prove each call, with no AI, and writes it as one HTML page, so a reviewer can see where each change sits and how the changed files talk to each other. `docs/adr/` holds the architectural decisions and `docs/product.md` holds the product record.
 
 ## Language
 
@@ -13,7 +13,7 @@ One named piece of code that can be called: a function, a method, or a construct
 _Avoid_: node, symbol, routine
 
 **Call**:
-An arrow from one function to a function it calls, proven by the language's own tools. The page draws a call with the colour token `--edge`. The Tokens artboard of the design gives that name, so the page keeps it. It is the only place where the page says "edge" for a call.
+An arrow from one function to a function it calls, proven by static rules: the type checker of the language, or Callmap's own rules for Ruby. The page draws a call with the colour token `--edge`. The Tokens artboard of the design gives that name, so the page keeps it. It is the only place where the page says "edge" for a call.
 _Avoid_: edge, link, dependency
 
 **Call graph**:
@@ -25,8 +25,12 @@ A call that the language's tools cannot tie to a function, such as a call on an 
 _Avoid_: unknown call, gap, hole
 
 **Open-end reason**:
-The cause, from a fixed list, of why the language's tools cannot tie an open end to a function: a module not found, a dynamic key, an untyped value, a function value, no implementation in scope, or not resolved for any other cause. When 2 causes fit, the first in this list names the open end. So a dynamic key on a map of functions is a dynamic key, not a function value.
+The cause, from a fixed list, of why the language's tools cannot tie an open end to a function: code not found, a dynamic key, an untyped value, a function value, no implementation in scope, or not resolved for any other cause. When 2 causes fit, the first in this list names the open end. So a dynamic key on a map of functions is a dynamic key, not a function value.
 _Avoid_: cause, error, why
+
+**Library call**:
+A call whose callee is code outside the repo, such as the standard library, a module, a gem or a framework. In Ruby, a call that the class chain passes to a framework class, and a call to a method that a framework macro makes, such as `has_many`, are library calls too. The call graph does not hold a library call, and the resolution rate does not count it.
+_Avoid_: external call, vendor call, leaf
 
 **One-of call**:
 One of several calls from one call site through an interface or a map of strategies, one to each implementation. Only one of them runs.
@@ -37,7 +41,7 @@ The one-of calls of one call site. The page draws them as alternatives, and the 
 _Avoid_: call site group, alternative set
 
 **Resolution rate**:
-The share of calls into the repo's own code that the language's tools tie to one function: the calls, divided by the calls plus the open ends. A one-of group counts as one call. A call into a library and a call that no named function holds count in neither. It tells the reader how much of the graph the tools proved.
+The share of calls into the repo's own code that the language's tools tie to one function: the calls, divided by the calls plus the open ends. A one-of group counts as one call. A call into a library and a call that no named function holds count in neither. It tells the reader how much of the graph the tools proved. A page with several languages shows one rate for each language, because one mixed rate hides the weak language.
 _Avoid_: accuracy, confidence, coverage
 
 **File frame**:
@@ -71,7 +75,7 @@ What one extractor emits for one repo: its files, its functions, its calls, its 
 _Avoid_: graph JSON, payload, manifest
 
 **Checker**:
-The tool of a language that proves the calls of a graph document, with its name and its full version, such as TypeScript 6.0.3. It is the tool that the extractor runs, not the tool that the repo under review installs. The page shows it next to the resolution rate.
+The tool of a language that proves the calls of a graph document, with its name and its full version, such as TypeScript 6.0.3. It is the tool that the extractor runs, not the tool that the repo under review installs. Ruby has no type checker, so its checker names Callmap's own Ruby rules and the Ruby that runs them. The page shows it next to the resolution rate of its language, one checker for each language on the page.
 _Avoid_: compiler, type checker version, toolchain
 
 **Reference graph document**:

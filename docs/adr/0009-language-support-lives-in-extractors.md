@@ -1,5 +1,7 @@
 # Language support lives in extractors, the core is language-blind
 
+> Superseded in part by ADR-0025. No call crosses a language, so there are no boundary edges. The core stays language-blind.
+
 The reference graph replaces the import graph as ground truth. Each language gets an extractor, a separate process that emits files, reference edges, and a language tag, and nothing else. The core is ported to typed TypeScript, keeps its tests, and never reads source code. Version one ships three extractors: TypeScript with JavaScript, Go, and Ruby. The Ruby reference graph is constant references resolved by Zeitwerk conventions, one autoload root per Rails app, and edges between apps are boundaries. A mixed repo runs every matching extractor and merges the results into one reference graph. A verified edge never crosses a language. A boundary edge does, and it carries evidence, so a cross-language flow is drawn from the same rules as before.
 
 The alternative was a Rust rewrite of core and extractors on tree-sitter, one binary and no Node sidecar. Tree-sitter gives syntax and not module resolution, so resolution would still be hand-built per language, and the validated core would be re-earned from zero. The rewrite that helps future languages is the narrow contract, not the host language. An extractor's host language stays swappable behind the contract.

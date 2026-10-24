@@ -9,7 +9,7 @@ AI writes code faster than an engineer can review it. Callmap does not replace r
 - User: the owner first, an engineer who reviews AI-written code every day on TypeScript, Go and Ruby repos.
 - Daily trigger: the review of a branch, a pull request or a merge request.
 - Second use: reading any part of a repo by its calls, from the same page.
-- No AI. Every function and every call comes from the language's own tools, so the same code always gives the same page.
+- No AI. Static rules prove every function and every call, with no guess, so the same code always gives the same page. For TypeScript and Go, the rules are the type checker. Ruby has no type checker, so Callmap's own rules prove its calls (ADR-0027).
 
 ## The MVP
 
@@ -24,8 +24,9 @@ A CLI that writes one self-contained HTML page. See ADR-0012.
 ## Languages
 
 - TypeScript first, read with the type checker. On a private app it resolved 96.7% of backend calls and 98.8% of mobile calls.
-- Go next, read with the `golang.org/x/tools` call graph.
-- Ruby after its resolution rate is measured on an open-source Rails app. Sorbet-based `scip-ruby` is the first tool to measure. The rate on Rails code with no Sorbet types is not known yet.
+- Go next, read with `go/types` at each call site, with load errors allowed (ADR-0024).
+- Ruby after Go, read with Zeitwerk naming, the class chain and a local type flow, with no guess (ADR-0027). The open-source record runs on `mastodon/mastodon`.
+- A review reads one graph document for each language and shows one rate for each (ADR-0025).
 - The core is language-blind. A new language costs one extractor. See ADR-0009.
 
 ## Cut from the MVP
@@ -36,11 +37,12 @@ Every AI pass, flows of business logic, the branches inside a function, componen
 
 - VS Code and GoLand already show the call hierarchy of one function. Callmap earns its place only with the view of a whole branch across files and languages.
 - Understanding tools die as nice-to-haves. CodeSee, Sourcetrail, and Structurizr cloud are the record. Callmap must live inside the daily review.
-- The Ruby resolution rate may be too low to help on the owner's work repos.
+- The Ruby resolution rate is low. On a private Rails app, the rules tied about a third of the calls before any type flow, so many methods show as entry points and the Route view helps less.
 - Nothing from the owner's employer repos appears in demos, essays, screenshots, or committed fixtures. Public material uses a private app of the owner and open-source repos.
 
 ## Next steps
 
 1. Spec 2, the reader MVP for TypeScript, proven on a private app. This is issue 15, with tickets 16 to 22.
-2. Measure the Go and Ruby resolution rates on open-source repos.
-3. Spec 3, the Go and Ruby extractors with calls.
+2. Issue 60, the checker and the open-end reason in the graph document.
+3. The Go spec, with its record on `go-gitea/gitea`.
+4. The Ruby spec, whose first ticket measures the local type flow on `mastodon/mastodon`.

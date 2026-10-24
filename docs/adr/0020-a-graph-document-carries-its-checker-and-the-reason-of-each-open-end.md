@@ -1,5 +1,7 @@
 # A graph document carries its checker and the reason of each open end
 
+> Changed in part by ADR-0024. The cause of `missing-module` is now code that does not load: an import that does not resolve, or a file that is missing. Its page words are now "code not found".
+
 A graph document gets 2 required fields. The document names its checker: the name and the full version of the tool that proved its calls, such as TypeScript 6.0.3. Each open end names its open-end reason, as one code from a fixed list:
 
 | Code                | Page words                 | The cause                                                                  |
