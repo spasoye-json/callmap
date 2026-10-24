@@ -1,7 +1,7 @@
 import { relative, sep } from 'node:path';
 import * as ts from 'typescript';
 import type { FunctionId, OpenEndReason } from '@callmap/graph-document';
-import { isAbstractMember, symbolOf } from './nodes.ts';
+import { calleeNameOf, isAbstractMember, symbolOf } from './nodes.ts';
 import type { CallSite } from './nodes.ts';
 import { reasonOf } from './open-end-reason.ts';
 
@@ -21,9 +21,6 @@ export interface ResolverInput {
 
 const OUTSIDE: Resolution = { kind: 'outside' };
 
-const calleeNameOf = (expression: ts.Expression): ts.Node =>
-  ts.isPropertyAccessExpression(expression) ? expression.name : expression;
-
 export const memberOf = (declaration: ts.Node): ts.Node | undefined => {
   if (ts.isMethodSignature(declaration) || ts.isPropertySignature(declaration)) return declaration;
   if (ts.isFunctionTypeNode(declaration) && ts.isPropertySignature(declaration.parent)) {
@@ -42,6 +39,7 @@ export const resolverOf = ({
   const declarationOf = (site: CallSite): ts.Node | undefined => {
     const declaration = checker.getResolvedSignature(site)?.declaration;
     if (declaration !== undefined && !ts.isJSDocSignature(declaration)) return declaration;
+    if (ts.isElementAccessExpression(site.expression)) return undefined;
     return symbolOf(checker, calleeNameOf(site.expression))?.declarations?.[0];
   };
 

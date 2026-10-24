@@ -92,6 +92,7 @@ describe('the reason of an open end', () => {
     ['callAny', [['x', 'untyped']]],
     ['callParsed', [['JSON.parse(s).go', 'untyped']]],
     ['callAnyKey', [['o[k]', 'untyped']]],
+    ['callAnySymbolKey', [['o[Symbol.iterator]', 'untyped']]],
     ['callCallback', [['done', 'function-value']]],
     [
       'callLocal',

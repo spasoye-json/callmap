@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import type { OpenEndReason } from '@callmap/graph-document';
-import { hasModifier, isAbstractMember, symbolOf } from './nodes.ts';
+import { calleeNameOf, hasModifier, isAbstractMember, symbolOf } from './nodes.ts';
 import type { CallSite } from './nodes.ts';
 
 const innerOf = (expression: ts.Expression): ts.Expression =>
@@ -22,11 +22,6 @@ const rootOf = (expression: ts.Expression): ts.Expression => {
     ts.isNewExpression(inner)
     ? rootOf(inner.expression)
     : inner;
-};
-
-const nameOf = (callee: ts.Expression): ts.Node => {
-  if (ts.isPropertyAccessExpression(callee)) return callee.name;
-  return ts.isElementAccessExpression(callee) ? callee.argumentExpression : callee;
 };
 
 const isLiteralKey = (key: ts.Expression): boolean =>
@@ -80,7 +75,7 @@ export const reasonOf = (checker: ts.TypeChecker): ((site: CallSite) => OpenEndR
     if (isDynamicKey(callee)) return 'dynamic-key';
     const type = checker.getTypeAtLocation(callee);
     if (isAny(type)) return 'untyped';
-    const declarations = symbolOf(checker, nameOf(callee))?.declarations ?? [];
+    const declarations = symbolOf(checker, calleeNameOf(callee))?.declarations ?? [];
     if (isFunctionValue(site, type, declarations)) return 'function-value';
     return declarations.some(hasNoImplementation) ? 'no-implementation' : 'other';
   };

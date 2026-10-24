@@ -58,6 +58,10 @@ export const callAnyKey = (o: any, k: string): void => {
   o[k]();
 };
 
+export const callAnySymbolKey = (o: any): void => {
+  o[Symbol.iterator]();
+};
+
 export const callCallback = (done: Hook, order: Order): void => {
   done(order);
 };

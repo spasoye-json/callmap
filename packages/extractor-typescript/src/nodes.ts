@@ -15,3 +15,8 @@ export const symbolOf = (checker: ts.TypeChecker, node: ts.Node): ts.Symbol | un
     ? checker.getAliasedSymbol(symbol)
     : symbol;
 };
+
+export const calleeNameOf = (callee: ts.Expression): ts.Node => {
+  if (ts.isPropertyAccessExpression(callee)) return callee.name;
+  return ts.isElementAccessExpression(callee) ? callee.argumentExpression : callee;
+};
