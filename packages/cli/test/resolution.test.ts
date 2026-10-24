@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { fireEvent, getByRole, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -19,6 +20,12 @@ import { tempDir } from '../../../test/temp-dir.ts';
 const ALERTS = 'src/alerts.ts';
 const NOTIFY = 'src/notify.ts';
 const BROADCAST = 'src/broadcast.ts';
+
+const typescriptVersion = (): string => {
+  const extractor = import.meta.resolve('@callmap/extractor-typescript/cli');
+  const manifest = createRequire(extractor).resolve('typescript/package.json');
+  return (JSON.parse(readFileSync(manifest, 'utf8')) as { version: string }).version;
+};
 
 let html = '';
 let htmlWithBroadcast = '';
@@ -57,9 +64,14 @@ beforeAll(() => {
 }, 120_000);
 
 describe('the open ends, one-of groups and resolution rate of callmap review', () => {
-  it('lists the open end of a call on an untyped value, with its caller, line and text', () => {
+  it('lists the open end of a call on an untyped value, with its caller, line, text and reason', () => {
     expect(pageDataOf(html).review.openEnds).toEqual([
-      { caller: `${ALERTS}#relay`, line: 8, expression: 'JSON.parse(raw).notify' },
+      {
+        caller: `${ALERTS}#relay`,
+        line: 8,
+        expression: 'JSON.parse(raw).notify',
+        reason: 'untyped',
+      },
     ]);
   });
 
@@ -95,23 +107,38 @@ describe('the open ends, one-of groups and resolution rate on the reader page', 
     expect(rate.textContent).toContain('9 of 10 calls');
   });
 
-  it('lists the open ends of this review by the file of their caller, with the line of each', async () => {
+  it('shows the checker of the branch graph next to the Resolution heading', async () => {
+    const { window } = await loadReaderPage(html);
+    const rate = within(getByRole(window.document.body, 'region', { name: 'Resolution rate' }));
+    const checker = rate.getByText(`TypeScript ${typescriptVersion()}`);
+    expect(checker.parentElement?.contains(rate.getByRole('heading', { name: 'Resolution' }))).toBe(
+      true,
+    );
+  });
+
+  it('lists the open ends of this review by the file of their caller, with the line and the reason of each', async () => {
     const { window } = await loadReaderPage(html);
     const openEnds = within(getByRole(window.document.body, 'region', { name: 'Open ends' }));
     const file = openEnds.getByRole('button', { name: `${ALERTS} 1` });
     expect(file.getAttribute('aria-expanded')).toBe('true');
-    expect(openEnds.getByRole('button', { name: 'JSON.parse(raw).notify line 8' })).toBeDefined();
+    expect(
+      openEnds.getByRole('button', { name: 'JSON.parse(raw).notify line 8 · untyped value' }),
+    ).toBeDefined();
 
     fireEvent.click(file);
     expect(file.getAttribute('aria-expanded')).toBe('false');
-    expect(openEnds.queryByRole('button', { name: 'JSON.parse(raw).notify line 8' })).toBeNull();
+    expect(
+      openEnds.queryByRole('button', { name: 'JSON.parse(raw).notify line 8 · untyped value' }),
+    ).toBeNull();
   });
 
   it('selects the caller of an open end after a click on it', async () => {
     const page = await loadReaderPage(html);
     const body = within(page.window.document.body);
     const openEnds = within(body.getByRole('region', { name: 'Open ends' }));
-    fireEvent.click(openEnds.getByRole('button', { name: 'JSON.parse(raw).notify line 8' }));
+    fireEvent.click(
+      openEnds.getByRole('button', { name: 'JSON.parse(raw).notify line 8 · untyped value' }),
+    );
     await settled(page);
     expect(
       within(body.getByRole('region', { name: 'Code' })).getByRole('heading', { name: 'relay' }),
@@ -126,6 +153,7 @@ describe('the open ends, one-of groups and resolution rate on the reader page', 
         caller: `src/${name}.ts#run`,
         line: line + 1,
         expression: `${name}.go`,
+        reason: 'other' as const,
       })),
     );
     const callers = files.map((name) => ({
@@ -160,6 +188,25 @@ describe('the open ends, one-of groups and resolution rate on the reader page', 
     fireEvent.click(within(region).getByRole('button', { name: 'Show 3 more files' }));
     expect(fileNames().slice(5)).toEqual(['src/a.ts 1', 'src/d.ts 1', 'src/g.ts 1']);
     expect(within(region).queryByRole('button', { name: /^Show/ })).toBeNull();
+  });
+
+  it.each([
+    ['missing-module', 'code not found'],
+    ['dynamic-key', 'dynamic key'],
+    ['untyped', 'untyped value'],
+    ['function-value', 'function value'],
+    ['no-implementation', 'no implementation in scope'],
+    ['other', 'not resolved'],
+  ] as const)('shows the open-end reason %s as "%s"', async (reason, words) => {
+    const data = pageDataOf(html);
+    const openEnds = data.review.openEnds.map((openEnd) => ({ ...openEnd, reason }));
+    const page = await loadReaderPage(
+      withPageData(html, { ...data, review: { ...data.review, openEnds } }),
+    );
+    const region = within(page.window.document.body).getByRole('region', { name: 'Open ends' });
+    expect(
+      within(region).getByRole('button', { name: `JSON.parse(raw).notify line 8 · ${words}` }),
+    ).toBeDefined();
   });
 
   it('marks each open end at its call site, as an arrow from its caller that leads nowhere', async () => {

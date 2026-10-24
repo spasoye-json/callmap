@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { Call, GraphDocument, GraphFunction, OpenEnd } from '@callmap/graph-document';
+import type {
+  Call,
+  GraphDocument,
+  GraphFunction,
+  OpenEnd,
+  OpenEndReason,
+} from '@callmap/graph-document';
 import { reviewOf } from '../src/index.ts';
 
 const fn = (id: string, sourceHash = `${id}@1`): GraphFunction => {
@@ -16,10 +22,16 @@ const oneOf = (caller: string, callee: string, group: string, line = 4): Call =>
   group,
 });
 
-const openEnd = (caller: string, expression: string, line = 5): OpenEnd => ({
+const openEnd = (
+  caller: string,
+  expression: string,
+  line = 5,
+  reason: OpenEndReason = 'other',
+): OpenEnd => ({
   caller,
   line,
   expression,
+  reason,
 });
 
 const graph = (
@@ -28,6 +40,7 @@ const graph = (
   openEnds: readonly OpenEnd[] = [],
 ): GraphDocument => ({
   language: 'example',
+  checker: { name: 'Example', version: '1.0.0' },
   scope: [],
   files: [...new Set(functions.map(({ file }) => file))],
   functions,
@@ -75,15 +88,19 @@ describe('the resolution rate of a review', () => {
 
 describe('the open ends of a review', () => {
   it('lists the open ends of each function the review shows, from the graph that holds it', () => {
-    const base = graph([fn(A, 'old'), fn(B), fn(D)], [], [openEnd(B, 'legacy.run', 3)]);
+    const base = graph(
+      [fn(A, 'old'), fn(B), fn(D)],
+      [],
+      [openEnd(B, 'legacy.run', 3, 'missing-module')],
+    );
     const branch = graph(
       [fn(A, 'new'), fn(C), fn(D)],
       [],
-      [openEnd(A, 'JSON.parse(raw).notify', 7), openEnd(D, 'hook', 9)],
+      [openEnd(A, 'JSON.parse(raw).notify', 7, 'untyped'), openEnd(D, 'hook', 9)],
     );
     expect(reviewOf({ base, branch }).openEnds).toEqual([
-      { caller: A, line: 7, expression: 'JSON.parse(raw).notify' },
-      { caller: B, line: 3, expression: 'legacy.run' },
+      { caller: A, line: 7, expression: 'JSON.parse(raw).notify', reason: 'untyped' },
+      { caller: B, line: 3, expression: 'legacy.run', reason: 'missing-module' },
     ]);
   });
 });

@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -23,6 +24,13 @@ describe('extractGraphDocument', () => {
       'src/orders.controller.ts',
       'src/orders.service.ts',
     ]);
+  });
+
+  it('names its checker as TypeScript with the full version of the typescript module it loads', () => {
+    const extractor = fileURLToPath(new URL('../src/graph.ts', import.meta.url));
+    const manifest = createRequire(extractor).resolve('typescript/package.json');
+    const { version } = JSON.parse(readFileSync(manifest, 'utf8')) as { version: string };
+    expect(extract('src/**').checker).toEqual({ name: 'TypeScript', version });
   });
 });
 

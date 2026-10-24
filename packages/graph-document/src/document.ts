@@ -25,14 +25,32 @@ export interface Call {
   readonly group?: string;
 }
 
+export const OPEN_END_REASONS = [
+  'missing-module',
+  'dynamic-key',
+  'untyped',
+  'function-value',
+  'no-implementation',
+  'other',
+] as const;
+
+export type OpenEndReason = (typeof OPEN_END_REASONS)[number];
+
 export interface OpenEnd {
   readonly caller: FunctionId;
   readonly line: number;
   readonly expression: string;
+  readonly reason: OpenEndReason;
+}
+
+export interface Checker {
+  readonly name: string;
+  readonly version: string;
 }
 
 export interface GraphDocument {
   readonly language: string;
+  readonly checker: Checker;
   readonly scope: readonly string[];
   readonly files: readonly string[];
   readonly functions: readonly GraphFunction[];
@@ -42,6 +60,7 @@ export interface GraphDocument {
 
 const DOCUMENT_FIELDS: readonly string[] = [
   'language',
+  'checker',
   'scope',
   'files',
   'functions',
@@ -57,7 +76,8 @@ const FUNCTION_FIELDS: readonly string[] = [
   'sourceHash',
 ];
 const CALL_FIELDS: readonly string[] = ['caller', 'callee', 'line', 'group'];
-const OPEN_END_FIELDS: readonly string[] = ['caller', 'line', 'expression'];
+const OPEN_END_FIELDS: readonly string[] = ['caller', 'line', 'expression', 'reason'];
+const CHECKER_FIELDS: readonly string[] = ['name', 'version'];
 
 const WHAT = 'a graph document';
 
@@ -99,18 +119,40 @@ const requireOneCallSitePerGroup = (calls: readonly Call[]): void => {
   }
 };
 
+const isOpenEndReason = (value: unknown): value is OpenEndReason =>
+  OPEN_END_REASONS.some((reason) => reason === value);
+
+const requireReason = (value: unknown): OpenEndReason => {
+  if (!isOpenEndReason(value)) {
+    throw new GraphDocumentError(
+      `the reason of an open end must be one of ${OPEN_END_REASONS.join(', ')}, not '${String(value)}'`,
+    );
+  }
+  return value;
+};
+
 const readOpenEnd = (entry: unknown): OpenEnd => {
   const fields = requireFields(entry, 'an open end', OPEN_END_FIELDS);
   return {
     caller: requireNonEmpty(fields['caller'], 'the caller of an open end'),
     line: requireLine(fields['line'], 'the line of an open end'),
     expression: requireNonEmpty(fields['expression'], 'the expression of an open end'),
+    reason: requireReason(fields['reason']),
+  };
+};
+
+const readChecker = (value: unknown): Checker => {
+  const fields = requireFields(value, `the checker of ${WHAT}`, CHECKER_FIELDS);
+  return {
+    name: requireNonEmpty(fields['name'], 'the name of the checker'),
+    version: requireNonEmpty(fields['version'], 'the version of the checker'),
   };
 };
 
 export const readGraphDocument = (value: unknown): GraphDocument => {
   const fields = requireFields(value, WHAT, DOCUMENT_FIELDS);
   const language = requireNonEmpty(fields['language'], `the language tag of ${WHAT}`);
+  const checker = readChecker(fields['checker']);
   const scope = requireArray(fields, 'scope', WHAT).map((glob) =>
     requireNonEmpty(glob, 'a scope glob'),
   );
@@ -152,5 +194,5 @@ export const readGraphDocument = (value: unknown): GraphDocument => {
   requireOneCallSitePerGroup(calls);
   for (const openEnd of openEnds) requireKnown(openEnd.caller, 'the caller of an open end');
 
-  return { language, scope, files, functions, calls, openEnds };
+  return { language, checker, scope, files, functions, calls, openEnds };
 };

@@ -1,9 +1,10 @@
-import { eyebrowOf } from '../panel-elements.ts';
+import { sectionHeadOf, spanOf } from '../panel-elements.ts';
 import type { PagePart } from '../reader-page.ts';
 import { countTextOf } from '../words.ts';
 
 const resolutionRate: PagePart = ({ data, panels }) => {
   const { resolved, open, rate } = data.review.resolutionRate;
+  const { name, version } = data.branchGraph.checker;
   const section = document.createElement('section');
   section.setAttribute('aria-label', 'Resolution rate');
   section.className = 'resolution-rate';
@@ -24,7 +25,12 @@ const resolutionRate: PagePart = ({ data, panels }) => {
   calls.className = 'rate-calls';
   calls.textContent = `${countTextOf(resolved)} of ${countTextOf(resolved + open)} calls`;
 
-  section.append(eyebrowOf('Resolution'), value, bar, calls);
+  section.append(
+    sectionHeadOf('Resolution', spanOf('checker', `${name} ${version}`)),
+    value,
+    bar,
+    calls,
+  );
   panels.prepend(section);
 };
 

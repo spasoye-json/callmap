@@ -49,19 +49,21 @@ describe('a call the graph leaves out', () => {
 const UNTYPED = 'src/untyped.ts';
 
 describe('an open end', () => {
-  it('marks a call on an untyped value with its caller, its line and the text of the callee', () => {
+  it('marks a call on an untyped value with its caller, its line, the text of the callee and its reason', () => {
     expect(openEndsIn(UNTYPED)).toContainEqual({
       caller: `${UNTYPED}#relay`,
       line: 4,
       expression: 'JSON.parse(raw).notify',
+      reason: 'untyped',
     });
   });
 
-  it('marks a call into a library that has no types', () => {
+  it('marks a call into a module that does not resolve as missing-module, not untyped', () => {
     expect(openEndsIn(UNTYPED)).toContainEqual({
       caller: `${UNTYPED}#mail`,
       line: 8,
       expression: 'mailer.send',
+      reason: 'missing-module',
     });
   });
 
@@ -70,7 +72,56 @@ describe('an open end', () => {
       caller: `${UNTYPED}#notifyEach`,
       line: 12,
       expression: 'hook',
+      reason: 'function-value',
     });
+  });
+});
+
+const REASONS = 'src/reasons.ts';
+
+const reasonsFrom = (name: string) =>
+  document()
+    .openEnds.filter(({ caller }) => caller === `${REASONS}#${name}`)
+    .map(({ expression, reason }) => [expression, reason]);
+
+describe('the reason of an open end', () => {
+  it.each([
+    ['callMissing', [['missing', 'missing-module']]],
+    ['Checkout.emit', [['this.hooks[event]', 'dynamic-key']]],
+    ['Checkout.charge', [['this.gateway.charge', 'untyped']]],
+    ['callAny', [['x', 'untyped']]],
+    ['callParsed', [['JSON.parse(s).go', 'untyped']]],
+    ['callAnyKey', [['o[k]', 'untyped']]],
+    ['callAnySymbolKey', [['o[Symbol.iterator]', 'untyped']]],
+    ['callCallback', [['done', 'function-value']]],
+    [
+      'callLocal',
+      [
+        ['make', 'function-value'],
+        ['hook', 'function-value'],
+      ],
+    ],
+    ['Checkout.paid', [['this.onPaid', 'function-value']]],
+    ['callLiteralKey', [["hooks['paid']", 'function-value']]],
+    [
+      'callResult',
+      [
+        ['make()', 'function-value'],
+        ['make', 'function-value'],
+      ],
+    ],
+    ['construct', [['C', 'function-value']]],
+    ['callUnion', [['fn', 'function-value']]],
+    ['Checkout.done', [['this.opt?.fn', 'function-value']]],
+    ['Job.finish', [['this.onDone', 'function-value']]],
+    ['callDeclaredHook', [['declaredHook', 'function-value']]],
+    ['callInterface', [['ledger.record', 'no-implementation']]],
+    ['Job.start', [['this.run', 'no-implementation']]],
+    ['callDeclared', [['declared', 'no-implementation']]],
+    ['callDeclaredObject', [['api.go', 'no-implementation']]],
+    ['callUnknown', [['v', 'other']]],
+  ])('names the reason of each open end of %s', (name, reasons) => {
+    expect(reasonsFrom(name)).toEqual(reasons);
   });
 });
 
@@ -100,7 +151,12 @@ describe('a one-of call', () => {
   it('marks a call through an interface that no class implements as an open end', () => {
     expect(callsFrom(`${CHANNELS}#archive`)).toEqual([]);
     expect(openEndsIn(CHANNELS)).toEqual([
-      { caller: `${CHANNELS}#archive`, line: 24, expression: 'target.store' },
+      {
+        caller: `${CHANNELS}#archive`,
+        line: 24,
+        expression: 'target.store',
+        reason: 'no-implementation',
+      },
     ]);
   });
 

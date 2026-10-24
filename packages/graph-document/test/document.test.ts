@@ -25,6 +25,7 @@ const create: GraphFunction = {
 
 const document = (over: Partial<GraphDocument> = {}): GraphDocument => ({
   language: 'typescript',
+  checker: { name: 'TypeScript', version: '6.0.3' },
   scope: ['src/**'],
   files: ['src/money.ts', 'src/orders.ts'],
   functions: [total, create],
@@ -38,9 +39,30 @@ describe('readGraphDocument', () => {
     expect(readGraphDocument(document())).toEqual(document());
   });
 
-  it('reads an open end with its caller, its line and the text of the callee', () => {
-    const openEnds = [{ caller: CREATE, line: 7, expression: 'bcrypt.hash' }];
+  it('reads an open end with its caller, its line, the text of the callee and its reason', () => {
+    const openEnds = [
+      { caller: CREATE, line: 7, expression: 'bcrypt.hash', reason: 'missing-module' as const },
+    ];
     expect(readGraphDocument(document({ openEnds })).openEnds).toEqual(openEnds);
+  });
+
+  it.each([
+    'missing-module',
+    'dynamic-key',
+    'untyped',
+    'function-value',
+    'no-implementation',
+    'other',
+  ] as const)('reads an open end with the reason %s', (reason) => {
+    const openEnds = [{ caller: CREATE, line: 7, expression: 'hooks[event]', reason }];
+    expect(readGraphDocument(document({ openEnds })).openEnds).toEqual(openEnds);
+  });
+
+  it('reads the checker that proved the calls of the document', () => {
+    expect(readGraphDocument(document()).checker).toEqual({
+      name: 'TypeScript',
+      version: '6.0.3',
+    });
   });
 
   it('reads the one-of calls of one call site with the id of their group', () => {
@@ -59,7 +81,7 @@ describe('a graph document the contract does not allow', () => {
     expect(refuse('functions and calls')).toThrow(GraphDocumentError);
   });
 
-  it.each(['language', 'scope', 'files', 'functions', 'calls', 'openEnds'] as const)(
+  it.each(['language', 'checker', 'scope', 'files', 'functions', 'calls', 'openEnds'] as const)(
     'refuses a document that names no %s, because a field left out is not an empty one',
     (key) => {
       const { [key]: _left, ...rest } = document();
@@ -89,8 +111,29 @@ describe('a graph document the contract does not allow', () => {
     expect(refuse(document({ calls }))).toThrow(/group 'g'/);
   });
 
+  it.each([
+    ['an empty name', { name: '', version: '6.0.3' }, /name/],
+    ['an empty version', { name: 'TypeScript', version: ' ' }, /version/],
+    ['no version', { name: 'TypeScript' }, /version/],
+    ['a field it does not hold', { name: 'TypeScript', version: '6.0.3', path: 'x' }, /path/],
+  ])('refuses a checker with %s', (_, checker, field) => {
+    expect(refuse({ ...document(), checker })).toThrow(field);
+  });
+
+  it('refuses an open end that names no reason', () => {
+    const openEnds = [{ caller: CREATE, line: 7, expression: 'sharp' }];
+    expect(refuse(document({ openEnds } as never))).toThrow(/reason/);
+  });
+
+  it('refuses an open end with a reason that is not one of the codes', () => {
+    const openEnds = [{ caller: CREATE, line: 7, expression: 'sharp', reason: 'gateway is any' }];
+    expect(refuse(document({ openEnds } as never))).toThrow(/gateway is any/);
+  });
+
   it('refuses an open end from an unknown function id', () => {
-    const openEnds = [{ caller: 'src/orders.ts#main', line: 2, expression: 'sharp' }];
+    const openEnds = [
+      { caller: 'src/orders.ts#main', line: 2, expression: 'sharp', reason: 'other' as const },
+    ];
     expect(refuse(document({ openEnds }))).toThrow(/src\/orders\.ts#main/);
   });
 

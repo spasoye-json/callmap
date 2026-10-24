@@ -16,8 +16,18 @@ const BRANCH_CHANGES = {
   [`${CART}#taxed`]: 'added',
 };
 
+const BASE_WITH_NO_CHECKER = {
+  language: 'typescript',
+  scope: [],
+  files: [],
+  functions: [],
+  calls: [],
+  openEnds: [],
+};
+
 const EMPTY_BASE = JSON.stringify({
   language: 'typescript',
+  checker: { name: 'TypeScript', version: '6.0.3' },
   scope: [],
   files: [],
   functions: [],
@@ -82,6 +92,18 @@ describe('the base cache of a review', () => {
     },
     60_000,
   );
+
+  it('reads the base again over an entry written before a graph document named its checker', () => {
+    const repo = featureBranchRepo();
+    const cacheHome = newCacheHome();
+    reviewHtml(cacheHome, repo);
+    for (const entry of entriesOf(cacheHome)) {
+      writeFileSync(entry, JSON.stringify(BASE_WITH_NO_CHECKER));
+    }
+    expect(marksOf(reviewHtml(cacheHome, repo))).toMatchObject(BRANCH_CHANGES);
+    const [entry = ''] = entriesOf(cacheHome);
+    expect(JSON.parse(readFileSync(entry, 'utf8'))).toHaveProperty('checker.name', 'TypeScript');
+  }, 60_000);
 
   it('reads the base again after a change of the lock file in the checkout', () => {
     const repo = featureBranchRepo();
