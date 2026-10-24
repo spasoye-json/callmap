@@ -124,7 +124,7 @@ export const extractGraphDocument = (options: ExtractOptions): GraphDocument => 
     rootNames: files.map((path) => `${repo}/${path}`),
     options: { ...compilerOptions(repo, options.tsconfig), noEmit: true },
   });
-  const checker = program.getTypeChecker();
+  const typeChecker = program.getTypeChecker();
 
   const functions: GraphFunction[] = [];
   const idOfCallable = new Map<ts.Node, FunctionId>();
@@ -187,9 +187,9 @@ export const extractGraphDocument = (options: ExtractOptions): GraphDocument => 
   const resolutionOf = resolverOf({
     repo,
     claimed: new Set(files),
-    checker,
+    checker: typeChecker,
     idOfCallable,
-    implementations: implementationsOf(checker, members),
+    implementations: implementationsOf(typeChecker, members),
   });
   const calls: Call[] = [];
   const openEnds: OpenEnd[] = [];
