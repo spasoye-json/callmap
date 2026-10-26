@@ -2,14 +2,14 @@ import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { GraphDocument } from '@callmap/graph-document';
-import { callGraphOf, reviewOf } from '@callmap/review';
+import { reviewGraphsOf, reviewOf } from '@callmap/review';
 import { inScope, isSkippedDirectory } from '@callmap/scope';
 import { DIFF_LIMIT } from '../page/views/diff.ts';
 import type { ReviewInvocation } from './arguments.ts';
 import { throughBaseCache } from './base-cache.ts';
 import { openInBrowser } from './browser.ts';
-import { EXTRACTORS } from './extractors.ts';
-import type { Extractor, ExtractorSettings } from './extractors.ts';
+import { extractorsFor } from './extractors.ts';
+import type { Extractor } from './extractors.ts';
 import {
   commitOf,
   commonDirOf,
@@ -35,10 +35,10 @@ const readGraphDocumentOf = async (
   what: string,
   path: string,
   extractor: Extractor,
-  settings: ExtractorSettings,
+  scope: readonly string[],
 ): Promise<GraphDocument> => {
   try {
-    return await extractor.extract(path, settings);
+    return await extractor.extract(path, scope);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new UnreadableGraphError(
@@ -89,42 +89,25 @@ export interface FinishedReview {
 
 export const runReview = async (
   invocation: ReviewInvocation,
-  { diffLimit, extractors = EXTRACTORS }: ReviewSettings = { diffLimit: DIFF_LIMIT },
+  { diffLimit, extractors }: ReviewSettings = { diffLimit: DIFF_LIMIT },
 ): Promise<FinishedReview> => {
   const root = repoRootOf(resolve(invocation.repo));
   const base =
     invocation.base === undefined
       ? mergeBaseOf(root, defaultBranchOf(root))
       : commitOf(root, invocation.base);
-  const settings: ExtractorSettings = {
-    scope: invocation.scope,
-    tsconfig: tsconfigOf(root, invocation.tsconfig),
-  };
+  const { scope } = invocation;
   const documentsOf = async (extractor: Extractor): Promise<LanguageDocuments> => {
-    const extractorSettings = extractor.readsTsconfig
-      ? settings
-      : { ...settings, tsconfig: undefined };
     const readBranch = (): Promise<GraphDocument> =>
-      readGraphDocumentOf('the branch', root, extractor, extractorSettings);
+      readGraphDocumentOf('the branch', root, extractor, scope);
     const readBase = (): Promise<GraphDocument> =>
       inWorktreeAt(root, base, (path) =>
-        readGraphDocumentOf(
-          `the base ${shortCommitOf(root, base)}`,
-          path,
-          extractor,
-          extractorSettings,
-        ),
+        readGraphDocumentOf(`the base ${shortCommitOf(root, base)}`, path, extractor, scope),
       );
     const readCachedBase = (): Promise<GraphDocument> =>
       invocation.cache
         ? throughBaseCache(
-            {
-              repo: commonDirOf(root),
-              checkout: root,
-              commit: base,
-              extractor,
-              ...extractorSettings,
-            },
+            { repo: commonDirOf(root), checkout: root, commit: base, scope, extractor },
             readBase,
           )
         : readBase();
@@ -137,24 +120,25 @@ export const runReview = async (
   };
 
   const picked = extractorsInScope(
-    extractors,
+    extractors ?? extractorsFor(tsconfigOf(root, invocation.tsconfig)),
     [...workingTreeFilesOf(root), ...filesAtCommit(root, base)],
-    settings.scope,
+    scope,
   );
-  const checked = picked.map((extractor) => ({ extractor, skipNote: extractor.skipNote() }));
+  const checked = picked.map((extractor) => ({ extractor, skipNote: extractor.skipNote?.() }));
   const read: LanguageDocuments[] = [];
   for (const { extractor } of checked.filter(({ skipNote }) => skipNote === undefined)) {
     read.push(await documentsOf(extractor));
   }
-  const branchGraphs = read.map(({ branch }) => branch);
-  const baseGraphs = read.map(({ base }) => base);
-  const review = reviewOf({ base: baseGraphs, branch: branchGraphs });
-  const branchGraph = callGraphOf(branchGraphs);
+  const graphs = reviewGraphsOf({
+    base: read.map(({ base }) => base),
+    branch: read.map(({ branch }) => branch),
+  });
+  const review = reviewOf(graphs);
   const { html, notes } = await readerPageOf({
     review,
-    branchGraph,
-    sources: sourcesOf(root, base, review, branchGraph),
-    basePlaces: basePlacesOf(review, callGraphOf(baseGraphs)),
+    branchGraph: graphs.branch,
+    sources: sourcesOf(root, base, review, graphs.branch),
+    basePlaces: basePlacesOf(review, graphs.base),
     editor: { name: invocation.editor, repoRoot: root },
     diffLimit,
   });

@@ -10,11 +10,10 @@ import {
   utimesSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
-import { isAbsolute, join } from 'node:path';
+import { join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
-import type { ExtractorSettings } from './extractors.ts';
+import { callmapCacheFolder } from './cache-folder.ts';
 import { sha256OfFiles } from './file-hash.ts';
 
 const ENTRIES_FOR_EACH_REPO = 20;
@@ -22,22 +21,19 @@ const ENTRIES_FOR_EACH_REPO = 20;
 export interface CachedExtractor {
   readonly language: string;
   readonly lockFiles: readonly string[];
+  readonly options: readonly string[];
   readonly version: () => string;
 }
 
-export interface BaseKey extends ExtractorSettings {
+export interface BaseKey {
   readonly repo: string;
   readonly checkout: string;
   readonly commit: string;
+  readonly scope: readonly string[];
   readonly extractor: CachedExtractor;
 }
 
 const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex');
-
-export const callmapCacheFolder = (): string => {
-  const home = process.env['XDG_CACHE_HOME'];
-  return join(home !== undefined && isAbsolute(home) ? home : join(homedir(), '.cache'), 'callmap');
-};
 
 const lockHashOf = (checkout: string, lockFiles: readonly string[]): string =>
   sha256OfFiles(
@@ -46,13 +42,13 @@ const lockHashOf = (checkout: string, lockFiles: readonly string[]): string =>
       .filter(({ path }) => existsSync(path)),
   );
 
-const entryNameOf = ({ checkout, commit, scope, tsconfig, extractor }: BaseKey): string =>
+const entryNameOf = ({ checkout, commit, scope, extractor }: BaseKey): string =>
   sha256(
     JSON.stringify([
       extractor.language,
       commit,
       scope,
-      tsconfig ?? null,
+      extractor.options,
       lockHashOf(checkout, extractor.lockFiles),
       extractor.version(),
     ]),

@@ -26,36 +26,19 @@ const runExtractorProcess = (
     });
   });
 
-export interface ExtractorSettings {
-  readonly scope: readonly string[];
-  readonly tsconfig: string | undefined;
-}
-
 const scopeArgumentsOf = (scope: readonly string[]): readonly string[] =>
   scope.flatMap((glob) => ['--scope', glob]);
 
-const typescriptArgumentsOf = (
-  repo: string,
-  { scope, tsconfig }: ExtractorSettings,
-): readonly string[] => [
-  repo,
-  ...scopeArgumentsOf(scope),
-  ...(tsconfig === undefined
-    ? []
-    : ['--tsconfig', isAbsolute(tsconfig) ? tsconfig : join(repo, tsconfig)]),
-];
-
 export interface Extractor extends CachedExtractor {
   readonly claims: (path: string) => boolean;
-  readonly readsTsconfig: boolean;
   readonly readsInParallel: boolean;
-  readonly skipNote: () => string | undefined;
-  readonly extract: (repo: string, settings: ExtractorSettings) => Promise<GraphDocument>;
+  readonly skipNote?: () => string | undefined;
+  readonly extract: (repo: string, scope: readonly string[]) => Promise<GraphDocument>;
 }
 
 const TYPESCRIPT_FILE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 
-export const TYPESCRIPT_EXTRACTOR: Extractor = {
+export const typescriptExtractor = (tsconfig: string | undefined): Extractor => ({
   language: 'typescript',
   lockFiles: [
     'package-lock.json',
@@ -65,44 +48,62 @@ export const TYPESCRIPT_EXTRACTOR: Extractor = {
     'bun.lock',
     'bun.lockb',
   ],
+  options: tsconfig === undefined ? [] : [tsconfig],
   version: () => assets.typescriptExtractorVersion(),
   claims: (path) => TYPESCRIPT_FILE.test(path),
-  readsTsconfig: true,
   readsInParallel: true,
-  skipNote: () => undefined,
-  extract: async (repo, settings) =>
+  extract: async (repo, scope) =>
     readGraphDocument(
       JSON.parse(
         await runExtractorProcess(process.execPath, [
           assets.typescriptExtractor,
-          ...typescriptArgumentsOf(repo, settings),
+          repo,
+          ...scopeArgumentsOf(scope),
+          ...(tsconfig === undefined
+            ? []
+            : ['--tsconfig', isAbsolute(tsconfig) ? tsconfig : join(repo, tsconfig)]),
         ]),
       ),
     ),
+});
+
+const goVersionOnPath = (): string | undefined => {
+  const finished = spawnSync('go', ['version'], { encoding: 'utf8' });
+  return finished.error === undefined && finished.status === 0 ? finished.stdout : undefined;
 };
 
-const goIsOnPath = (): boolean =>
-  spawnSync('go', ['version'], { stdio: 'ignore' }).error === undefined;
+const once = <T>(read: () => T): (() => T) => {
+  let done: { readonly value: T } | undefined;
+  return () => (done ??= { value: read() }).value;
+};
 
-export const GO_EXTRACTOR: Extractor = {
-  language: 'go',
-  lockFiles: ['go.sum', 'go.work.sum'],
-  version: () => assets.goExtractorVersion(),
-  claims: (path) => path.endsWith('.go'),
-  readsTsconfig: false,
-  readsInParallel: false,
-  skipNote: () =>
-    goIsOnPath() ? undefined : 'callmap skipped the Go files, because go is not on the PATH.',
-  extract: async (repo, { scope }) =>
-    readGraphDocument(
-      JSON.parse(
-        await runExtractorProcess(
-          process.execPath,
-          [assets.goExtractor, repo, ...scopeArgumentsOf(scope)],
-          assets.goExtractorEnv(),
+export const goExtractor = (): Extractor => {
+  const goVersion = once(goVersionOnPath);
+  return {
+    language: 'go',
+    lockFiles: ['go.sum', 'go.work.sum'],
+    options: [],
+    version: () => assets.goExtractorVersion(goVersion() ?? ''),
+    claims: (path) => path.endsWith('.go'),
+    readsInParallel: false,
+    skipNote: () =>
+      goVersion() === undefined
+        ? 'callmap skipped the Go files, because go is not on the PATH.'
+        : undefined,
+    extract: async (repo, scope) =>
+      readGraphDocument(
+        JSON.parse(
+          await runExtractorProcess(
+            process.execPath,
+            [assets.goExtractor, repo, ...scopeArgumentsOf(scope)],
+            assets.goExtractorEnv(goVersion() ?? ''),
+          ),
         ),
       ),
-    ),
+  };
 };
 
-export const EXTRACTORS: readonly Extractor[] = [TYPESCRIPT_EXTRACTOR, GO_EXTRACTOR];
+export const extractorsFor = (tsconfig: string | undefined): readonly Extractor[] => [
+  typescriptExtractor(tsconfig),
+  goExtractor(),
+];

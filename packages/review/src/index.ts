@@ -12,4 +12,6 @@ export { byText } from './order.ts';
 export type { LanguageRate, ResolutionRate } from './rate.ts';
 export type { Resolution } from './resolution.ts';
 export { reviewOf } from './review.ts';
-export type { FunctionMark, MarkedFunction, Review, ReviewInput } from './review.ts';
+export type { FunctionMark, MarkedFunction, Review } from './review.ts';
+export { reviewGraphsOf } from './review-graphs.ts';
+export type { ReviewGraphs, ReviewInput } from './review-graphs.ts';

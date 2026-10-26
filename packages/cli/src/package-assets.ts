@@ -1,10 +1,9 @@
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Assets } from './assets.ts';
-import { callmapCacheFolder } from './base-cache.ts';
+import { callmapCacheFolder } from './cache-folder.ts';
 import { packageManifestAt, typescriptVersionFor } from './package-manifest.ts';
 
 const TYPESCRIPT_EXTRACTOR = fileURLToPath(new URL('extract-typescript.js', import.meta.url));
@@ -14,14 +13,14 @@ const packageNameAndVersion = (): string => {
   return `${name} ${version}`;
 };
 
-const goExtractorVersion = (): string =>
+const goExtractorVersion = (goVersion: string): string =>
   [
     packageNameAndVersion(),
     readFileSync(new URL('go-extractor-source.sha256', import.meta.url), 'utf8'),
-    execFileSync('go', ['version'], { encoding: 'utf8' }),
+    goVersion,
   ].join('\0');
 
-export const assets = {
+export const assets: Assets = {
   typescriptExtractor: TYPESCRIPT_EXTRACTOR,
   layoutWorker: new URL('layout-worker.js', import.meta.url),
   pageScript: () => Promise.resolve(readFileSync(new URL('page.js', import.meta.url), 'utf8')),
@@ -32,13 +31,13 @@ export const assets = {
   },
   goExtractor: fileURLToPath(new URL('extract-go.js', import.meta.url)),
   goExtractorVersion,
-  goExtractorEnv: () => ({
+  goExtractorEnv: (goVersion) => ({
     CALLMAP_GO_EXTRACTOR_SOURCE: fileURLToPath(new URL('go', import.meta.url)),
     CALLMAP_GO_EXTRACTOR_BINARY: join(
       callmapCacheFolder(),
       'go-extractor',
-      createHash('sha256').update(goExtractorVersion()).digest('hex'),
+      createHash('sha256').update(goExtractorVersion(goVersion)).digest('hex'),
       'callmap-extract-go',
     ),
   }),
-} satisfies Assets;
+};

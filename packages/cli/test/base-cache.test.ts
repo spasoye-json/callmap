@@ -210,11 +210,13 @@ describe('the base cache with one entry for each language', () => {
   const TYPESCRIPT: CachedExtractor = {
     language: 'typescript',
     lockFiles: ['package-lock.json'],
+    options: [],
     version: () => 'typescript extractor 1',
   };
   const GO: CachedExtractor = {
     language: 'go',
     lockFiles: ['go.sum', 'go.work.sum'],
+    options: [],
     version: () => 'go extractor 1',
   };
 
@@ -222,13 +224,10 @@ describe('the base cache with one entry for each language', () => {
     const read: string[] = [];
     const documents = await Promise.all(
       extractors.map((extractor) =>
-        throughBaseCache(
-          { repo: checkout, checkout, commit: 'base', scope: [], tsconfig: undefined, extractor },
-          () => {
-            read.push(extractor.language);
-            return Promise.resolve(documentOf(extractor.language, `read-${read.length}`));
-          },
-        ),
+        throughBaseCache({ repo: checkout, checkout, commit: 'base', scope: [], extractor }, () => {
+          read.push(extractor.language);
+          return Promise.resolve(documentOf(extractor.language, `read-${read.length}`));
+        }),
       ),
     );
     return { read, documents };

@@ -18,7 +18,7 @@ const (
 type resolution struct {
 	kind    resolutionKind
 	callees []string
-	reason  string
+	reason  openEndReason
 }
 
 type resolver struct {
@@ -48,7 +48,7 @@ func (each resolver) resolve(site callSite) resolution {
 			return decided
 		}
 	}
-	return resolution{kind: openEndCall, reason: "other"}
+	return resolution{kind: openEndCall, reason: otherReason}
 }
 
 // calleeIdentOf is the name that the call site calls: `f` in `f()`, `Method` in `x.Method()`, and
@@ -111,9 +111,9 @@ func codeNotLoadedRule(each resolver, site callSite) (resolution, bool) {
 	selector := calleeSelectorOf(site.call.Fun)
 	cause := notLoadedCause{origins: each.origins, fileSet: site.file.pkg.Fset, visiting: map[sourcePosition]bool{}}
 	if selector != nil && !cause.ofMember(info, selector) {
-		return resolution{kind: openEndCall, reason: "untyped"}, true
+		return resolution{kind: openEndCall, reason: untyped}, true
 	}
-	return resolution{kind: openEndCall, reason: "missing-module"}, true
+	return resolution{kind: openEndCall, reason: missingModule}, true
 }
 
 func dynamicKeyRule(_ resolver, site callSite) (resolution, bool) {
@@ -130,7 +130,7 @@ func dynamicKeyRule(_ resolver, site callSite) (resolution, bool) {
 	if !isMap || info.Types[index.Index].Value != nil {
 		return resolution{}, false
 	}
-	return resolution{kind: openEndCall, reason: "dynamic-key"}, true
+	return resolution{kind: openEndCall, reason: dynamicKey}, true
 }
 
 func isInvalid(each types.Type) bool {
@@ -144,7 +144,7 @@ func untypedRule(_ resolver, site callSite) (resolution, bool) {
 	if !isInvalid(site.file.pkg.TypesInfo.TypeOf(site.call.Fun)) {
 		return resolution{}, false
 	}
-	return resolution{kind: openEndCall, reason: "untyped"}, true
+	return resolution{kind: openEndCall, reason: untyped}, true
 }
 
 // functionValueRule takes a func value from a field, a variable, a parameter or a call result
@@ -168,7 +168,7 @@ func functionValueRule(_ resolver, site callSite) (resolution, bool) {
 	if _, isFunc := calleeType.Underlying().(*types.Signature); !isFunc {
 		return resolution{}, false
 	}
-	return resolution{kind: openEndCall, reason: "function-value"}, true
+	return resolution{kind: openEndCall, reason: functionValue}, true
 }
 
 func staticCallRule(each resolver, site callSite) (resolution, bool) {
@@ -252,5 +252,5 @@ func interfaceCallRule(each resolver, site callSite) (resolution, bool) {
 	if each.implementations.implementedOutOfScope(called, iface, method) {
 		return resolution{kind: libraryCall}, true
 	}
-	return resolution{kind: openEndCall, reason: "no-implementation"}, true
+	return resolution{kind: openEndCall, reason: noImplementation}, true
 }

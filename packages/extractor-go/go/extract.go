@@ -79,18 +79,13 @@ func extract(repo string, scope []string) (document, error) {
 	for _, site := range declared.sites {
 		resolved := resolve(site)
 		switch resolved.kind {
-		case tiedCall:
-			for _, callee := range resolved.callees {
-				calls = append(calls, call{Caller: site.caller, Callee: callee, Line: lineOf(site)})
+		case tiedCall, oneOfCall:
+			group := ""
+			if resolved.kind == oneOfCall {
+				group = groupOf(site)
 			}
-		case oneOfCall:
 			for _, callee := range resolved.callees {
-				calls = append(calls, call{
-					Caller: site.caller,
-					Callee: callee,
-					Line:   lineOf(site),
-					Group:  groupOf(site),
-				})
+				calls = append(calls, call{Caller: site.caller, Callee: callee, Line: lineOf(site), Group: group})
 			}
 		case openEndCall:
 			openEnds = append(openEnds, openEnd{

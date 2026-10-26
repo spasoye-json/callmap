@@ -17,17 +17,26 @@ type sourceFile struct {
 	source   []byte
 }
 
-// variantRank prefers the test variant of a package of its own, `p [p.test]` or `p_test [p.test]`,
-// over the plain `p`, because only the test variant holds the test files. A package that another
-// test recompiles, such as `p [q.test]`, holds the files of `p` a third time and is never taken.
-func variantRank(pkg *packages.Package) int {
+type variantRank int
+
+const (
+	recompiledForAnotherTest variantRank = iota
+	plainVariant
+	ownTestVariant
+)
+
+// variantRankOf prefers the test variant of a package of its own, `p [p.test]` or
+// `p_test [p.test]`, over the plain `p`, because only the test variant holds the test files. A
+// package that another test recompiles, such as `p [q.test]`, holds the files of `p` a third time
+// and is never taken.
+func variantRankOf(pkg *packages.Package) variantRank {
 	switch pkg.ForTest {
 	case "":
-		return 1
+		return plainVariant
 	case pkg.PkgPath, strings.TrimSuffix(pkg.PkgPath, "_test"):
-		return 2
+		return ownTestVariant
 	}
-	return 0
+	return recompiledForAnotherTest
 }
 
 func repoPathOf(repo string, filename string) (string, bool) {
@@ -42,10 +51,10 @@ func repoPathOf(repo string, filename string) (string, bool) {
 // A file that a build tag leaves out is in no package, so it never enters the document.
 func sourceFilesOf(repo string, scope []string, loaded []*packages.Package) []sourceFile {
 	best := map[string]sourceFile{}
-	rankOf := map[string]int{}
+	rankOf := map[string]variantRank{}
 	for _, pkg := range loaded {
-		rank := variantRank(pkg)
-		if rank == 0 {
+		rank := variantRankOf(pkg)
+		if rank == recompiledForAnotherTest {
 			continue
 		}
 		for _, syntax := range pkg.Syntax {
