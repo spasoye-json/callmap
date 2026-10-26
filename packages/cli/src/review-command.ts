@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { GraphDocument } from '@callmap/graph-document';
-import { reviewOf } from '@callmap/review';
+import { callGraphOf, reviewOf } from '@callmap/review';
 import { DIFF_LIMIT } from '../page/views/diff.ts';
 import type { ReviewInvocation } from './arguments.ts';
 import { throughBaseCache } from './base-cache.ts';
@@ -91,14 +91,15 @@ export const runReview = async (
         )
       : readBase(),
   ]);
-  const branchGraph = settled(branchRead);
-  const baseGraph = settled(baseRead);
-  const review = reviewOf({ base: baseGraph, branch: branchGraph });
+  const branchGraphs = [settled(branchRead)];
+  const baseGraphs = [settled(baseRead)];
+  const review = reviewOf({ base: baseGraphs, branch: branchGraphs });
+  const branchGraph = callGraphOf(branchGraphs);
   const { html, notes } = await readerPageOf({
     review,
     branchGraph,
     sources: sourcesOf(root, base, review, branchGraph),
-    basePlaces: basePlacesOf(review, baseGraph),
+    basePlaces: basePlacesOf(review, callGraphOf(baseGraphs)),
     editor: { name: invocation.editor, repoRoot: root },
     diffLimit,
   });

@@ -1,9 +1,10 @@
-import type { FunctionId, GraphDocument, GraphFunction } from '@callmap/graph-document';
+import type { FunctionId, GraphFunction } from '@callmap/graph-document';
+import type { CallGraph } from './call-graph.ts';
 
 export type ChangeMark = 'added' | 'removed' | 'changed';
 
-export const functionsById = (document: GraphDocument): ReadonlyMap<FunctionId, GraphFunction> =>
-  new Map(document.functions.map((graphFunction) => [graphFunction.id, graphFunction]));
+export const functionsById = (graph: CallGraph): ReadonlyMap<FunctionId, GraphFunction> =>
+  new Map(graph.functions.map((graphFunction) => [graphFunction.id, graphFunction]));
 
 export const changesOf = (
   base: ReadonlyMap<FunctionId, GraphFunction>,

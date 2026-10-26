@@ -23,7 +23,9 @@ const graph = (
 });
 
 const marksOf = (base: GraphDocument, branch: GraphDocument) =>
-  Object.fromEntries(reviewOf({ base, branch }).functions.map(({ id, mark }) => [id, mark]));
+  Object.fromEntries(
+    reviewOf({ base: [base], branch: [branch] }).functions.map(({ id, mark }) => [id, mark]),
+  );
 
 const A = 'src/a.ts#a';
 const B = 'src/a.ts#b';
@@ -49,8 +51,8 @@ describe('the changed functions of a review', () => {
 
   it('carries the place of a removed function from the base and of any other from the branch', () => {
     const review = reviewOf({
-      base: graph([fn(A, 'old', 3), fn(B, 'b', 9)]),
-      branch: graph([fn(A, 'new', 5)]),
+      base: [graph([fn(A, 'old', 3), fn(B, 'b', 9)])],
+      branch: [graph([fn(A, 'new', 5)])],
     });
     expect(review.functions).toEqual([
       { ...fn(A, 'new', 5), mark: 'changed' },
@@ -102,7 +104,8 @@ describe('the neighbours of a review', () => {
   });
 });
 
-const callsOf = (base: GraphDocument, branch: GraphDocument) => reviewOf({ base, branch }).calls;
+const callsOf = (base: GraphDocument, branch: GraphDocument) =>
+  reviewOf({ base: [base], branch: [branch] }).calls;
 
 describe('the calls of a review', () => {
   it('marks a call that only the branch holds as added', () => {
@@ -142,11 +145,52 @@ describe('the calls of a review', () => {
   });
 });
 
+describe('a review of several languages', () => {
+  const inLanguage = (language: string, document: GraphDocument): GraphDocument => ({
+    ...document,
+    language,
+    checker: { name: language, version: '1.0.0' },
+  });
+  const E = 'lib/e.rb#e';
+  const F = 'lib/f.rb#f';
+
+  it('reads the functions and the calls of each graph document in the list', () => {
+    const review = reviewOf({
+      base: [
+        inLanguage('first', graph([fn(A, 'old'), fn(B)])),
+        inLanguage('second', graph([fn(F)])),
+      ],
+      branch: [
+        inLanguage('first', graph([fn(A, 'new'), fn(B)], [call(A, B)])),
+        inLanguage('second', graph([fn(E), fn(F)], [call(E, F)])),
+      ],
+    });
+    expect(Object.fromEntries(review.functions.map(({ id, mark }) => [id, mark]))).toEqual({
+      [A]: 'changed',
+      [B]: 'neighbour',
+      [E]: 'added',
+      [F]: 'neighbour',
+    });
+    expect(review.calls).toEqual([
+      { caller: E, callee: F, mark: 'added' },
+      { caller: A, callee: B, mark: 'added' },
+    ]);
+  });
+
+  it('marks the functions of a language that only the branch reads as added', () => {
+    const review = reviewOf({
+      base: [inLanguage('first', graph([fn(A)]))],
+      branch: [inLanguage('first', graph([fn(A)])), inLanguage('second', graph([fn(E)]))],
+    });
+    expect(review.functions).toEqual([{ ...fn(E), mark: 'added' }]);
+  });
+});
+
 describe('the order of a review', () => {
   it('lists functions by id and calls by caller and callee, whatever order the graphs use', () => {
     const base = graph([fn(D)]);
     const branch = graph([fn(D), fn(C), fn(B), fn(A)], [call(C, D), call(A, D), call(A, B)]);
-    const review = reviewOf({ base, branch });
+    const review = reviewOf({ base: [base], branch: [branch] });
     expect(review.functions.map(({ id }) => id)).toEqual([A, B, C, D]);
     expect(review.calls.map(({ caller, callee }) => `${caller}>${callee}`)).toEqual([
       `${A}>${B}`,
@@ -157,12 +201,20 @@ describe('the order of a review', () => {
 
   it('gives an empty review when the branch changes no function', () => {
     const same = graph([fn(A), fn(B)], [call(A, B)]);
-    expect(reviewOf({ base: same, branch: same })).toEqual({
+    expect(reviewOf({ base: [same], branch: [same] })).toEqual({
       functions: [],
       calls: [],
       openEnds: [],
       oneOfGroups: [],
-      resolutionRate: { resolved: 1, open: 0, rate: 1 },
+      resolutionRates: [
+        {
+          language: 'example',
+          checker: { name: 'Example', version: '1.0.0' },
+          resolved: 1,
+          open: 0,
+          rate: 1,
+        },
+      ],
     });
   });
 });

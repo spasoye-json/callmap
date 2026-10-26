@@ -1,4 +1,5 @@
 import type { FunctionId, GraphDocument, GraphFunction } from '@callmap/graph-document';
+import { callGraphOf } from './call-graph.ts';
 import { markedCallsOf } from './calls.ts';
 import type { MarkedCall } from './calls.ts';
 import { changesOf, functionsById } from './changes.ts';
@@ -20,12 +21,13 @@ export interface Review extends Resolution {
 }
 
 export interface ReviewInput {
-  readonly base: GraphDocument;
-  readonly branch: GraphDocument;
+  readonly base: readonly GraphDocument[];
+  readonly branch: readonly GraphDocument[];
 }
 
 export const reviewOf = (input: ReviewInput): Review => {
-  const { base, branch } = input;
+  const base = callGraphOf(input.base);
+  const branch = callGraphOf(input.branch);
   const baseFunctions = functionsById(base);
   const branchFunctions = functionsById(branch);
   const changes = changesOf(baseFunctions, branchFunctions);
@@ -53,6 +55,6 @@ export const reviewOf = (input: ReviewInput): Review => {
   return {
     functions,
     calls,
-    ...resolutionOf(input, marks),
+    ...resolutionOf({ base, branch, branchDocuments: input.branch }, marks),
   };
 };
