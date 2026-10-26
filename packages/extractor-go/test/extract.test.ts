@@ -383,3 +383,231 @@ describe('extractGo', () => {
     );
   });
 });
+
+describe('a call through an interface', () => {
+  const PAYER = lines(
+    'package pay',
+    '',
+    'type Payer interface{ Pay(cents int) error }',
+    '',
+    'type Card struct{}',
+    '',
+    'func (c Card) Pay(cents int) error { return nil }',
+    '',
+    'type Wallet struct{}',
+    '',
+    'func (w *Wallet) Pay(cents int) error { return nil }',
+    '',
+    'type Coupon struct{}',
+    '',
+    'func (c Coupon) Pay(code string) error { return nil }',
+  );
+
+  it('is a one-of group over the method of each type whose T or *T implements the interface', () => {
+    const document = extractGo({
+      repo: repoOf({
+        'pay/payer.go': PAYER,
+        'shop/shop.go': lines(
+          'package shop',
+          '',
+          'import "example.com/shop/pay"',
+          '',
+          'func Checkout(payer pay.Payer) error {',
+          '\treturn payer.Pay(100)',
+          '}',
+        ),
+      }),
+    });
+    expect(readGraphDocument(document)).toEqual(document);
+    expect(document.calls).toEqual([
+      {
+        caller: 'shop/shop.go#Checkout',
+        callee: 'pay/payer.go#Card.Pay',
+        line: 6,
+        group: 'shop/shop.go:6:15',
+      },
+      {
+        caller: 'shop/shop.go#Checkout',
+        callee: 'pay/payer.go#Wallet.Pay',
+        line: 6,
+        group: 'shop/shop.go:6:15',
+      },
+    ]);
+    expect(document.openEnds).toEqual([]);
+  });
+
+  it('is a one-of group on a type parameter whose constraint is an interface of the repo', () => {
+    const { calls } = extractGo({
+      repo: repoOf({
+        'pay/payer.go': PAYER,
+        'shop/shop.go': lines(
+          'package shop',
+          '',
+          'import "example.com/shop/pay"',
+          '',
+          'func Charge[P pay.Payer](payer P) error {',
+          '\treturn payer.Pay(100)',
+          '}',
+        ),
+      }),
+    });
+    expect(calls).toEqual([
+      {
+        caller: 'shop/shop.go#Charge',
+        callee: 'pay/payer.go#Card.Pay',
+        line: 6,
+        group: 'shop/shop.go:6:15',
+      },
+      {
+        caller: 'shop/shop.go#Charge',
+        callee: 'pay/payer.go#Wallet.Pay',
+        line: 6,
+        group: 'shop/shop.go:6:15',
+      },
+    ]);
+  });
+
+  it('holds a type of a test file, even when the interface names a type of its own package', () => {
+    const { calls } = extractGo({
+      repo: repoOf({
+        'pay/payer.go': lines(
+          'package pay',
+          '',
+          'type Cents int',
+          '',
+          'type Payer interface{ Pay(cents Cents) error }',
+          '',
+          'func Checkout(payer Payer) error { return payer.Pay(1) }',
+        ),
+        'pay/payer_test.go': lines(
+          'package pay',
+          '',
+          'type fakePayer struct{}',
+          '',
+          'func (f fakePayer) Pay(cents Cents) error { return nil }',
+        ),
+        'card/card.go': lines(
+          'package card',
+          '',
+          'import "example.com/shop/pay"',
+          '',
+          'type Card struct{}',
+          '',
+          'func (c Card) Pay(cents pay.Cents) error { return nil }',
+        ),
+      }),
+    });
+    expect(calls.map(({ callee, group }) => `${group} ${callee}`)).toEqual([
+      'pay/payer.go:7:49 card/card.go#Card.Pay',
+      'pay/payer.go:7:49 pay/payer_test.go#fakePayer.Pay',
+    ]);
+  });
+
+  it('ties a promoted method to the method of the embedded type, and holds it once in a group', () => {
+    const { calls } = extractGo({
+      repo: repoOf({
+        'pay/payer.go': PAYER,
+        'shop/gift.go': lines(
+          'package shop',
+          '',
+          'import "example.com/shop/pay"',
+          '',
+          'type Gift struct{ pay.Card }',
+          '',
+          'func Send(gift Gift, payer pay.Payer) {',
+          '\tgift.Pay(5)',
+          '\tpayer.Pay(5)',
+          '}',
+        ),
+      }),
+    });
+    expect(calls).toEqual([
+      { caller: 'shop/gift.go#Send', callee: 'pay/payer.go#Card.Pay', line: 8 },
+      {
+        caller: 'shop/gift.go#Send',
+        callee: 'pay/payer.go#Card.Pay',
+        line: 9,
+        group: 'shop/gift.go:9:8',
+      },
+      {
+        caller: 'shop/gift.go#Send',
+        callee: 'pay/payer.go#Wallet.Pay',
+        line: 9,
+        group: 'shop/gift.go:9:8',
+      },
+    ]);
+  });
+
+  it('ties a call of a generic function to its declaration, and not to each instantiation', () => {
+    const { functions, calls } = extractGo({
+      repo: repoOf({
+        'pay/payer.go': PAYER,
+        'shop/shop.go': lines(
+          'package shop',
+          '',
+          'import "example.com/shop/pay"',
+          '',
+          'func First[T any](items []T) T { return items[0] }',
+          '',
+          'func Pick() {',
+          '\tFirst([]int{1})',
+          '\tFirst[pay.Card]([]pay.Card{{}})',
+          '}',
+        ),
+      }),
+    });
+    expect(functions.filter(({ file }) => file === 'shop/shop.go').map(({ id }) => id)).toEqual([
+      'shop/shop.go#First',
+      'shop/shop.go#Pick',
+    ]);
+    expect(calls).toEqual([
+      { caller: 'shop/shop.go#Pick', callee: 'shop/shop.go#First', line: 8 },
+      { caller: 'shop/shop.go#Pick', callee: 'shop/shop.go#First', line: 9 },
+    ]);
+  });
+
+  it('is an open end with no-implementation when no type in scope implements the interface', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'pay/payer.go': PAYER,
+        'pay/refund.go': lines(
+          'package pay',
+          '',
+          'type Refunder interface{ Refund(cents int) error }',
+          '',
+          'func Back(refunder Refunder) error { return refunder.Refund(1) }',
+        ),
+      }),
+      scope: ['pay/refund.go'],
+    });
+    expect(calls).toEqual([]);
+    expect(openEnds).toEqual([
+      {
+        caller: 'pay/refund.go#Back',
+        line: 5,
+        expression: 'refunder.Refund',
+        reason: 'no-implementation',
+      },
+    ]);
+  });
+
+  it('adds no call for a call through a library interface, even when a type of the repo implements it', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'log/log.go': lines(
+          'package log',
+          '',
+          'import "io"',
+          '',
+          'type Line struct{}',
+          '',
+          'func (l Line) Write(text []byte) (int, error) { return len(text), nil }',
+          '',
+          'func Print(out io.Writer) { out.Write(nil) }',
+        ),
+      }),
+    });
+    expect(calls).toEqual([]);
+    expect(openEnds).toEqual([]);
+  });
+});

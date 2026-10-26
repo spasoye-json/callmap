@@ -12,6 +12,7 @@ import { tempDir } from '../../../test/temp-dir.ts';
 
 const MONEY = 'money/money.go';
 const CHECKOUT = 'checkout/checkout.go';
+const PAY = 'checkout/pay.go';
 const GREET = 'web/greet.ts';
 
 const goVersion = (): string =>
@@ -83,6 +84,17 @@ describe('callmap review of a branch with Go and TypeScript', () => {
     );
   });
 
+  it('draws a Go call through an interface as one one-of group', () => {
+    expect(pageDataOf(html).review.oneOfGroups).toEqual([
+      {
+        id: `${PAY}:20:15`,
+        caller: `${PAY}#Charge`,
+        line: 20,
+        callees: [`${PAY}#Card.Pay`, `${PAY}#Wallet.Pay`],
+      },
+    ]);
+  });
+
   it('gives one resolution rate and one checker for each language', () => {
     expect(
       pageDataOf(html).review.resolutionRates.map(({ language, checker, resolved, open }) => ({
@@ -92,7 +104,7 @@ describe('callmap review of a branch with Go and TypeScript', () => {
         open,
       })),
     ).toEqual([
-      { language: 'go', checker: 'Go', resolved: 5, open: 0 },
+      { language: 'go', checker: 'Go', resolved: 6, open: 0 },
       { language: 'typescript', checker: 'TypeScript', resolved: 2, open: 0 },
     ]);
   });
