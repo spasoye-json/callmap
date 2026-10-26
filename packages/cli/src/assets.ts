@@ -6,6 +6,7 @@ export interface Assets {
   readonly typescriptExtractorVersion: () => string;
   readonly goExtractor: string;
   readonly goExtractorVersion: () => string;
+  readonly goExtractorEnv: () => Readonly<Record<string, string>>;
 }
 
 export { assets } from './clone-assets.ts';

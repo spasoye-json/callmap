@@ -1,6 +1,6 @@
 # Callmap
 
-Callmap is a call graph reader for an engineer who still reads code. It reads a branch of a TypeScript repo with the TypeScript type checker, with no AI, and writes one HTML page for the code review. The page shows each function that the branch added, removed or changed, inside the frame of its file. Around each one it shows its callers and its callees, and it marks each call that the branch added or removed. Tabs show the same graph as the whole project, as one folder, or as one route. The same commits always give the same page and the same layout.
+Callmap is a call graph reader for an engineer who still reads code. It reads a branch of a TypeScript or Go repo with the type checker of each language, with no AI, and writes one HTML page for the code review. The page shows each function that the branch added, removed or changed, inside the frame of its file. Around each one it shows its callers and its callees, and it marks each call that the branch added or removed. Tabs show the same graph as the whole project, as one folder, or as one route. The same commits always give the same page and the same layout.
 
 ## Install
 
@@ -18,6 +18,8 @@ npm install --global @callmap/cli
 
 The examples below use `callmap`. With `npx`, write `npx @callmap/cli` in its place.
 
+A review of a repo with Go files needs `go` 1.26 or later on the `PATH`. The package carries the source of the Go extractor, and the first review with a Go file in scope builds it with that `go`. The build writes the binary to `$XDG_CACHE_HOME/callmap/go-extractor/`, or to `~/.cache/callmap/go-extractor/`, and later reviews use it again. A new version of `@callmap/cli` or a new `go` builds it again. The source holds a copy of `golang.org/x/tools`, so the build needs no network. If `go` is not on the `PATH`, the review leaves out the Go files and prints one line that says so.
+
 ### From a clone
 
 To try a change to Callmap on another repo, install the `callmap` command from a clone of this repo:
@@ -27,7 +29,7 @@ npm install
 npm link -w @callmap/cli
 ```
 
-`npm install` builds the command into `packages/cli/dist/`, and the link points at that build. So run `npm run build` after each `git pull` or change. `npm unlink -g @callmap/cli` removes the command. The tests run the source in `packages/cli/src/`, so they need no build.
+`npm install` builds the command into `packages/cli/dist/`, and the link points at that build. The command in a clone builds the Go extractor into a temporary folder at each run. So run `npm run build` after each `git pull` or change. `npm unlink -g @callmap/cli` removes the command. The tests run the source in `packages/cli/src/`, so they need no build.
 
 ## Review a branch
 
@@ -49,9 +51,11 @@ callmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>
 | `--no-cache`        | Reads the base again and does not write the cache.                                      | The base comes from the cache if it is there     |
 | `--editor <name>`   | The editor that the editor link on each function opens: `vscode` or `jetbrains`.        | `vscode`                                         |
 
+The review reads each language that has a file in scope. It reads TypeScript and JavaScript with the TypeScript type checker, and Go with `go/types`. A call never crosses from one language to another. The review reads the base and the branch of TypeScript at the same time. It reads the base and the branch of Go one after the other, because one read of a large Go repo can take several GB of memory.
+
 The default branch is the head of `origin`, then the head of any other remote, then `main`, then `master`. The review reads the base commit in a temporary git worktree and removes it at the end, so the checkout and the uncommitted files never move. The worktree links to the `node_modules` folders of the checkout, so the library types resolve on the base too. The command prints the path of the page when it ends.
 
-The command caches the graph of the base, so a second review of the same base reads only the branch. The cache is in `$XDG_CACHE_HOME/callmap/`, or in `~/.cache/callmap/` when the variable is not set. The cache holds one entry for each language of the review. An entry belongs to one language, one base commit, one set of scope globs, one tsconfig, the lock files of that language in the checkout and one version of the extractor of that language. A change of any of them reads the base of that language again, and the entries of the other languages stay. The lock files of TypeScript are the lock files of npm, Yarn, pnpm and Bun. The version of the TypeScript extractor is the version of `@callmap/cli`, the version of its `typescript` and a hash of the extractor source that the build saw, so a new release starts with an empty cache. A run of the source in a clone uses the version of `typescript` and a hash of the extractor source. The cache never holds the graph of the branch. It keeps the 20 newest entries for each repo. A cache file that cannot be read gives a fresh read of the base. You can delete the folder at any time.
+The command caches the graph of the base, so a second review of the same base reads only the branch. The cache is in `$XDG_CACHE_HOME/callmap/`, or in `~/.cache/callmap/` when the variable is not set. The cache holds one entry for each language of the review. An entry belongs to one language, one base commit, one set of scope globs, one tsconfig, the lock files of that language in the checkout and one version of the extractor of that language. A change of any of them reads the base of that language again, and the entries of the other languages stay. The lock files of TypeScript are the lock files of npm, Yarn, pnpm and Bun. The lock files of Go are `go.sum` and `go.work.sum`. The version of the TypeScript extractor is the version of `@callmap/cli`, the version of its `typescript` and a hash of the extractor source that the build saw, so a new release starts with an empty cache. The version of the Go extractor is the version of `@callmap/cli`, a hash of the Go source with its vendored modules, and the output of `go version`. A run of the source in a clone uses the version of `typescript` or the output of `go version`, and a hash of the extractor source. The cache never holds the graph of the branch. It keeps the 20 newest entries for each repo. A cache file that cannot be read gives a fresh read of the base. You can delete the folder at any time.
 
 A scope glob matches a whole path from the repo root. `*` matches inside one folder, `**` matches across folders, and `?` matches one character. A glob that starts with `!` leaves files out. Quote each glob, so that the shell does not expand it.
 
@@ -59,6 +63,12 @@ A backend in a subfolder of a monorepo, with its tests left out:
 
 ```sh
 callmap review --tsconfig server/tsconfig.json --scope 'server/src/**' --scope '!**/*.spec.ts'
+```
+
+A Go repo with its tests left out:
+
+```sh
+callmap review --scope '!**/*_test.go'
 ```
 
 Tests stay in the review unless a glob leaves them out. A test that mocks its calls adds open ends, so it lowers the resolution rate.
@@ -227,7 +237,7 @@ The host runs the extractors and the core, and writes the reader page.
 
 The page script lives in `packages/cli/page/`. `npm run build` bundles it with `elkjs` once, into `packages/cli/dist/page.js`, and the command inlines that file into each page. A run of the source in `packages/cli/src/` bundles the page script at each run, so a test always sees the current page. The command lays out the Diff view and the top level of the Whole project view in worker threads with the same layout module, `page/layout.ts`, and writes the places into the page data. `page/levels.ts` builds the boxes and the lines of each level. The page lays out the other views in the browser, and draws every view as SVG. A view is one module in `packages/cli/page/views/`: a pure function from the page data to frames, boxes and lines. A new part of the page is one module in `packages/cli/page/parts/` that default-exports a `PagePart`. The CLI loads each part in name order, with no change to another file.
 
-Only `@callmap/cli` goes to npm. `npm run build` writes it to `packages/cli/dist/`: the command, the layout worker, the TypeScript extractor, and the page script and style. The build bundles the other `@callmap/*` packages and `elkjs` into these files. `typescript` stays a dependency of the package, at a pinned version. ADR-0021 records why.
+Only `@callmap/cli` goes to npm. `npm run build` writes it to `packages/cli/dist/`: the command, the layout worker, the TypeScript extractor, the launcher of the Go extractor, and the page script and style. The build bundles the other `@callmap/*` packages and `elkjs` into these files. `typescript` stays a dependency of the package, at a pinned version. The build copies the Go source of the Go extractor, with its vendored modules, into `packages/cli/dist/go/`, and the command builds it on the first run. ADR-0021 and ADR-0026 record why.
 
 `test/core-is-language-blind-and-pure.test.ts` reads the imports of every package. It holds the core away from the filesystem and from any language name. It holds each extractor to the opposite. It holds the host to its own list, and keeps the page script off every Node built-in.
 
@@ -239,7 +249,7 @@ node packages/extractor-ruby/src/cli.ts <repo> --scope 'apps/**'
 node packages/extractor-go/src/cli.ts <repo> --scope 'internal/**'
 ```
 
-The Ruby extractor needs `ruby` on the `PATH`. It parses with Ripper, which every Ruby ships, so it needs no gem. The Go extractor needs `go` on the `PATH`. It loads the repo with `golang.org/x/tools/go/packages`, which its module vendors. It runs the go tool with `GOPROXY=off` and `GOTOOLCHAIN=local`, so it needs no network.
+The Ruby extractor needs `ruby` on the `PATH`. It parses with Ripper, which every Ruby ships, so it needs no gem. The Go extractor needs `go` 1.26 or later on the `PATH`, because its vendored `golang.org/x/tools` v0.52.0 needs it. It loads the repo with `golang.org/x/tools/go/packages`, which its module vendors. It runs the go tool with `GOPROXY=off` and `GOTOOLCHAIN=local`, so it needs no network.
 
 An extractor must be tested against files on disk. The TypeScript and Ruby extractors commit a small fixture repo under `packages/<extractor>/fixture/`. The tests of the Go extractor write a throwaway repo for each case.
 
@@ -253,7 +263,7 @@ npm run test:browser
 npm run test:pack
 ```
 
-`npm run test:pack` packs `@callmap/cli` with `npm pack` and installs the tarball in a fixture repo. Then it runs `callmap review` from that install and reads the page. It also fails when the tarball holds a file other than the manifest, the README, the LICENSE and the built files in `dist/`. The install fetches `typescript` from npm. Plain `npm test` does not run this check. The CI runs it on each pull request, and the release workflow runs it before it publishes.
+`npm run test:pack` packs `@callmap/cli` with `npm pack` and installs the tarball in a fixture repo with TypeScript, and in one with Go and TypeScript. Then it runs `callmap review` from that install and reads the page. It builds the Go extractor from the tarball with `GOPROXY=off` and an empty module cache, and it checks that a second review uses the binary again. It also fails when the tarball holds a file other than the manifest, the README, the LICENSE, the built files in `dist/` and the Go source in `dist/go/`. The install fetches `typescript` from npm. The check needs `go` 1.26 or later on the `PATH`. Plain `npm test` does not run this check. The CI runs it on each pull request, and the release workflow runs it before it publishes.
 
 `npm run test:browser` builds reader pages from the fixture repos and opens them in headless Chromium. It reads the place of each label on the screen. It fails when a label runs past its box or its frame. It also fails when a box name runs over its "N fn" count. It also fails when a frame label or a "one of" label runs over a box. It checks the Diff, Folder and Whole project views. It checks each view in the Read, Scan and Map bands, in light mode and in dark mode. It also fails when an edge hint covers a box while the graph pans, when the zoom label has no room on either side or changes the width of the zoom controls, and when a chip of a level box in the Map band is smaller than at the reading floor or a box border is less than 1 px. In dark mode, it also fails when a box border in the Map band has a contrast below 3 to 1. Plain `npm test` does not run these checks.
 

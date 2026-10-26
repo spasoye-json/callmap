@@ -32,9 +32,9 @@ export const extractorSourceFiles = (): readonly NamedFile[] => {
 
 const GO_EXTRACTOR = fileURLToPath(import.meta.resolve('@callmap/extractor-go/cli'));
 
-const GO_PROGRAM = join(dirname(GO_EXTRACTOR), '..', 'go');
+export const GO_PROGRAM = join(dirname(GO_EXTRACTOR), '..', 'go');
 
-const goSourceFiles = (): readonly NamedFile[] => [
+export const goSourceFiles = (): readonly NamedFile[] => [
   ...sourceFilesOf(dirname(GO_EXTRACTOR)).map((file) => ({
     name: `src/${file}`,
     path: join(dirname(GO_EXTRACTOR), file),
@@ -59,4 +59,5 @@ export const assets = {
   goExtractor: GO_EXTRACTOR,
   goExtractorVersion: () =>
     sha256OfFiles(goSourceFiles(), `${execFileSync('go', ['version'], { encoding: 'utf8' })}\0`),
+  goExtractorEnv: () => ({}),
 } satisfies Assets;
