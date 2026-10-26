@@ -7,7 +7,7 @@
 
 import { spawnSync } from 'node:child_process';
 import type { SpawnSyncReturns } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
@@ -28,15 +28,21 @@ export interface GoExtractOptions {
   readonly scope?: readonly string[];
 }
 
-const PROGRAM = join(import.meta.dirname, '../go');
+/**
+ * The Go program to build. A host that carries the program elsewhere, such as the npm package
+ * with the program in its dist folder, names it in CALLMAP_GO_EXTRACTOR_SOURCE.
+ */
+const PROGRAM = process.env['CALLMAP_GO_EXTRACTOR_SOURCE'] ?? join(import.meta.dirname, '../go');
 
 let built: string | undefined;
+let temporary = false;
 
 /** Remove the compiled extractor and its directory. The next call builds it again. */
 export const removeGoExtractorBinary = (): void => {
   if (built === undefined) return;
-  rmSync(dirname(built), { recursive: true, force: true });
+  if (temporary) rmSync(dirname(built), { recursive: true, force: true });
   built = undefined;
+  temporary = false;
   process.off('exit', removeGoExtractorBinary);
 };
 
@@ -65,16 +71,7 @@ const buildFailureOf = (finished: SpawnSyncReturns<string>): string | undefined 
   return undefined;
 };
 
-/**
- * The compiled extractor, built once per caller process. A fresh directory per process keeps two
- * callers that build at the same time from writing over each other's binary. The process removes
- * that directory when it exits, so a run leaves nothing in the temp dir. The Go build cache makes
- * every build after the first a relink.
- */
-export const goExtractorBinary = (): string => {
-  if (built !== undefined) return built;
-  const folder = mkdtempSync(join(tmpdir(), 'callmap-extract-go-'));
-  const binary = join(folder, 'callmap-extract-go');
+const buildGoExtractor = (binary: string): void => {
   const failure = buildFailureOf(
     spawnSync('go', ['build', '-o', binary, '.'], {
       cwd: PROGRAM,
@@ -82,13 +79,52 @@ export const goExtractorBinary = (): string => {
       env: buildEnv(),
     }),
   );
-  if (failure !== undefined) {
+  if (failure !== undefined) throw new GoExtractionError(failure);
+};
+
+/**
+ * A fresh directory per process keeps two callers that build at the same time from writing over
+ * each other's binary. The process removes that directory when it exits, so a run leaves nothing
+ * in the temp dir. The Go build cache makes every build after the first a relink.
+ */
+const binaryForThisProcess = (): string => {
+  const folder = mkdtempSync(join(tmpdir(), 'callmap-extract-go-'));
+  const binary = join(folder, 'callmap-extract-go');
+  try {
+    buildGoExtractor(binary);
+  } catch (error) {
     rmSync(folder, { recursive: true, force: true });
-    throw new GoExtractionError(failure);
+    throw error;
   }
-  built = binary;
   process.once('exit', removeGoExtractorBinary);
+  temporary = true;
   return binary;
+};
+
+/**
+ * A binary that outlives the process, at the path that a host names in
+ * CALLMAP_GO_EXTRACTOR_BINARY. The host puts its version in that path, so a binary there is never
+ * stale. The build writes to a name of its own and renames it, so a caller never runs half a file.
+ */
+const keptBinaryAt = (binary: string): string => {
+  if (existsSync(binary)) return binary;
+  mkdirSync(dirname(binary), { recursive: true });
+  const partial = `${binary}.${process.pid}.partial`;
+  try {
+    buildGoExtractor(partial);
+    renameSync(partial, binary);
+  } finally {
+    rmSync(partial, { force: true });
+  }
+  return binary;
+};
+
+/** The compiled extractor, built once per caller process, or kept where the host asks. */
+export const goExtractorBinary = (): string => {
+  if (built !== undefined) return built;
+  const kept = process.env['CALLMAP_GO_EXTRACTOR_BINARY'];
+  built = kept === undefined ? binaryForThisProcess() : keptBinaryAt(kept);
+  return built;
 };
 
 /** Read a repo with the Go extractor and return the graph document it emitted. */

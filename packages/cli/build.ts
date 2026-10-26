@@ -1,8 +1,16 @@
-import { chmodSync, copyFileSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  cpSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { build } from 'rolldown';
 import { assets } from './src/assets.ts';
-import { extractorSourceFiles } from './src/clone-assets.ts';
+import { extractorSourceFiles, GO_PROGRAM, goSourceFiles } from './src/clone-assets.ts';
 import { sha256OfFiles } from './src/file-hash.ts';
 import { packageManifestAt } from './src/package-manifest.ts';
 import { pageBundle } from './src/page-build.ts';
@@ -31,11 +39,31 @@ const noticeOf = (folder: string): Notice => {
   return { name, version, license, text: readFileSync(join(folder, file), 'utf8').trim() };
 };
 
-const noticesOf = (moduleIds: readonly string[]): string => {
+const npmNoticesOf = (moduleIds: readonly string[]): readonly Notice[] => {
   const folders = new Set(moduleIds.flatMap((id) => PACKAGE_FOLDER.exec(id)?.slice(1, 2) ?? []));
-  const notices = new Map(
-    [...folders].map(noticeOf).map((notice) => [`${notice.name} ${notice.version}`, notice]),
+  return [...folders].map(noticeOf);
+};
+
+const GO_MODULE_LICENSES: Readonly<Record<string, string>> = {
+  'golang.org/x/mod': 'BSD-3-Clause',
+  'golang.org/x/sync': 'BSD-3-Clause',
+  'golang.org/x/tools': 'BSD-3-Clause',
+};
+
+const VENDORED_MODULE = /^# (\S+) (v\S+)$/gm;
+
+const goNoticesOf = (program: string): readonly Notice[] =>
+  [...readFileSync(join(program, 'vendor', 'modules.txt'), 'utf8').matchAll(VENDORED_MODULE)].map(
+    ([, name = '', version = '']) => {
+      const license = GO_MODULE_LICENSES[name];
+      if (license === undefined) throw new Error(`${name} ${version} has no known license`);
+      const text = readFileSync(join(program, 'vendor', name, 'LICENSE'), 'utf8').trim();
+      return { name, version, license, text };
+    },
   );
+
+const noticesOf = (bundled: readonly Notice[]): string => {
+  const notices = new Map(bundled.map((notice) => [`${notice.name} ${notice.version}`, notice]));
   return [
     'Callmap bundles the third-party packages below. Each one keeps its own license.\n',
     ...[...notices.entries()]
@@ -51,6 +79,7 @@ const { output } = await build({
     cli: join(PACKAGE, 'src', 'cli.ts'),
     'layout-worker': join(PACKAGE, 'src', 'layout-worker.ts'),
     'extract-typescript': assets.typescriptExtractor,
+    'extract-go': assets.goExtractor,
   },
   platform: 'node',
   external: ['typescript'],
@@ -74,11 +103,16 @@ const page = await pageBundle();
 writeFileSync(join(DIST, 'page.js'), page.script);
 writeFileSync(join(DIST, 'page.css'), assets.pageStyle());
 writeFileSync(join(DIST, 'extractor-source.sha256'), sha256OfFiles(extractorSourceFiles()));
+cpSync(GO_PROGRAM, join(DIST, 'go'), { recursive: true });
+writeFileSync(join(DIST, 'go-extractor-source.sha256'), sha256OfFiles(goSourceFiles()));
 writeFileSync(
   join(DIST, 'THIRD-PARTY-NOTICES.txt'),
   noticesOf([
-    ...output.flatMap((chunk) => (chunk.type === 'chunk' ? chunk.moduleIds : [])),
-    ...page.moduleIds,
+    ...npmNoticesOf([
+      ...output.flatMap((chunk) => (chunk.type === 'chunk' ? chunk.moduleIds : [])),
+      ...page.moduleIds,
+    ]),
+    ...goNoticesOf(GO_PROGRAM),
   ]),
 );
 

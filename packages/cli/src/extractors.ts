@@ -5,9 +5,16 @@ import type { GraphDocument } from '@callmap/graph-document';
 import { assets } from './assets.ts';
 import type { CachedExtractor } from './base-cache.ts';
 
-const runExtractorProcess = (command: string, args: readonly string[]): Promise<string> =>
+const runExtractorProcess = (
+  command: string,
+  args: readonly string[],
+  env: Readonly<Record<string, string>> = {},
+): Promise<string> =>
   new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, ...env },
+    });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk));
@@ -89,11 +96,11 @@ export const GO_EXTRACTOR: Extractor = {
   extract: async (repo, { scope }) =>
     readGraphDocument(
       JSON.parse(
-        await runExtractorProcess(process.execPath, [
-          assets.goExtractor,
-          repo,
-          ...scopeArgumentsOf(scope),
-        ]),
+        await runExtractorProcess(
+          process.execPath,
+          [assets.goExtractor, repo, ...scopeArgumentsOf(scope)],
+          assets.goExtractorEnv(),
+        ),
       ),
     ),
 };

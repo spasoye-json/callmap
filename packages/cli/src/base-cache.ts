@@ -34,9 +34,9 @@ export interface BaseKey extends ExtractorSettings {
 
 const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex');
 
-const cacheHomeOf = (): string => {
+export const callmapCacheFolder = (): string => {
   const home = process.env['XDG_CACHE_HOME'];
-  return home !== undefined && isAbsolute(home) ? home : join(homedir(), '.cache');
+  return join(home !== undefined && isAbsolute(home) ? home : join(homedir(), '.cache'), 'callmap');
 };
 
 const lockHashOf = (checkout: string, lockFiles: readonly string[]): string =>
@@ -93,7 +93,7 @@ export const throughBaseCache = async (
   key: BaseKey,
   read: () => Promise<GraphDocument>,
 ): Promise<GraphDocument> => {
-  const folder = join(cacheHomeOf(), 'callmap', sha256(key.repo));
+  const folder = join(callmapCacheFolder(), sha256(key.repo));
   const entry = join(folder, `${entryNameOf(key)}.json`);
   const cached = cachedAt(entry);
   if (cached !== undefined) return cached;
