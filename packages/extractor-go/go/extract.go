@@ -1,18 +1,29 @@
 package main
 
 import (
+	"fmt"
 	"go/ast"
+	"go/token"
 	"path/filepath"
 	"runtime"
 	"strings"
 )
 
-func lineOf(site callSite) int {
+func calleePositionOf(site callSite) token.Position {
 	at := site.call.Fun
 	if ident := calleeIdentOf(site.call.Fun); ident != nil {
 		at = ident
 	}
-	return positionOf(site.file.pkg.Fset, at.Pos()).Line
+	return positionOf(site.file.pkg.Fset, at.Pos())
+}
+
+func lineOf(site callSite) int {
+	return calleePositionOf(site).Line
+}
+
+func groupOf(site callSite) string {
+	at := calleePositionOf(site)
+	return fmt.Sprintf("%s:%d:%d", site.file.path, at.Line, at.Column)
 }
 
 func sourceTextOf(site callSite, node ast.Node) string {
@@ -51,7 +62,11 @@ func extract(repo string, scope []string) (document, error) {
 		paths = append(paths, file.path)
 		documentFiles[file.filename] = true
 	}
-	resolve := resolver{documentFiles: documentFiles, functionAt: declared.functionAt}.resolve
+	resolve := resolver{
+		documentFiles:   documentFiles,
+		functionAt:      declared.functionAt,
+		implementations: implementationsOf(files, declared.functionAt),
+	}.resolve
 	calls := []call{}
 	openEnds := []openEnd{}
 	for _, site := range declared.sites {
@@ -60,6 +75,15 @@ func extract(repo string, scope []string) (document, error) {
 		case tiedCall:
 			for _, callee := range resolved.callees {
 				calls = append(calls, call{Caller: site.caller, Callee: callee, Line: lineOf(site)})
+			}
+		case oneOfCall:
+			for _, callee := range resolved.callees {
+				calls = append(calls, call{
+					Caller: site.caller,
+					Callee: callee,
+					Line:   lineOf(site),
+					Group:  groupOf(site),
+				})
 			}
 		case openEndCall:
 			openEnds = append(openEnds, openEnd{

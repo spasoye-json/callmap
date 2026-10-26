@@ -11,6 +11,7 @@ const (
 	notACall resolutionKind = iota
 	libraryCall
 	tiedCall
+	oneOfCall
 	openEndCall
 )
 
@@ -21,8 +22,9 @@ type resolution struct {
 }
 
 type resolver struct {
-	documentFiles map[string]bool
-	functionAt    map[functionKey]string
+	documentFiles   map[string]bool
+	functionAt      map[functionKey]string
+	implementations implementations
 }
 
 // A rule decides a call site, or passes it to the next rule. The first rule that decides wins, so
@@ -35,6 +37,7 @@ var rules = []rule{
 	dynamicKeyRule,
 	untypedRule,
 	functionValueRule,
+	interfaceCallRule,
 	staticCallRule,
 }
 
@@ -159,4 +162,45 @@ func staticCallRule(each resolver, site callSite) (resolution, bool) {
 		return resolution{}, false
 	}
 	return resolution{kind: tiedCall, callees: []string{id}}, true
+}
+
+// interfaceOf prefers the interface of the receiver to the interface that declares the method,
+// because the receiver may be a wider interface that embeds it, with fewer implementations.
+func interfaceOf(site callSite) (*types.Interface, *types.Func) {
+	info := site.file.pkg.TypesInfo
+	ident := calleeIdentOf(site.call.Fun)
+	if ident == nil {
+		return nil, nil
+	}
+	method, isFunc := info.Uses[ident].(*types.Func)
+	if !isFunc || method.Signature().Recv() == nil {
+		return nil, nil
+	}
+	iface, isInterface := method.Signature().Recv().Type().Underlying().(*types.Interface)
+	if !isInterface {
+		return nil, nil
+	}
+	if selector, isSelector := ast.Unparen(site.call.Fun).(*ast.SelectorExpr); isSelector {
+		if selection := info.Selections[selector]; selection != nil && selection.Kind() == types.MethodVal {
+			if receiver, isInterface := selection.Recv().Underlying().(*types.Interface); isInterface {
+				iface = receiver
+			}
+		}
+	}
+	return iface, method
+}
+
+func interfaceCallRule(each resolver, site callSite) (resolution, bool) {
+	iface, method := interfaceOf(site)
+	if iface == nil {
+		return resolution{}, false
+	}
+	if !each.documentFiles[positionOf(site.file.pkg.Fset, method.Pos()).Filename] {
+		return resolution{kind: libraryCall}, true
+	}
+	callees := each.implementations.of(iface, method)
+	if len(callees) == 0 {
+		return resolution{kind: openEndCall, reason: "no-implementation"}, true
+	}
+	return resolution{kind: oneOfCall, callees: callees}, true
 }
