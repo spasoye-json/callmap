@@ -35,7 +35,7 @@ func extract(repo string, scope []string) (document, error) {
 	if err != nil {
 		return document{}, err
 	}
-	loaded, err := load(root, moduleRootsOf(found))
+	loaded, err := load(root, moduleRootsOf(found, scope))
 	if err != nil {
 		return document{}, err
 	}
