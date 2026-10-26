@@ -84,6 +84,15 @@ export const commitOf = (root: string, revision: string): string =>
 export const shortCommitOf = (root: string, commit: string): string =>
   git(root, 'rev-parse', '--short', commit);
 
+const pathsOf = (listing: string): readonly string[] =>
+  listing.split('\0').filter((path) => path !== '');
+
+export const workingTreeFilesOf = (root: string): readonly string[] =>
+  pathsOf(gitOutput(root, 'ls-files', '--cached', '--others', '--exclude-standard', '-z'));
+
+export const filesAtCommit = (root: string, commit: string): readonly string[] =>
+  pathsOf(gitOutput(root, 'ls-tree', '-r', '--name-only', '-z', commit));
+
 export const fileAt = (root: string, commit: string, file: string): string =>
   gitOutput(root, 'show', `${commit}:${file}`);
 

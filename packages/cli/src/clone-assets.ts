@@ -1,6 +1,7 @@
+import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Assets } from './assets.ts';
 import { sha256OfFiles } from './file-hash.ts';
@@ -29,6 +30,22 @@ export const extractorSourceFiles = (): readonly NamedFile[] => {
   );
 };
 
+const GO_EXTRACTOR = fileURLToPath(import.meta.resolve('@callmap/extractor-go/cli'));
+
+const GO_PROGRAM = join(dirname(GO_EXTRACTOR), '..', 'go');
+
+const goSourceFiles = (): readonly NamedFile[] => [
+  ...sourceFilesOf(dirname(GO_EXTRACTOR)).map((file) => ({
+    name: `src/${file}`,
+    path: join(dirname(GO_EXTRACTOR), file),
+  })),
+  ...readdirSync(GO_PROGRAM, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
+    .sort()
+    .map((path) => ({ name: `go/${relative(GO_PROGRAM, path)}`, path })),
+];
+
 export const assets = {
   typescriptExtractor: TYPESCRIPT_EXTRACTOR,
   layoutWorker: new URL('layout-worker.ts', import.meta.url),
@@ -39,4 +56,7 @@ export const assets = {
       extractorSourceFiles(),
       `typescript ${typescriptVersionFor(TYPESCRIPT_EXTRACTOR)}\0`,
     ),
+  goExtractor: GO_EXTRACTOR,
+  goExtractorVersion: () =>
+    sha256OfFiles(goSourceFiles(), `${execFileSync('go', ['version'], { encoding: 'utf8' })}\0`),
 } satisfies Assets;

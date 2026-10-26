@@ -1,5 +1,5 @@
 /**
- * The Go extractor: the pass that reads a repo in scope and emits its reference graph document. It
+ * The Go extractor: the pass that reads a repo in scope and emits its graph document. It
  * is a separate process from the core, written in Go, and the core owns the contract it emits
  * against (ADR-0009).
  */

@@ -3,20 +3,23 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { GraphDocument } from '@callmap/graph-document';
 import { callGraphOf, reviewOf } from '@callmap/review';
+import { inScope, isSkippedDirectory } from '@callmap/scope';
 import { DIFF_LIMIT } from '../page/views/diff.ts';
 import type { ReviewInvocation } from './arguments.ts';
 import { throughBaseCache } from './base-cache.ts';
 import { openInBrowser } from './browser.ts';
-import { TYPESCRIPT_EXTRACTOR } from './extractors.ts';
+import { EXTRACTORS } from './extractors.ts';
 import type { Extractor, ExtractorSettings } from './extractors.ts';
 import {
   commitOf,
   commonDirOf,
   defaultBranchOf,
+  filesAtCommit,
   inWorktreeAt,
   mergeBaseOf,
   repoRootOf,
   shortCommitOf,
+  workingTreeFilesOf,
 } from './git.ts';
 import { readerPageOf } from './reader-page.ts';
 import { basePlacesOf, sourcesOf } from './sources.ts';
@@ -57,8 +60,26 @@ const settled = <T>(result: PromiseSettledResult<T>): T => {
   return result.value;
 };
 
+const inSkippedDirectory = (path: string): boolean =>
+  path.split('/').slice(0, -1).some(isSkippedDirectory);
+
+const extractorsInScope = (
+  extractors: readonly Extractor[],
+  files: readonly string[],
+  scope: readonly string[],
+): readonly Extractor[] => {
+  const inScopeFiles = files.filter((path) => !inSkippedDirectory(path) && inScope(path, scope));
+  return extractors.filter((extractor) => inScopeFiles.some((path) => extractor.claims(path)));
+};
+
+interface LanguageDocuments {
+  readonly branch: GraphDocument;
+  readonly base: GraphDocument;
+}
+
 export interface ReviewSettings {
   readonly diffLimit: number;
+  readonly extractors?: readonly Extractor[];
 }
 
 export interface FinishedReview {
@@ -68,7 +89,7 @@ export interface FinishedReview {
 
 export const runReview = async (
   invocation: ReviewInvocation,
-  { diffLimit }: ReviewSettings = { diffLimit: DIFF_LIMIT },
+  { diffLimit, extractors = EXTRACTORS }: ReviewSettings = { diffLimit: DIFF_LIMIT },
 ): Promise<FinishedReview> => {
   const root = repoRootOf(resolve(invocation.repo));
   const base =
@@ -79,32 +100,54 @@ export const runReview = async (
     scope: invocation.scope,
     tsconfig: tsconfigOf(root, invocation.tsconfig),
   };
-  const readBase = (): Promise<GraphDocument> =>
-    inWorktreeAt(root, base, (path) =>
-      readGraphDocumentOf(
-        `the base ${shortCommitOf(root, base)}`,
-        path,
-        TYPESCRIPT_EXTRACTOR,
-        settings,
-      ),
-    );
-  const [branchRead, baseRead] = await Promise.allSettled([
-    readGraphDocumentOf('the branch', root, TYPESCRIPT_EXTRACTOR, settings),
-    invocation.cache
-      ? throughBaseCache(
-          {
-            repo: commonDirOf(root),
-            checkout: root,
-            commit: base,
-            extractor: TYPESCRIPT_EXTRACTOR,
-            ...settings,
-          },
-          readBase,
-        )
-      : readBase(),
-  ]);
-  const branchGraphs = [settled(branchRead)];
-  const baseGraphs = [settled(baseRead)];
+  const documentsOf = async (extractor: Extractor): Promise<LanguageDocuments> => {
+    const extractorSettings = extractor.readsTsconfig
+      ? settings
+      : { ...settings, tsconfig: undefined };
+    const readBranch = (): Promise<GraphDocument> =>
+      readGraphDocumentOf('the branch', root, extractor, extractorSettings);
+    const readBase = (): Promise<GraphDocument> =>
+      inWorktreeAt(root, base, (path) =>
+        readGraphDocumentOf(
+          `the base ${shortCommitOf(root, base)}`,
+          path,
+          extractor,
+          extractorSettings,
+        ),
+      );
+    const readCachedBase = (): Promise<GraphDocument> =>
+      invocation.cache
+        ? throughBaseCache(
+            {
+              repo: commonDirOf(root),
+              checkout: root,
+              commit: base,
+              extractor,
+              ...extractorSettings,
+            },
+            readBase,
+          )
+        : readBase();
+    if (!extractor.readsInParallel) {
+      const branch = await readBranch();
+      return { branch, base: await readCachedBase() };
+    }
+    const [branchRead, baseRead] = await Promise.allSettled([readBranch(), readCachedBase()]);
+    return { branch: settled(branchRead), base: settled(baseRead) };
+  };
+
+  const picked = extractorsInScope(
+    extractors,
+    [...workingTreeFilesOf(root), ...filesAtCommit(root, base)],
+    settings.scope,
+  );
+  const checked = picked.map((extractor) => ({ extractor, skipNote: extractor.skipNote() }));
+  const read: LanguageDocuments[] = [];
+  for (const { extractor } of checked.filter(({ skipNote }) => skipNote === undefined)) {
+    read.push(await documentsOf(extractor));
+  }
+  const branchGraphs = read.map(({ branch }) => branch);
+  const baseGraphs = read.map(({ base }) => base);
   const review = reviewOf({ base: baseGraphs, branch: branchGraphs });
   const branchGraph = callGraphOf(branchGraphs);
   const { html, notes } = await readerPageOf({
@@ -120,5 +163,5 @@ export const runReview = async (
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, html);
   if (invocation.open) openInBrowser(out);
-  return { out, notes };
+  return { out, notes: [...checked.flatMap(({ skipNote }) => skipNote ?? []), ...notes] };
 };

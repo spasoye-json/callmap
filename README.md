@@ -207,7 +207,7 @@ The core packages read data and never read source code or a filesystem. See ADR-
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@callmap/graph-document`  | The graph document an extractor emits: files, functions, calls with their one-of groups, open ends, a language and a scope                                                 |
 | `@callmap/review`          | The review of a branch: the changed functions, their neighbours, the added and removed calls, their open ends and one-of groups, and one resolution rate for each language |
-| `@callmap/reference-graph` | The document the Go and Ruby extractors emit: files, references, a language tag and a scope                                                                                |
+| `@callmap/reference-graph` | The document the Ruby extractor emits: files, references, a language tag and a scope                                                                                       |
 | `@callmap/scope`           | The scope globs and the skipped directories that every walk of a repo shares                                                                                               |
 | `@callmap/editor-link`     | The editor link that opens a file at a line                                                                                                                                |
 
@@ -216,7 +216,7 @@ The extractors are the other side of the contract. Each one reads a repo and nam
 | Package                         | What it owns                                                                                |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
 | `@callmap/extractor-typescript` | TypeScript and JavaScript, with functions and calls resolved by the TypeScript type checker |
-| `@callmap/extractor-go`         | Go, read by a Go program that uses only the Go standard library                             |
+| `@callmap/extractor-go`         | Go, with functions and calls resolved by `go/types`                                         |
 | `@callmap/extractor-ruby`       | Ruby, with constants resolved by Zeitwerk conventions, one loader per Rails app             |
 
 The host runs the extractors and the core, and writes the reader page.
@@ -236,12 +236,12 @@ Each extractor runs as its own process and writes its document to its standard o
 ```sh
 node packages/extractor-typescript/src/cli.ts <repo> --scope 'src/**'
 node packages/extractor-ruby/src/cli.ts <repo> --scope 'apps/**'
-go -C packages/extractor-go/go run . <absolute-repo> --scope 'internal/**'
+node packages/extractor-go/src/cli.ts <repo> --scope 'internal/**'
 ```
 
-The Ruby extractor needs `ruby` on the `PATH`. It parses with Ripper, which every Ruby ships, so it needs no gem. The Go extractor needs `go` on the `PATH`. It never runs the go tool against the target repo, so it needs no network.
+The Ruby extractor needs `ruby` on the `PATH`. It parses with Ripper, which every Ruby ships, so it needs no gem. The Go extractor needs `go` on the `PATH`. It loads the repo with `golang.org/x/tools/go/packages`, which its module vendors. It runs the go tool with `GOPROXY=off` and `GOTOOLCHAIN=local`, so it needs no network.
 
-Each extractor commits a small fixture repo under `packages/<extractor>/fixture/`, because an extractor must be tested against files on disk.
+An extractor must be tested against files on disk. The TypeScript and Ruby extractors commit a small fixture repo under `packages/<extractor>/fixture/`. The tests of the Go extractor write a throwaway repo for each case.
 
 ## Checks
 

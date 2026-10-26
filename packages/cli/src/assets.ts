@@ -4,6 +4,8 @@ export interface Assets {
   readonly pageScript: () => Promise<string>;
   readonly pageStyle: () => string;
   readonly typescriptExtractorVersion: () => string;
+  readonly goExtractor: string;
+  readonly goExtractorVersion: () => string;
 }
 
 export { assets } from './clone-assets.ts';
