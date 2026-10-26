@@ -2,12 +2,15 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { readGraphDocument } from '@callmap/graph-document';
 import { extractGo, GoExtractionError, removeGoExtractorBinary } from '../src/index.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
 
 afterAll(removeGoExtractorBinary);
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const GO_MOD = 'module example.com/shop\n\ngo 1.22\n';
 
@@ -22,6 +25,54 @@ const repoOf = (files: Readonly<Record<string, string>>): string => {
 
 const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex');
 
+/** The hash that go.sum holds, as `Hash1` of `golang.org/x/mod/sumdb/dirhash` computes it. */
+const h1 = (files: Readonly<Record<string, string>>): string => {
+  const summary = Object.entries(files)
+    .sort(([first], [second]) => (first < second ? -1 : 1))
+    .map(([name, text]) => `${sha256(text)}  ${name}\n`)
+    .join('');
+  return `h1:${createHash('sha256').update(summary).digest('base64')}`;
+};
+
+interface ModuleCache {
+  readonly dir: string;
+  readonly goSum: string;
+}
+
+/**
+ * A module cache that holds one module, as the go tool leaves it after a download, and the go.sum
+ * lines that let a repo require it. The go tool reads the module from the cache without its zip.
+ */
+const moduleCacheOf = (
+  module: string,
+  version: string,
+  files: Readonly<Record<string, string>>,
+): ModuleCache => {
+  const dir = tempDir('callmap-go-cache-');
+  const extracted = join(dir, `${module}@${version}`);
+  const download = join(dir, 'cache/download', module, '@v');
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(extracted, path)), { recursive: true });
+    writeFileSync(join(extracted, path), text);
+  }
+  const goMod = files['go.mod'] ?? '';
+  const zipHash = h1(
+    Object.fromEntries(
+      Object.entries(files).map(([path, text]) => [`${module}@${version}/${path}`, text]),
+    ),
+  );
+  mkdirSync(download, { recursive: true });
+  writeFileSync(join(download, `${version}.mod`), goMod);
+  writeFileSync(join(download, `${version}.ziphash`), zipHash);
+  return {
+    dir,
+    goSum: lines(
+      `${module} ${version} ${zipHash}`,
+      `${module} ${version}/go.mod ${h1({ 'go.mod': goMod })}`,
+    ),
+  };
+};
+
 const goVersion = (): string => execFileSync('go', ['version'], { encoding: 'utf8' });
 
 const lines = (...text: readonly string[]): string => `${text.join('\n')}\n`;
@@ -35,6 +86,18 @@ const MONEY = lines(
   '}',
   '',
   'func digits(cents int) string { return "" }',
+);
+
+const MONEY_GO_MOD = lines('module example.com/money', '', 'go 1.22');
+
+const CHECKOUT_OF_MONEY_MODULE = lines(
+  'package checkout',
+  '',
+  'import "example.com/money"',
+  '',
+  'func Total(cents int) string {',
+  '\treturn money.Format(cents)',
+  '}',
 );
 
 const CHECKOUT = lines(
@@ -498,6 +561,123 @@ describe('extractGo', () => {
     }
     expect(readFileSync(join(repo, 'go.mod'), 'utf8')).toBe(goMod);
     expect(existsSync(join(repo, 'go.sum'))).toBe(false);
+  });
+
+  it('ties a call into another module of the repo that a replace loads from the repo', () => {
+    const { files, calls, openEnds } = extractGo({
+      repo: repoOf({
+        'go.mod': lines(
+          'module example.com/shop',
+          '',
+          'go 1.22',
+          '',
+          'require example.com/money v0.0.0',
+          '',
+          'replace example.com/money => ./money',
+        ),
+        'money/go.mod': MONEY_GO_MOD,
+        'money/money.go': MONEY,
+        'checkout/checkout.go': CHECKOUT_OF_MONEY_MODULE,
+      }),
+    });
+    expect(files).toEqual(['checkout/checkout.go', 'money/money.go']);
+    expect(calls).toEqual([
+      { caller: 'checkout/checkout.go#Total', callee: 'money/money.go#Format', line: 6 },
+      { caller: 'money/money.go#Format', callee: 'money/money.go#digits', line: 5 },
+    ]);
+    expect(openEnds).toEqual([]);
+  });
+
+  it('makes a call into another module of the repo a library call when the go tool loads it from the module cache', () => {
+    const money = {
+      'go.mod': MONEY_GO_MOD,
+      'money.go': MONEY,
+    };
+    const cache = moduleCacheOf('example.com/money', 'v1.0.0', money);
+    vi.stubEnv('GOMODCACHE', cache.dir);
+    const { files, functions, calls, openEnds } = extractGo({
+      repo: repoOf({
+        'go.mod': lines(
+          'module example.com/shop',
+          '',
+          'go 1.22',
+          '',
+          'require example.com/money v1.0.0',
+        ),
+        'go.sum': cache.goSum,
+        'money/go.mod': money['go.mod'],
+        'money/money.go': money['money.go'],
+        'checkout/checkout.go': CHECKOUT_OF_MONEY_MODULE,
+      }),
+    });
+    expect(files).toEqual(['checkout/checkout.go', 'money/money.go']);
+    expect(functions.map(({ id }) => id)).toContain('money/money.go#Format');
+    expect(calls).toEqual([
+      { caller: 'money/money.go#Format', callee: 'money/money.go#digits', line: 5 },
+    ]);
+    expect(openEnds).toEqual([]);
+  });
+
+  it('loads the modules of a go.work once, as one workspace, and emits each file once', () => {
+    const { files, functions, calls, openEnds } = extractGo({
+      repo: repoOf({
+        'go.work': lines('go 1.22', '', 'use (', '\t.', '\t./money', ')'),
+        'money/go.mod': MONEY_GO_MOD,
+        'money/money.go': MONEY,
+        'money/money_test.go': lines('package money', '', 'func TestDigits() { digits(1) }'),
+        'checkout/checkout.go': CHECKOUT_OF_MONEY_MODULE,
+      }),
+    });
+    expect(files).toEqual(['checkout/checkout.go', 'money/money.go', 'money/money_test.go']);
+    expect(functions.map(({ id }) => id)).toEqual([
+      'checkout/checkout.go#Total',
+      'money/money.go#Format',
+      'money/money.go#digits',
+      'money/money_test.go#TestDigits',
+    ]);
+    expect(calls).toEqual([
+      { caller: 'checkout/checkout.go#Total', callee: 'money/money.go#Format', line: 6 },
+      { caller: 'money/money.go#Format', callee: 'money/money.go#digits', line: 5 },
+      { caller: 'money/money_test.go#TestDigits', callee: 'money/money.go#digits', line: 3 },
+    ]);
+    expect(openEnds).toEqual([]);
+  });
+
+  it('reads a vendored module from vendor/, with no module cache and no network', () => {
+    vi.stubEnv('GOMODCACHE', tempDir('callmap-go-cache-'));
+    const { files, calls, openEnds } = extractGo({
+      repo: repoOf({
+        'go.mod': lines(
+          'module example.com/shop',
+          '',
+          'go 1.22',
+          '',
+          'require example.com/money v1.0.0',
+        ),
+        'vendor/modules.txt': lines(
+          '# example.com/money v1.0.0',
+          '## explicit; go 1.22',
+          'example.com/money',
+        ),
+        'vendor/example.com/money/money.go': MONEY,
+        'checkout/checkout.go': lines(
+          'package checkout',
+          '',
+          'import "example.com/money"',
+          '',
+          'func Total(cents int) string {',
+          '\treturn money.Format(round(cents))',
+          '}',
+          '',
+          'func round(cents int) int { return cents }',
+        ),
+      }),
+    });
+    expect(files).toEqual(['checkout/checkout.go']);
+    expect(calls).toEqual([
+      { caller: 'checkout/checkout.go#Total', callee: 'checkout/checkout.go#round', line: 6 },
+    ]);
+    expect(openEnds).toEqual([]);
   });
 
   it('records the scope it was built under', () => {
