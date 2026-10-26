@@ -15,4 +15,6 @@ export const assets = {
     const source = readFileSync(new URL('extractor-source.sha256', import.meta.url), 'utf8');
     return `${name} ${version}\0typescript ${typescriptVersionFor(TYPESCRIPT_EXTRACTOR)}\0${source}`;
   },
+  goExtractor: fileURLToPath(new URL('extract-go.js', import.meta.url)),
+  goExtractorVersion: () => '',
 } satisfies Assets;

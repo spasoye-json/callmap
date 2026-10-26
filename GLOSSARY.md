@@ -79,7 +79,7 @@ The tool of a language that proves the calls of a graph document, with its name 
 _Avoid_: compiler, type checker version, toolchain
 
 **Reference graph document**:
-What the extractors emit before spec 15: the files in scope and the import edges between them. The graph document replaces it for the review, and the Go and Ruby extractors keep it until they emit functions and calls.
+What the extractors emit before spec 15: the files in scope and the import edges between them. The graph document replaces it for the review, and the Ruby extractor keeps it until it emits functions and calls.
 _Avoid_: graph document (that holds functions and calls)
 
 **Scope**:

@@ -31,9 +31,11 @@
   },
   "devDependencies": {
     "@callmap/editor-link": "*",
+    "@callmap/extractor-go": "*",
     "@callmap/extractor-typescript": "*",
     "@callmap/graph-document": "*",
     "@callmap/review": "*",
+    "@callmap/scope": "*",
     "@codemirror/lang-javascript": "6.2.5",
     "@codemirror/language": "6.12.4",
     "@codemirror/merge": "6.12.2",

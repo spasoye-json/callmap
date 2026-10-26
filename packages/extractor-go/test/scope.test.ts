@@ -40,6 +40,7 @@ const GLOBS: readonly (readonly string[])[] = [
 ];
 
 const repo = tempDir('callmap-go-scope-');
+writeFileSync(join(repo, 'go.mod'), 'module example.com/scope\n\ngo 1.22\n');
 for (const path of PATHS) {
   mkdirSync(dirname(join(repo, path)), { recursive: true });
   writeFileSync(join(repo, path), 'package scope\n');

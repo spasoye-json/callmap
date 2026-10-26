@@ -10,10 +10,11 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./cli": "./src/cli.ts"
   },
   "dependencies": {
-    "@callmap/reference-graph": "*"
+    "@callmap/graph-document": "*"
   },
   "devDependencies": {
     "@callmap/scope": "*"
