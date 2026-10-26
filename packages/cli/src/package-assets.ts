@@ -10,7 +10,7 @@ export const assets = {
   layoutWorker: new URL('layout-worker.js', import.meta.url),
   pageScript: () => Promise.resolve(readFileSync(new URL('page.js', import.meta.url), 'utf8')),
   pageStyle: () => readFileSync(new URL('page.css', import.meta.url), 'utf8'),
-  extractorVersion: () => {
+  typescriptExtractorVersion: () => {
     const { name, version } = packageManifestAt(new URL('../package.json', import.meta.url));
     const source = readFileSync(new URL('extractor-source.sha256', import.meta.url), 'utf8');
     return `${name} ${version}\0typescript ${typescriptVersionFor(TYPESCRIPT_EXTRACTOR)}\0${source}`;

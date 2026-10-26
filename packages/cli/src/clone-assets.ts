@@ -34,7 +34,7 @@ export const assets = {
   layoutWorker: new URL('layout-worker.ts', import.meta.url),
   pageScript,
   pageStyle,
-  extractorVersion: () =>
+  typescriptExtractorVersion: () =>
     sha256OfFiles(
       extractorSourceFiles(),
       `typescript ${typescriptVersionFor(TYPESCRIPT_EXTRACTOR)}\0`,

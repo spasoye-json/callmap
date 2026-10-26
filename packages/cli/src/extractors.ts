@@ -3,6 +3,7 @@ import { isAbsolute, join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
 import { assets } from './assets.ts';
+import type { CachedExtractor } from './base-cache.ts';
 
 const runExtractorProcess = (args: readonly string[]): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -33,8 +34,21 @@ const argumentsOf = (repo: string, { scope, tsconfig }: ExtractorSettings): read
     : ['--tsconfig', isAbsolute(tsconfig) ? tsconfig : join(repo, tsconfig)]),
 ];
 
-export const extractGraphDocumentOf = async (
-  repo: string,
-  settings: ExtractorSettings,
-): Promise<GraphDocument> =>
-  readGraphDocument(JSON.parse(await runExtractorProcess(argumentsOf(repo, settings))));
+export interface Extractor extends CachedExtractor {
+  readonly extract: (repo: string, settings: ExtractorSettings) => Promise<GraphDocument>;
+}
+
+export const TYPESCRIPT_EXTRACTOR: Extractor = {
+  language: 'typescript',
+  lockFiles: [
+    'package-lock.json',
+    'npm-shrinkwrap.json',
+    'yarn.lock',
+    'pnpm-lock.yaml',
+    'bun.lock',
+    'bun.lockb',
+  ],
+  version: () => assets.typescriptExtractorVersion(),
+  extract: async (repo, settings) =>
+    readGraphDocument(JSON.parse(await runExtractorProcess(argumentsOf(repo, settings)))),
+};

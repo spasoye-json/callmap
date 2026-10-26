@@ -7,8 +7,8 @@ import { DIFF_LIMIT } from '../page/views/diff.ts';
 import type { ReviewInvocation } from './arguments.ts';
 import { throughBaseCache } from './base-cache.ts';
 import { openInBrowser } from './browser.ts';
-import { extractGraphDocumentOf } from './extractors.ts';
-import type { ExtractorSettings } from './extractors.ts';
+import { TYPESCRIPT_EXTRACTOR } from './extractors.ts';
+import type { Extractor, ExtractorSettings } from './extractors.ts';
 import {
   commitOf,
   commonDirOf,
@@ -31,10 +31,11 @@ const defaultOutOf = (root: string): string =>
 const readGraphDocumentOf = async (
   what: string,
   path: string,
+  extractor: Extractor,
   settings: ExtractorSettings,
 ): Promise<GraphDocument> => {
   try {
-    return await extractGraphDocumentOf(path, settings);
+    return await extractor.extract(path, settings);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new UnreadableGraphError(
@@ -80,13 +81,24 @@ export const runReview = async (
   };
   const readBase = (): Promise<GraphDocument> =>
     inWorktreeAt(root, base, (path) =>
-      readGraphDocumentOf(`the base ${shortCommitOf(root, base)}`, path, settings),
+      readGraphDocumentOf(
+        `the base ${shortCommitOf(root, base)}`,
+        path,
+        TYPESCRIPT_EXTRACTOR,
+        settings,
+      ),
     );
   const [branchRead, baseRead] = await Promise.allSettled([
-    readGraphDocumentOf('the branch', root, settings),
+    readGraphDocumentOf('the branch', root, TYPESCRIPT_EXTRACTOR, settings),
     invocation.cache
       ? throughBaseCache(
-          { repo: commonDirOf(root), checkout: root, commit: base, ...settings },
+          {
+            repo: commonDirOf(root),
+            checkout: root,
+            commit: base,
+            extractor: TYPESCRIPT_EXTRACTOR,
+            ...settings,
+          },
           readBase,
         )
       : readBase(),

@@ -14,25 +14,22 @@ import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
-import { assets } from './assets.ts';
 import type { ExtractorSettings } from './extractors.ts';
 import { sha256OfFiles } from './file-hash.ts';
 
 const ENTRIES_FOR_EACH_REPO = 20;
 
-const LOCK_FILES: readonly string[] = [
-  'package-lock.json',
-  'npm-shrinkwrap.json',
-  'yarn.lock',
-  'pnpm-lock.yaml',
-  'bun.lock',
-  'bun.lockb',
-];
+export interface CachedExtractor {
+  readonly language: string;
+  readonly lockFiles: readonly string[];
+  readonly version: () => string;
+}
 
 export interface BaseKey extends ExtractorSettings {
   readonly repo: string;
   readonly checkout: string;
   readonly commit: string;
+  readonly extractor: CachedExtractor;
 }
 
 const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex');
@@ -42,21 +39,22 @@ const cacheHomeOf = (): string => {
   return home !== undefined && isAbsolute(home) ? home : join(homedir(), '.cache');
 };
 
-const lockHashOf = (checkout: string): string =>
+const lockHashOf = (checkout: string, lockFiles: readonly string[]): string =>
   sha256OfFiles(
-    LOCK_FILES.map((name) => ({ name, path: join(checkout, name) })).filter(({ path }) =>
-      existsSync(path),
-    ),
+    lockFiles
+      .map((name) => ({ name, path: join(checkout, name) }))
+      .filter(({ path }) => existsSync(path)),
   );
 
-const entryNameOf = ({ checkout, commit, scope, tsconfig }: BaseKey): string =>
+const entryNameOf = ({ checkout, commit, scope, tsconfig, extractor }: BaseKey): string =>
   sha256(
     JSON.stringify([
+      extractor.language,
       commit,
       scope,
       tsconfig ?? null,
-      lockHashOf(checkout),
-      assets.extractorVersion(),
+      lockHashOf(checkout, extractor.lockFiles),
+      extractor.version(),
     ]),
   );
 

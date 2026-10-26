@@ -3,7 +3,7 @@ export interface Assets {
   readonly layoutWorker: URL;
   readonly pageScript: () => Promise<string>;
   readonly pageStyle: () => string;
-  readonly extractorVersion: () => string;
+  readonly typescriptExtractorVersion: () => string;
 }
 
 export { assets } from './clone-assets.ts';
