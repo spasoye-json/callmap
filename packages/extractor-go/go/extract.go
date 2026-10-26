@@ -62,10 +62,17 @@ func extract(repo string, scope []string) (document, error) {
 		paths = append(paths, file.path)
 		documentFiles[file.filename] = true
 	}
+	var indexed origins
 	resolve := resolver{
 		documentFiles:   documentFiles,
 		functionAt:      declared.functionAt,
-		implementations: implementationsOf(files, declared.functionAt),
+		implementations: newImplementations(files, loaded, documentFiles, declared.functionAt),
+		origins: func() origins {
+			if indexed == nil {
+				indexed = originsOf(loaded)
+			}
+			return indexed
+		},
 	}.resolve
 	calls := []call{}
 	openEnds := []openEnd{}
