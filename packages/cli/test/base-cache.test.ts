@@ -2,7 +2,10 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import type { GraphDocument } from '@callmap/graph-document';
+import { throughBaseCache } from '../src/base-cache.ts';
+import type { CachedExtractor } from '../src/base-cache.ts';
 import { featureBranchRepo } from './fixture-repo.ts';
 import { pageDataOf, runCallmap } from './reader-page.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
@@ -185,4 +188,92 @@ describe('the base cache of a review', () => {
     expect(finished.status, finished.stderr).toBe(0);
     expect(entriesOf(join(home, '.cache'))).toHaveLength(1);
   }, 60_000);
+});
+
+const documentOf = (language: string, file: string): GraphDocument => ({
+  language,
+  checker: { name: language, version: '1' },
+  scope: [],
+  files: [file],
+  functions: [],
+  calls: [],
+  openEnds: [],
+});
+
+describe('the base cache with one entry for each language', () => {
+  const previousCacheHome = process.env['XDG_CACHE_HOME'];
+  afterEach(() => {
+    if (previousCacheHome === undefined) delete process.env['XDG_CACHE_HOME'];
+    else process.env['XDG_CACHE_HOME'] = previousCacheHome;
+  });
+
+  const TYPESCRIPT: CachedExtractor = {
+    language: 'typescript',
+    lockFiles: ['package-lock.json'],
+    version: () => 'typescript extractor 1',
+  };
+  const GO: CachedExtractor = {
+    language: 'go',
+    lockFiles: ['go.sum', 'go.work.sum'],
+    version: () => 'go extractor 1',
+  };
+
+  const reviewBase = async (checkout: string, extractors: readonly CachedExtractor[]) => {
+    const read: string[] = [];
+    const documents = await Promise.all(
+      extractors.map((extractor) =>
+        throughBaseCache(
+          { repo: checkout, checkout, commit: 'base', scope: [], tsconfig: undefined, extractor },
+          () => {
+            read.push(extractor.language);
+            return Promise.resolve(documentOf(extractor.language, `read-${read.length}`));
+          },
+        ),
+      ),
+    );
+    return { read, documents };
+  };
+
+  const newCheckout = (): string => {
+    process.env['XDG_CACHE_HOME'] = newCacheHome();
+    return tempDir('callmap-checkout-');
+  };
+
+  it('stores one entry for each language, and reads each again on a second review', async () => {
+    const checkout = newCheckout();
+    const first = await reviewBase(checkout, [TYPESCRIPT, GO]);
+    expect(first.read).toEqual(['typescript', 'go']);
+    expect(entriesOf(process.env['XDG_CACHE_HOME'] ?? '')).toHaveLength(2);
+
+    const second = await reviewBase(checkout, [TYPESCRIPT, GO]);
+    expect(second.read).toEqual([]);
+    expect(second.documents).toEqual(first.documents);
+  });
+
+  it('misses only the entry of the language whose extractor has a new version', async () => {
+    const checkout = newCheckout();
+    await reviewBase(checkout, [TYPESCRIPT, GO]);
+    const newGo = { ...GO, version: () => 'go extractor 2' };
+    expect((await reviewBase(checkout, [TYPESCRIPT, newGo])).read).toEqual(['go']);
+    const newTypescript = { ...TYPESCRIPT, version: () => 'typescript extractor 2' };
+    expect((await reviewBase(checkout, [newTypescript, newGo])).read).toEqual(['typescript']);
+  });
+
+  it('misses only the entry of the language whose lock file changed', async () => {
+    const checkout = newCheckout();
+    writeFileSync(join(checkout, 'go.sum'), 'example.com/a v1.0.0 h1:a=\n');
+    writeFileSync(join(checkout, 'package-lock.json'), '{ "lockfileVersion": 3 }\n');
+    await reviewBase(checkout, [TYPESCRIPT, GO]);
+    writeFileSync(join(checkout, 'go.sum'), 'example.com/a v1.0.1 h1:b=\n');
+    expect((await reviewBase(checkout, [TYPESCRIPT, GO])).read).toEqual(['go']);
+  });
+
+  it('does not give the entry of one language to another language with the same version', async () => {
+    const checkout = newCheckout();
+    await reviewBase(checkout, [TYPESCRIPT]);
+    const sameVersionGo = { ...GO, version: TYPESCRIPT.version, lockFiles: TYPESCRIPT.lockFiles };
+    const { read, documents } = await reviewBase(checkout, [sameVersionGo]);
+    expect(read).toEqual(['go']);
+    expect(documents[0]?.language).toBe('go');
+  });
 });
