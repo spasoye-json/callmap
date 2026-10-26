@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { getByRole, within } from '@testing-library/dom';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { goExtractor } from '../src/extractors.ts';
 import type { Extractor } from '../src/extractors.ts';
 import { runReview } from '../src/review-command.ts';
@@ -159,6 +159,18 @@ describe('callmap review with no go on the PATH', () => {
     expect(review.functions.map(({ id }) => id).every((id) => id.startsWith('web/'))).toBe(true);
     expect(review.resolutionRates.map(({ language }) => language)).toEqual(['typescript']);
   }, 60_000);
+});
+
+describe('the go of a review', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('runs the local go, and downloads no toolchain, when GOTOOLCHAIN names a go that is not on the machine', () => {
+    vi.stubEnv('GOTOOLCHAIN', 'go1.99.0');
+    vi.stubEnv('GOPROXY', 'off');
+    expect(goExtractor().skipNote?.()).toBeUndefined();
+  });
 });
 
 describe('the reads of the Go extractor', () => {

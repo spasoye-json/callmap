@@ -2,7 +2,9 @@ package main
 
 import (
 	"go/ast"
+	"go/token"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -10,11 +12,24 @@ import (
 )
 
 type sourceFile struct {
-	path     string
-	filename string
-	syntax   *ast.File
-	pkg      *packages.Package
-	source   []byte
+	path         string
+	filename     string
+	repoFilename string
+	syntax       *ast.File
+	pkg          *packages.Package
+	source       []byte
+	lines        *token.File
+}
+
+// placeOf is a position in the file of the repo. The type checker reads a file that imports "C" as
+// the output of cgo in the build cache, whose //line directives point back to the file of the repo.
+func (file sourceFile) placeOf(pos token.Pos) token.Position {
+	if file.filename == file.repoFilename {
+		return positionOf(file.pkg.Fset, pos)
+	}
+	at := file.pkg.Fset.PositionFor(pos, true)
+	at.Offset = file.lines.Offset(file.lines.LineStart(at.Line)) + at.Column - 1
+	return at
 }
 
 type variantRank int
@@ -47,7 +62,14 @@ func repoPathOf(repo string, filename string) (string, bool) {
 	return filepath.ToSlash(relative), true
 }
 
-// sourceFilesOf takes each file in scope once, from the best variant of the packages that hold it.
+func repoFilenameOf(pkg *packages.Package, syntax *ast.File, filename string) string {
+	original := pkg.Fset.PositionFor(syntax.Package, true).Filename
+	if original != filename && slices.Contains(pkg.GoFiles, original) {
+		return original
+	}
+	return filename
+}
+
 // A file that a build tag leaves out is in no package, so it never enters the document.
 func sourceFilesOf(repo string, scope []string, loaded []*packages.Package) []sourceFile {
 	best := map[string]sourceFile{}
@@ -59,11 +81,12 @@ func sourceFilesOf(repo string, scope []string, loaded []*packages.Package) []so
 		}
 		for _, syntax := range pkg.Syntax {
 			filename := pkg.Fset.File(syntax.FileStart).Name()
-			path, inRepo := repoPathOf(repo, filename)
+			repoFilename := repoFilenameOf(pkg, syntax, filename)
+			path, inRepo := repoPathOf(repo, repoFilename)
 			if !inRepo || !inScope(path, scope) || rankOf[path] >= rank {
 				continue
 			}
-			best[path] = sourceFile{path: path, filename: filename, syntax: syntax, pkg: pkg}
+			best[path] = sourceFile{path: path, filename: filename, repoFilename: repoFilename, syntax: syntax, pkg: pkg}
 			rankOf[path] = rank
 		}
 	}

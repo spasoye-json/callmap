@@ -320,6 +320,34 @@ describe('extractGo', () => {
     expect(files).toEqual(['money/money.go']);
   });
 
+  it('type-checks no test file when the scope leaves out the tests, so a library type that only a test imports implements no interface', () => {
+    const repo = repoOf({
+      'size/size.go': lines(
+        'package size',
+        '',
+        'type Sizer interface{ Size() int64 }',
+        '',
+        'func Measure(sizer Sizer) int64 { return sizer.Size() }',
+      ),
+      'size/size_test.go': lines(
+        'package size',
+        '',
+        'import "strings"',
+        '',
+        'func TestMeasure() { Measure(strings.NewReader("")) }',
+      ),
+    });
+    expect(extractGo({ repo }).openEnds).toEqual([]);
+    expect(extractGo({ repo, scope: ['!**/*_test.go'] }).openEnds).toEqual([
+      {
+        caller: 'size/size.go#Measure',
+        line: 5,
+        expression: 'sizer.Size',
+        reason: 'no-implementation',
+      },
+    ]);
+  });
+
   it('leaves out a file that a build tag excludes', () => {
     const { files, functions } = extractGo({
       repo: repoOf({
@@ -345,6 +373,52 @@ describe('extractGo', () => {
       'money/money.go#Format',
       'money/money.go#digits',
     ]);
+  });
+
+  it('emits a file that imports C at its own path and lines, with its functions and their calls', () => {
+    const { files, functions, calls, openEnds } = extractGo({
+      repo: repoOf({
+        'pay/pay.go': lines(
+          'package pay',
+          '',
+          '// int twice(int cents) { return 2 * cents; }',
+          'import "C"',
+          '',
+          'func Pay(cents int) int {',
+          '	return charge(int(C.twice(C.int(cents))))',
+          '}',
+          '',
+          'func charge(cents int) int { return cents }',
+        ),
+        'pay/refund.go': lines('package pay', '', 'func Refund() { Pay(1) }'),
+      }),
+    });
+    expect(files).toEqual(['pay/pay.go', 'pay/refund.go']);
+    expect(functions.filter(({ file }) => file === 'pay/pay.go')).toEqual([
+      {
+        id: 'pay/pay.go#Pay',
+        name: 'Pay',
+        file: 'pay/pay.go',
+        firstLine: 6,
+        lastLine: 8,
+        sourceHash: sha256(
+          'func Pay(cents int) int {\n\treturn charge(int(C.twice(C.int(cents))))\n}',
+        ),
+      },
+      {
+        id: 'pay/pay.go#charge',
+        name: 'charge',
+        file: 'pay/pay.go',
+        firstLine: 10,
+        lastLine: 10,
+        sourceHash: sha256('func charge(cents int) int { return cents }'),
+      },
+    ]);
+    expect(calls).toEqual([
+      { caller: 'pay/pay.go#Pay', callee: 'pay/pay.go#charge', line: 7 },
+      { caller: 'pay/refund.go#Refund', callee: 'pay/pay.go#Pay', line: 3 },
+    ]);
+    expect(openEnds).toEqual([]);
   });
 
   it('makes a call into code that does not load an open end with missing-module, and still reads the rest', () => {
@@ -420,7 +494,7 @@ describe('extractGo', () => {
     ]);
   });
 
-  it('makes a callee with an invalid type after a load error an open end with untyped, and a callee from code that does not load missing-module', () => {
+  it('makes a callee whose invalid type comes from code that does not load an open end with missing-module, and a callee whose type a local type error lost untyped', () => {
     const { openEnds } = extractGo({
       repo: repoOf({
         'pay/pay.go': lines(
@@ -428,17 +502,31 @@ describe('extractGo', () => {
           '',
           'import "example.com/shop/gen"',
           '',
-          'func Pay(charge gen.Charge, cents int) {',
+          'type Server struct{ client gen.Client }',
+          '',
+          'var handler = gen.Handler',
+          '',
+          'func Pay(server Server, charge gen.Charge, cents int) {',
           '	charge(cents)',
           '	gen.Lookup()(cents)',
+          '	callback := gen.Callback',
+          '	callback(cents)',
+          '	handler(cents)',
+          '	server.client(cents)',
+          '	total := 1 + "cents"',
+          '	total(cents)',
           '}',
         ),
       }),
     });
     expect(openEnds.map(({ line, expression, reason }) => [line, expression, reason])).toEqual([
-      [6, 'charge', 'untyped'],
-      [7, 'gen.Lookup()', 'untyped'],
-      [7, 'gen.Lookup', 'missing-module'],
+      [10, 'charge', 'missing-module'],
+      [11, 'gen.Lookup()', 'missing-module'],
+      [11, 'gen.Lookup', 'missing-module'],
+      [13, 'callback', 'missing-module'],
+      [14, 'handler', 'missing-module'],
+      [15, 'server.client', 'missing-module'],
+      [17, 'total', 'untyped'],
     ]);
   });
 
@@ -488,6 +576,10 @@ describe('extractGo', () => {
           '	refund(cents)',
           '	handlers["card"](cents)',
           '}',
+          '',
+          'func Retry[F ~func()](attempt F) {',
+          '	attempt()',
+          '}',
         ),
       }),
     });
@@ -499,6 +591,7 @@ describe('extractGo', () => {
       [10, 'next', 'function-value'],
       [12, 'refund', 'function-value'],
       [13, 'handlers["card"]', 'other'],
+      [17, 'attempt', 'function-value'],
     ]);
   });
 
@@ -508,14 +601,14 @@ describe('extractGo', () => {
         'pay/pay.go': lines(
           'package pay',
           '',
-          'func Retry[F ~func()](attempt F) {',
-          '	attempt()',
+          'func Retry(attempts []func()) {',
+          '	attempts[0]()',
           '}',
         ),
       }),
     });
     expect(openEnds).toEqual([
-      { caller: 'pay/pay.go#Retry', line: 4, expression: 'attempt', reason: 'other' },
+      { caller: 'pay/pay.go#Retry', line: 4, expression: 'attempts[0]', reason: 'other' },
     ]);
   });
 
@@ -616,6 +709,31 @@ describe('extractGo', () => {
     expect(openEnds).toEqual([]);
   });
 
+  it('ties a call into another module of the repo that a replace loads from the repo, even with -trimpath in GOFLAGS', () => {
+    vi.stubEnv('GOFLAGS', '-trimpath');
+    const { calls } = extractGo({
+      repo: repoOf({
+        'go.mod': lines(
+          'module example.com/shop',
+          '',
+          'go 1.22',
+          '',
+          'require example.com/money v0.0.0',
+          '',
+          'replace example.com/money => ./money',
+        ),
+        'money/go.mod': MONEY_GO_MOD,
+        'money/money.go': MONEY,
+        'checkout/checkout.go': CHECKOUT_OF_MONEY_MODULE,
+      }),
+    });
+    expect(calls).toContainEqual({
+      caller: 'checkout/checkout.go#Total',
+      callee: 'money/money.go#Format',
+      line: 6,
+    });
+  });
+
   it('makes a call into another module of the repo a library call when the go tool loads it from the module cache', () => {
     const money = {
       'go.mod': MONEY_GO_MOD,
@@ -695,6 +813,37 @@ describe('extractGo', () => {
       { caller: 'money/money_test.go#TestDigits', callee: 'money/money.go#digits', line: 3 },
     ]);
     expect(openEnds).toEqual([]);
+  });
+
+  it('reads the other modules when the go tool refuses one, and leaves out the files of the refused module', () => {
+    const { files, calls } = extractGo({
+      repo: repoOf({
+        'money/money.go': MONEY,
+        'tools/go.mod': lines('module example.com/tools', '', 'go 1.99'),
+        'tools/lint.go': lines('package tools', '', 'func Lint() {}'),
+      }),
+    });
+    expect(files).toEqual(['money/money.go']);
+    expect(calls).toEqual([
+      { caller: 'money/money.go#Format', callee: 'money/money.go#digits', line: 5 },
+    ]);
+  });
+
+  it('reads each module on its own when the go tool refuses the go.work, and leaves out the files of the refused module', () => {
+    const { files, calls } = extractGo({
+      repo: repoOf({
+        'go.work': lines('go 1.99', '', 'use (', '\t.', '\t./money', '\t./tools', ')'),
+        'money/go.mod': MONEY_GO_MOD,
+        'money/money.go': MONEY,
+        'tools/go.mod': lines('module example.com/tools', '', 'go 1.99'),
+        'tools/lint.go': lines('package tools', '', 'func Lint() {}'),
+        'checkout/checkout.go': CHECKOUT,
+      }),
+    });
+    expect(files).toEqual(['checkout/checkout.go', 'money/money.go']);
+    expect(calls).toEqual([
+      { caller: 'money/money.go#Format', callee: 'money/money.go#digits', line: 5 },
+    ]);
   });
 
   it('reads a vendored module from vendor/, with no module cache and no network', () => {

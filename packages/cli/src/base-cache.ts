@@ -13,8 +13,10 @@ import {
 import { join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
+import { inScope, isSkippedDirectory } from '@callmap/scope';
 import { callmapCacheFolder } from './cache-folder.ts';
 import { sha256OfFiles } from './file-hash.ts';
+import type { NamedFile } from './file-hash.ts';
 
 const ENTRIES_FOR_EACH_REPO = 20;
 
@@ -35,12 +37,27 @@ export interface BaseKey {
 
 const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex');
 
+const filesBelow = (folder: string, prefix = ''): readonly string[] =>
+  readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {
+    const path = `${prefix}${entry.name}`;
+    if (entry.isDirectory()) {
+      return isSkippedDirectory(entry.name) ? [] : filesBelow(join(folder, entry.name), `${path}/`);
+    }
+    return entry.isFile() ? [path] : [];
+  });
+
+const isPattern = (glob: string): boolean => /[*?]/.test(glob);
+
+const lockFilesOf = (checkout: string, globs: readonly string[]): readonly NamedFile[] => {
+  const walked = globs.some(isPattern) ? filesBelow(checkout).toSorted() : [];
+  return globs
+    .flatMap((glob) => (isPattern(glob) ? walked.filter((path) => inScope(path, [glob])) : [glob]))
+    .map((name) => ({ name, path: join(checkout, name) }))
+    .filter(({ path }) => existsSync(path));
+};
+
 const lockHashOf = (checkout: string, lockFiles: readonly string[]): string =>
-  sha256OfFiles(
-    lockFiles
-      .map((name) => ({ name, path: join(checkout, name) }))
-      .filter(({ path }) => existsSync(path)),
-  );
+  sha256OfFiles(lockFilesOf(checkout, lockFiles));
 
 const entryNameOf = ({ checkout, commit, scope, extractor }: BaseKey): string =>
   sha256(

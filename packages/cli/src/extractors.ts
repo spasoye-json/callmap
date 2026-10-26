@@ -68,7 +68,10 @@ export const typescriptExtractor = (tsconfig: string | undefined): Extractor => 
 });
 
 const goVersionOnPath = (): string | undefined => {
-  const finished = spawnSync('go', ['version'], { encoding: 'utf8' });
+  const finished = spawnSync('go', ['version'], {
+    encoding: 'utf8',
+    env: { ...process.env, GOTOOLCHAIN: 'local', GOPROXY: 'off' },
+  });
   return finished.error === undefined && finished.status === 0 ? finished.stdout : undefined;
 };
 
@@ -81,7 +84,7 @@ export const goExtractor = (): Extractor => {
   const goVersion = once(goVersionOnPath);
   return {
     language: 'go',
-    lockFiles: ['go.sum', 'go.work.sum'],
+    lockFiles: ['**/go.sum', '**/go.work.sum'],
     options: [],
     version: () => assets.goExtractorVersion(goVersion() ?? ''),
     claims: (path) => path.endsWith('.go'),

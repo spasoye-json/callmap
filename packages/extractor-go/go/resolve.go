@@ -100,20 +100,23 @@ func calleeSelectorOf(fun ast.Expr) *ast.SelectorExpr {
 }
 
 // codeNotLoadedRule catches a name that the type checker could not find, because its import does
-// not resolve or the file that declares it is missing. A method of a receiver whose type a local
-// type error lost is untyped instead.
+// not resolve or the file that declares it is missing, and a callee that took its invalid type from
+// such a name. A callee whose type a local type error lost is untyped instead.
 func codeNotLoadedRule(each resolver, site callSite) (resolution, bool) {
 	ident := calleeIdentOf(site.call.Fun)
 	info := site.file.pkg.TypesInfo
-	if ident == nil || info.Uses[ident] != nil {
-		return resolution{}, false
+	notLoaded := codeNotLoaded{origins: each.origins, fileSet: site.file.pkg.Fset, visiting: map[sourcePosition]bool{}}
+	if ident != nil && info.Uses[ident] == nil {
+		selector := calleeSelectorOf(site.call.Fun)
+		if selector != nil && !notLoaded.ofMember(info, selector) {
+			return resolution{kind: openEndCall, reason: untyped}, true
+		}
+		return resolution{kind: openEndCall, reason: missingModule}, true
 	}
-	selector := calleeSelectorOf(site.call.Fun)
-	cause := notLoadedCause{origins: each.origins, fileSet: site.file.pkg.Fset, visiting: map[sourcePosition]bool{}}
-	if selector != nil && !cause.ofMember(info, selector) {
-		return resolution{kind: openEndCall, reason: untyped}, true
+	if isInvalid(info.TypeOf(site.call.Fun)) && notLoaded.of(info, site.call.Fun) {
+		return resolution{kind: openEndCall, reason: missingModule}, true
 	}
-	return resolution{kind: openEndCall, reason: missingModule}, true
+	return resolution{}, false
 }
 
 func dynamicKeyRule(_ resolver, site callSite) (resolution, bool) {
@@ -165,10 +168,47 @@ func functionValueRule(_ resolver, site callSite) (resolution, bool) {
 	if calleeType == nil {
 		return resolution{}, false
 	}
-	if _, isFunc := calleeType.Underlying().(*types.Signature); !isFunc {
+	if _, isFunc := coreTypeOf(calleeType).(*types.Signature); !isFunc {
 		return resolution{}, false
 	}
 	return resolution{kind: openEndCall, reason: functionValue}, true
+}
+
+// coreTypeOf is the underlying type of a type, and for a type parameter the underlying type that
+// every term of its constraint shares, because the underlying type of a type parameter is its
+// constraint. A type parameter with no such type has none.
+func coreTypeOf(each types.Type) types.Type {
+	parameter, isParameter := types.Unalias(each).(*types.TypeParam)
+	if !isParameter {
+		return each.Underlying()
+	}
+	var core types.Type
+	for _, term := range termsOf(parameter.Constraint()) {
+		if core != nil && !types.Identical(core, term.Underlying()) {
+			return nil
+		}
+		core = term.Underlying()
+	}
+	return core
+}
+
+func termsOf(constraint types.Type) []types.Type {
+	iface, isInterface := constraint.Underlying().(*types.Interface)
+	if !isInterface {
+		return []types.Type{constraint}
+	}
+	terms := []types.Type{}
+	for embedded := range iface.EmbeddedTypes() {
+		union, isUnion := embedded.(*types.Union)
+		if !isUnion {
+			terms = append(terms, termsOf(embedded)...)
+			continue
+		}
+		for term := range union.Terms() {
+			terms = append(terms, termsOf(term.Type())...)
+		}
+	}
+	return terms
 }
 
 func staticCallRule(each resolver, site callSite) (resolution, bool) {

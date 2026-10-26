@@ -76,11 +76,13 @@ func callsIn(body *ast.BlockStmt) []*ast.CallExpr {
 func declarationsOf(files []sourceFile) (declarations, error) {
 	declared := declarations{functions: []function{}, functionAt: map[functionKey]string{}}
 	for _, file := range files {
-		source, err := os.ReadFile(file.filename)
+		source, err := os.ReadFile(file.repoFilename)
 		if err != nil {
 			return declared, err
 		}
 		file.source = source
+		file.lines = token.NewFileSet().AddFile(file.repoFilename, -1, len(source))
+		file.lines.SetLinesForContent(source)
 		fileSet := file.pkg.Fset
 		seen := map[string]int{}
 		for _, each := range file.syntax.Decls {
@@ -94,8 +96,8 @@ func declarationsOf(files []sourceFile) (declarations, error) {
 			if seen[name] > 1 {
 				id = fmt.Sprintf("%s~%d", id, seen[name])
 			}
-			first := positionOf(fileSet, decl.Pos())
-			last := positionOf(fileSet, decl.End())
+			first := file.placeOf(decl.Pos())
+			last := file.placeOf(decl.End())
 			declared.functions = append(declared.functions, function{
 				ID:         id,
 				Name:       name,

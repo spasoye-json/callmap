@@ -29,7 +29,7 @@ The cause, from a fixed list, of why the language's tools cannot tie an open end
 _Avoid_: cause, error, why
 
 **Library call**:
-A call whose callee is code outside the repo, such as the standard library, a module, a gem or a framework. In Ruby, a call that the class chain passes to a framework class, and a call to a method that a framework macro makes, such as `has_many`, are library calls too. The call graph does not hold a library call, and the resolution rate does not count it.
+A call whose callee is code outside the repo, such as the standard library, a module, a gem or a framework. In Ruby, a call that the class chain passes to a framework class, and a call to a method that a framework macro makes, such as `has_many`, are library calls too. In Go, a call through an interface of the repo that only library types implement is a library call too. The call graph does not hold a library call, and the resolution rate does not count it.
 _Avoid_: external call, vendor call, leaf
 
 **One-of call**:

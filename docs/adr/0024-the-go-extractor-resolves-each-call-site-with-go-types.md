@@ -1,5 +1,7 @@
 # The Go extractor resolves each call site with `go/types`
 
+> Changed in part by ADR-0028. Decision 2 now has an exception: a call through an interface of the repo that no type in scope implements is a library call when a loaded library type implements the interface. ADR-0028 also records how a method matches an interface, and the rules of the resolver that follow the spec text.
+
 The Go extractor emits a graph document. It loads the packages in scope with `golang.org/x/tools/go/packages`, and `go/types` ties each call site to one function, like the TypeScript extractor does with its type checker. It does not use the call graph of `golang.org/x/tools` (SSA with CHA or VTA). A load error does not stop the extractor. A call into code that does not load becomes an open end. The owner made these decisions in a grilling on 2026-10-23 and 2026-10-24.
 
 This supersedes the plan of ADR-0012 and `docs/product.md` to read Go with the `golang.org/x/tools` call graph. It also changes the cause and the page words of the code `missing-module` of ADR-0020.
@@ -21,17 +23,6 @@ This supersedes the plan of ADR-0012 and `docs/product.md` to read Go with the `
 - **`function-value`** is a call of a `func` value: a field, a variable, a parameter or the result of a call.
 - **`untyped`** is a callee with an invalid type. A method call on `interface{}` does not compile in Go, so `untyped` happens only after a load error that the first code does not cover.
 - **`dynamic-key`** is a call of a map value with a key that is not a constant.
-
-## Rules after the review of spec 74
-
-The code review of spec 74 found 5 places where the extractor did not follow the spec. The owner decided the first rule below on 2026-10-26. The other rules follow the spec text.
-
-- **A repo interface that only a library type implements gives a library call.** The owner decided this on 2026-10-26, after the measurement on gitea. There, `db.Engine` of gitea has no implementation in gitea, and the xorm module implements it, so each call on it was an open end with `no-implementation`. A loaded library type is a type of a loaded package, or of a package that it imports, in a file that is not in scope. A type in scope that takes the called method from a library type that it embeds counts too. An interface that no loaded type implements stays `no-implementation`. So does an interface whose only implementation takes the called method from an interface that it embeds, because the code that runs is not known.
-- **The interface of the receiver decides.** A call `r.Read()` on a repo interface `RC { io.Reader; Done() }` is a one-of group over the types in scope that implement `RC`, although `io.Reader` declares `Read`. Only a call on a library interface is a library call. An interface with no name belongs to the repo when a file in scope declares one of its methods.
-- **A method matches by the types of its parameters and results, not by their names.** So `Read(p []byte) (int, error)` implements `io.Reader`, whose results have names. The match compares a named type by its package path and its name, because the test variant of a package and its plain variant declare 2 copies of each type.
-- **A generic type is in a group when one type argument for each of its type parameters makes its methods implement the interface.** `go/types` checks an instantiated type, but the extractor has no type arguments to try. So each type parameter of the receiver takes the type that it first meets in a method, and must match that type in the other methods. `Box[T]` with `Put(T)` and `Get() T` implements `Store { Put(int); Get() int }`, and `Label[T]` with `Put(T)` and `Get() string` does not. The extractor does not check the constraints of the type parameters.
-- **A receiver with an invalid type is `missing-module` only when code that does not load caused it.** The cause is an import that does not resolve, or a name that no loaded file declares, such as a missing mock. The extractor follows a variable, a field or a function result back to the expression that gave it its type. A receiver whose type a local type error lost, such as `total := 1 + "cents"`, gives `untyped`.
-- **Only a field, a variable, a parameter or a call result is a func value.** `m["k"]()` is none of them, so it gives `other`. A slice element, such as `callbacks[0]()`, and a pointer that the call dereferences, such as `(*fn)()`, give `other` too.
 
 ## Why
 

@@ -1,11 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { GraphDocument } from '@callmap/graph-document';
 import { throughBaseCache } from '../src/base-cache.ts';
 import type { CachedExtractor } from '../src/base-cache.ts';
+import { goExtractor } from '../src/extractors.ts';
 import { featureBranchRepo } from './fixture-repo.ts';
 import { pageDataOf, runCallmap } from './reader-page.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
@@ -215,7 +216,7 @@ describe('the base cache with one entry for each language', () => {
   };
   const GO: CachedExtractor = {
     language: 'go',
-    lockFiles: ['go.sum', 'go.work.sum'],
+    lockFiles: goExtractor().lockFiles,
     options: [],
     version: () => 'go extractor 1',
   };
@@ -266,6 +267,18 @@ describe('the base cache with one entry for each language', () => {
     writeFileSync(join(checkout, 'go.sum'), 'example.com/a v1.0.1 h1:b=\n');
     expect((await reviewBase(checkout, [TYPESCRIPT, GO])).read).toEqual(['go']);
   });
+
+  it.each(['tools/go.sum', 'work/go.work.sum'])(
+    'misses the Go entry after a change of %s below the root of the checkout',
+    async (lockFile) => {
+      const checkout = newCheckout();
+      mkdirSync(join(checkout, dirname(lockFile)));
+      writeFileSync(join(checkout, lockFile), 'example.com/a v1.0.0 h1:a=\n');
+      await reviewBase(checkout, [TYPESCRIPT, GO]);
+      writeFileSync(join(checkout, lockFile), 'example.com/a v1.0.1 h1:b=\n');
+      expect((await reviewBase(checkout, [TYPESCRIPT, GO])).read).toEqual(['go']);
+    },
+  );
 
   it('does not give the entry of one language to another language with the same version', async () => {
     const checkout = newCheckout();

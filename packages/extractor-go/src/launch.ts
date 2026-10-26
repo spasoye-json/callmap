@@ -119,7 +119,6 @@ const keptBinaryAt = (binary: string): string => {
   return binary;
 };
 
-/** The compiled extractor, built once per caller process, or kept where the host asks. */
 export const goExtractorBinary = (): string => {
   if (built !== undefined) return built;
   const kept = process.env['CALLMAP_GO_EXTRACTOR_BINARY'];

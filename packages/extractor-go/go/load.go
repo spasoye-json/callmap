@@ -21,17 +21,24 @@ const loadMode = packages.NeedName |
 	packages.NeedForTest |
 	packages.NeedModule
 
-// withoutModFlag drops every -mod flag, so the go tool falls back to its own default: readonly, or
-// vendor when vendor/modules.txt exists. A -mod=mod from the user would let it rewrite go.mod.
-func withoutModFlag(flags string) string {
+// keptGoFlags drops every -mod flag, so the go tool falls back to its own default: readonly, or
+// vendor when vendor/modules.txt exists. A -mod=mod from the user would let it rewrite go.mod. It
+// drops -trimpath too, because the export data of a module that a replace loads from the repo
+// would then name its files without the path of the repo, and its calls would become library calls.
+func keptGoFlags(flags string) string {
 	kept := []string{}
 	for _, flag := range strings.Fields(flags) {
-		if strings.HasPrefix(flag, "-mod=") || strings.HasPrefix(flag, "--mod=") {
+		if strings.HasPrefix(flag, "-mod=") || strings.HasPrefix(flag, "--mod=") || isTrimpath(flag) {
 			continue
 		}
 		kept = append(kept, flag)
 	}
 	return strings.Join(kept, " ")
+}
+
+func isTrimpath(flag string) bool {
+	name, _, _ := strings.Cut(strings.TrimPrefix(flag, "-"), "=")
+	return name == "-trimpath" || name == "trimpath"
 }
 
 // goEnv keeps the go tool off the network and off any toolchain but the local one, so a review
@@ -43,7 +50,7 @@ func goEnv(environ []string, goWork string) []string {
 		name, value, _ := strings.Cut(entry, "=")
 		switch name {
 		case "GOFLAGS":
-			env = append(env, "GOFLAGS="+withoutModFlag(value))
+			env = append(env, "GOFLAGS="+keptGoFlags(value))
 		case "GOTOOLCHAIN", "GOPROXY", "GOWORK":
 		default:
 			env = append(env, entry)
@@ -78,6 +85,17 @@ func moduleRootsOf(found tree, scope []string) []string {
 	return roots
 }
 
+// The test variants type-check each package a second time with its test files, so they load only
+// when a test file is in scope.
+func testsInScope(found tree, scope []string) bool {
+	for _, path := range found.files {
+		if strings.HasSuffix(path, "_test.go") && inScope(path, scope) {
+			return true
+		}
+	}
+	return false
+}
+
 func workspaceOf(repo string) (string, bool, error) {
 	goWork := filepath.Join(repo, "go.work")
 	_, err := os.Stat(goWork)
@@ -87,12 +105,12 @@ func workspaceOf(repo string) (string, bool, error) {
 	return goWork, err == nil, err
 }
 
-func loadFrom(dir string, goWork string, patterns []string) ([]*packages.Package, error) {
+func loadFrom(dir string, goWork string, patterns []string, tests bool) ([]*packages.Package, error) {
 	config := &packages.Config{
 		Mode:  loadMode,
 		Dir:   dir,
 		Env:   goEnv(os.Environ(), goWork),
-		Tests: true,
+		Tests: tests,
 	}
 	return packages.Load(config, patterns...)
 }
@@ -106,11 +124,12 @@ func everyPackageOf(moduleRoot string) string {
 	return "./" + moduleRoot + "/..."
 }
 
-// load returns every package of each module root, with its test variants. A repo with a go.work
-// loads once, as the workspace, so the go tool resolves each import between its modules as a
-// build does. A package that does not load comes back with its errors on it, so one broken
-// package never stops the extractor.
-func load(repo string, moduleRoots []string) ([]*packages.Package, error) {
+// load returns every package of each module root. A repo with a go.work loads once, as the
+// workspace, so the go tool resolves each import between its modules as a build does. A package
+// that does not load comes back with its errors on it, and a module that the go tool refuses, such
+// as one that needs a newer go, is left out, so neither stops the extractor. A go.work that the go
+// tool refuses leaves each module to load on its own.
+func load(repo string, moduleRoots []string, tests bool) ([]*packages.Package, error) {
 	if len(moduleRoots) == 0 {
 		return []*packages.Package{}, nil
 	}
@@ -123,15 +142,16 @@ func load(repo string, moduleRoots []string) ([]*packages.Package, error) {
 		for _, root := range moduleRoots {
 			patterns = append(patterns, everyPackageOf(root))
 		}
-		return loadFrom(repo, goWork, patterns)
+		if loaded, err := loadFrom(repo, goWork, patterns, tests); err == nil {
+			return loaded, nil
+		}
 	}
 	loaded := []*packages.Package{}
 	for _, root := range moduleRoots {
-		found, err := loadFrom(filepath.Join(repo, filepath.FromSlash(root)), "off", []string{"./..."})
-		if err != nil {
-			return nil, err
+		found, err := loadFrom(filepath.Join(repo, filepath.FromSlash(root)), "off", []string{"./..."}, tests)
+		if err == nil {
+			loaded = append(loaded, found...)
 		}
-		loaded = append(loaded, found...)
 	}
 	return loaded, nil
 }

@@ -140,7 +140,6 @@ func (methods methodSet) implements(iface *types.Interface) bool {
 	return true
 }
 
-// of is the method of each type in scope that implements the interface, by the id of its function.
 // A type whose method is promoted from a library type has no id, and the library decides for it.
 func (each implementations) of(called types.Type, iface *types.Interface, method *types.Func) []string {
 	key := implementationKey{iface: types.TypeString(called, nil), method: method.Name()}
@@ -162,14 +161,12 @@ func (each implementations) of(called types.Type, iface *types.Interface, method
 	return callees
 }
 
-// isLibraryMethod tells whether a library type declares the method, and not an interface that a
-// type in scope embeds, whose implementation is unknown.
+// An interface that a type in scope embeds is not a library method, because its implementation is
+// unknown.
 func isLibraryMethod(have implementedMethod, documentFiles map[string]bool) bool {
 	return !types.IsInterface(have.method.Signature().Recv().Type()) && !documentFiles[have.filename]
 }
 
-// implementedOutOfScope tells whether a type that no file in scope declares implements the
-// interface, or a type in scope does with the method of a library type that it embeds.
 func (each implementations) implementedOutOfScope(called types.Type, iface *types.Interface, method *types.Func) bool {
 	key := implementationKey{iface: types.TypeString(called, nil), method: method.Name()}
 	if implemented, known := each.library[key]; known {

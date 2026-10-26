@@ -14,7 +14,7 @@ func calleePositionOf(site callSite) token.Position {
 	if ident := calleeIdentOf(site.call.Fun); ident != nil {
 		at = ident
 	}
-	return positionOf(site.file.pkg.Fset, at.Pos())
+	return site.file.placeOf(at.Pos())
 }
 
 func lineOf(site callSite) int {
@@ -27,9 +27,8 @@ func groupOf(site callSite) string {
 }
 
 func sourceTextOf(site callSite, node ast.Node) string {
-	fileSet := site.file.pkg.Fset
-	start := positionOf(fileSet, node.Pos())
-	end := positionOf(fileSet, node.End())
+	start := site.file.placeOf(node.Pos())
+	end := site.file.placeOf(node.End())
 	return string(site.file.source[start.Offset:end.Offset])
 }
 
@@ -46,7 +45,7 @@ func extract(repo string, scope []string) (document, error) {
 	if err != nil {
 		return document{}, err
 	}
-	loaded, err := load(root, moduleRootsOf(found, scope))
+	loaded, err := load(root, moduleRootsOf(found, scope), testsInScope(found, scope))
 	if err != nil {
 		return document{}, err
 	}

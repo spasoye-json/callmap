@@ -26,6 +26,12 @@ GOPROXY=off /usr/bin/time -v /tmp/callmap-extract-go <gitea> --scope '!**/*_test
 
 The empty `GOCACHE` makes the first read pay the cold cost of the Go build cache.
 
+The files, the functions and the one-of groups:
+
+```sh
+jq '{files: (.files | length), functions: (.functions | length), groups: ([.calls[].group // empty] | unique | length)}' with-tests.json
+```
+
 The rate counts as `resolutionRateOf` in `packages/review/src/rate.ts` does. A one-of group counts as one call:
 
 ```sh
@@ -87,46 +93,97 @@ The first read compiled the export data of every dependency into the Go build ca
 - **The peak memory** is the maximum resident set size that `/usr/bin/time -v` gives. It is that of the largest process. Samples of `ps` every 0.05 s during one read with the tests put the extractor at 1,127,944 KB at most, and each `go list` below it.
 - **The load average** is the 1-minute value of `/proc/loadavg`.
 
-## The causes of open ends
+`/usr/bin/time -v` gives the wall time, the user CPU and the peak memory of each read. The load average comes from `cut -d' ' -f1 /proc/loadavg` before and after each read. The samples of `ps` come from this loop:
 
-A cause here is finer than the open-end reason. For `no-implementation` it is the interface of the receiver. For `function-value` it is the kind of value that the call calls. A probe, a copy of the extractor that prints this cause for each open end, gave the counts. It emits the same documents as the extractor, and it stays outside the repo. Each scope has fewer than 10 causes, so the tables hold all of them.
+```sh
+GOPROXY=off /tmp/callmap-extract-go <gitea> > /dev/null &
+pid=$!
+max=0
+while kill -0 "$pid" 2> /dev/null; do
+  rss=$(ps -o rss= -p "$pid" | tr -d ' ')
+  if [ -n "$rss" ] && [ "$rss" -gt "$max" ]; then max=$rss; fi
+  sleep 0.05
+done
+echo "$max KB"
+```
+
+## The open ends in detail
+
+A detail here is finer than the open-end reason. For `no-implementation` it is the interface of the receiver. For `function-value` it is the kind of value that the call calls. For `other` it is the kind of expression that the call calls. A probe gives the details. It is the extractor at `cb22653` with `probe.patch`, which prints a line for each open end and each call through an interface to standard error. Its documents are the same as those of the extractor, byte for byte. `probe.sh` builds the probe from a callmap checkout and reads gitea with it, once with the tests and once without:
+
+```sh
+docs/research/2026-10-26-go-resolution-on-gitea/probe.sh <callmap> <gitea> <out>
+cd <out>
+```
+
+The open ends by detail:
+
+```sh
+awk -F'\t' '$1 == "OPEN" {print $2 "\t" $3}' with-tests.tsv | sort | uniq -c | sort -rn
+```
+
+The most common expressions of one detail:
+
+```sh
+awk -F'\t' -v detail='a local variable' '$1 == "OPEN" && $3 == detail {print $4}' with-tests.tsv | sort | uniq -c | sort -rn | head -3
+```
+
+Each scope has 13 details. The tables hold all of them, most common first.
 
 With tests:
 
-| #   | Open-end reason     | Cause                                    | Open ends | Most common expressions                                           |
-| --- | ------------------- | ---------------------------------------- | --------- | ----------------------------------------------------------------- |
-| 1   | `function-value`    | a local variable                         | 3,128     | `test` 337, `cancel` 73, `testSuccess` 69                         |
-| 2   | `function-value`    | the result of a call                     | 1,497     | `tests.PrintCurrentTest(t)` 461, `tests.PrepareTestEnv(t)` 325    |
-| 3   | `function-value`    | a package variable                       | 244       | `globalVars` 61, `GlobalVars` 27                                  |
-| 4   | `function-value`    | a struct field                           | 214       | `LoadedTemplates().BodyTemplates.ExecuteTemplate` 12, `r.CollationEquals` 11 |
-| 5   | `function-value`    | a parameter                              | 190       | `linkFormatter` 27, `f` 19, `fn` 13                               |
-| 6   | `no-implementation` | `cache.StringCache`                      | 42        | `cache.GetCache().Get` 7, `first.Get` 4, `first.IsExist` 4        |
-| 7   | `no-implementation` | `reqctx.RequestContext`                  | 19        | `ctx.SetContextValue` 6, `ctx.GetData` 3, `rc.GetData` 3          |
-| 8   | `other`             | a slice element, a map value with a constant key, a dereferenced pointer or a type parameter | 16 | `callback[0]` 11 |
-| 9   | `no-implementation` | `gtprof.mutableContext`                  | 2         | `ctx.SetContextValue` 2                                           |
-| 10  | `dynamic-key`       | a map value with a key that is not a constant | 1    | `globalVars().systemUserNewFuncs[id]` 1                           |
+| #   | Open-end reason     | Detail                                        | Open ends | Most common expressions                                                       |
+| --- | ------------------- | --------------------------------------------- | --------- | ----------------------------------------------------------------------------- |
+| 1   | `function-value`    | a local variable                              | 3,128     | `test` 337, `cancel` 73, `testSuccess` 69                                     |
+| 2   | `function-value`    | the result of a call                          | 1,497     | `tests.PrintCurrentTest(t)` 461, `tests.PrepareTestEnv(t)` 325                |
+| 3   | `function-value`    | a package variable                            | 244       | `globalVars` 61, `GlobalVars` 27, `templates.PageRenderer` 13                 |
+| 4   | `function-value`    | a struct field                                | 214       | `LoadedTemplates().BodyTemplates.ExecuteTemplate` 12, `r.CollationEquals` 11  |
+| 5   | `function-value`    | a parameter                                   | 190       | `linkFormatter` 27, `f` 19, `fn` 13                                           |
+| 6   | `no-implementation` | `cache.StringCache`                           | 42        | `cache.GetCache().Get` 7, `first.Get` 4, `first.IsExist` 4                    |
+| 7   | `no-implementation` | `reqctx.RequestContext`                       | 19        | `ctx.SetContextValue` 6, `ctx.GetData` 3, `rc.GetData` 3                      |
+| 8   | `other`             | a slice element                               | 12        | `callback[0]` 11, `handlerProviders[len(handlerProviders)-1]` 1               |
+| 9   | `other`             | a dereferenced pointer                        | 2         | `(*oldCloseFunc)` 1, `(*fn)` 1                                                |
+| 10  | `no-implementation` | `gtprof.mutableContext`                       | 2         | `ctx.SetContextValue` 2                                                       |
+| 11  | `other`             | a type parameter                              | 1         | `compression` 1                                                               |
+| 12  | `other`             | a map value with a constant key               | 1         | `registeredConfigs[NoType]` 1                                                 |
+| 13  | `dynamic-key`       | a map value with a key that is not a constant | 1         | `globalVars().systemUserNewFuncs[id]` 1                                       |
 
 Without tests:
 
-| #   | Open-end reason     | Cause                                    | Open ends | Most common expressions                                |
-| --- | ------------------- | ---------------------------------------- | --------- | ------------------------------------------------------ |
-| 1   | `function-value`    | a local variable                         | 586       | `cancel` 46, `finished` 28, `jobLink` 23               |
-| 2   | `function-value`    | a package variable                       | 208       | `globalVars` 54, `GlobalVars` 16                       |
-| 3   | `function-value`    | a parameter                              | 153       | `linkFormatter` 27, `f` 17, `fn` 12                    |
-| 4   | `function-value`    | a struct field                           | 134       | `LoadedTemplates().BodyTemplates.ExecuteTemplate` 9, `a.initDB` 8 |
-| 5   | `no-implementation` | `cache.StringCache`                      | 21        | `ctx.Cache.IsExist` 4, `cache.GetCache().Get` 3        |
-| 6   | `no-implementation` | `reqctx.RequestContext`                  | 14        | `ctx.SetContextValue` 4, `ctx.GetData` 3               |
-| 7   | `function-value`    | the result of a call                     | 13        | `routing.RecordFuncInfo(req.Context(),funcInfo)` 3     |
-| 8   | `other`             | a map value with a constant key, a slice element, a dereferenced pointer or a type parameter | 5 | `registeredConfigs[NoType]` 1, `(*fn)` 1 |
-| 9   | `no-implementation` | `gtprof.mutableContext`                  | 2         | `ctx.SetContextValue` 2                                |
-| 10  | `dynamic-key`       | a map value with a key that is not a constant | 1    | `globalVars().systemUserNewFuncs[id]` 1                |
+| #   | Open-end reason     | Detail                                        | Open ends | Most common expressions                                            |
+| --- | ------------------- | --------------------------------------------- | --------- | ------------------------------------------------------------------ |
+| 1   | `function-value`    | a local variable                              | 586       | `cancel` 46, `finished` 28, `jobLink` 23                           |
+| 2   | `function-value`    | a package variable                            | 208       | `globalVars` 54, `GlobalVars` 16, `SendAsync` 10                   |
+| 3   | `function-value`    | a parameter                                   | 153       | `linkFormatter` 27, `f` 17, `fn` 12                                |
+| 4   | `function-value`    | a struct field                                | 134       | `LoadedTemplates().BodyTemplates.ExecuteTemplate` 9, `a.initDB` 8  |
+| 5   | `no-implementation` | `cache.StringCache`                           | 21        | `ctx.Cache.IsExist` 4, `cache.GetCache().Get` 3                    |
+| 6   | `no-implementation` | `reqctx.RequestContext`                       | 14        | `ctx.SetContextValue` 4, `ctx.GetData` 3                           |
+| 7   | `function-value`    | the result of a call                          | 13        | `routing.RecordFuncInfo(req.Context(),funcInfo)` 3                 |
+| 8   | `other`             | a dereferenced pointer                        | 2         | `(*oldCloseFunc)` 1, `(*fn)` 1                                     |
+| 9   | `no-implementation` | `gtprof.mutableContext`                       | 2         | `ctx.SetContextValue` 2                                            |
+| 10  | `other`             | a type parameter                              | 1         | `compression` 1                                                    |
+| 11  | `other`             | a slice element                               | 1         | `handlerProviders[len(handlerProviders)-1]` 1                      |
+| 12  | `other`             | a map value with a constant key               | 1         | `registeredConfigs[NoType]` 1                                      |
+| 13  | `dynamic-key`       | a map value with a key that is not a constant | 1         | `globalVars().systemUserNewFuncs[id]` 1                            |
+
+The probe also counts the library calls through an interface. A call on a repo interface that only a library type implements:
+
+```sh
+awk -F'\t' '$1 == "IFACE" && $2 == "library-implementation" && $3 ~ /^db\.(Engine|EngineMigration|Session)$/' with-tests.tsv | wc -l
+```
+
+A call on a library interface, by interface:
+
+```sh
+awk -F'\t' '$1 == "IFACE" && $2 == "library-interface" {print $3}' with-tests.tsv | sort | uniq -c | sort -rn | head -3
+```
 
 ## Findings
 
-- **The tests add function values.** `defer tests.PrintCurrentTest(t)()` and `defer tests.PrepareTestEnv(t)()` call the cleanup function that a helper returns. They make 786 open ends. A test that calls a closure in a local variable, such as `test` in `cmd/main_test.go`, makes 337 more. So the rate falls from 97.8% to 93.9% with the tests.
-- **The database layer is a repo interface with only library implementations.** `models/db/engine.go:105` declares that `*xorm.Engine` and `*xorm.Session` implement `db.Engine`, `db.Session` and `db.EngineMigration`. No type in scope implements them. The owner decided on 2026-10-26 that such a call is a library call, and ADR-0024 records the rule. So 2,138 calls with tests and 1,920 without are library calls now, and the rate does not count them. These counts hold the aliases `base.EngineMigration` and `base.Session` of `modelmigration/base/db.go`.
+- **The tests add function values.** `defer tests.PrintCurrentTest(t)()` and `defer tests.PrepareTestEnv(t)()` call the cleanup function that a helper returns. They make 786 open ends, 461 and 325 in the row of "the result of a call". A test that calls a closure in a local variable, such as `test` in `cmd/main_test.go`, makes 337 more. So the rate falls from 97.8% to 93.9% with the tests.
+- **The database layer is a repo interface with only library implementations.** `models/db/engine.go:105` declares that `*xorm.Engine` and `*xorm.Session` implement `db.Engine`, `db.Session` and `db.EngineMigration`. No type in scope implements them. The owner decided on 2026-10-26 that such a call is a library call, and ADR-0028 records the rule. So 2,138 calls with tests and 1,920 without are library calls now, and the rate does not count them. The probe gives these counts with the first `awk` command of the library calls. They hold the aliases `base.EngineMigration` and `base.Session` of `modelmigration/base/db.go`, because the probe names the interface that an alias stands for.
 - **The rest of `no-implementation` takes its methods from an embedded interface.** `stringCache` implements `cache.StringCache`, but it takes `Get`, `Delete`, `IsExist` and `Ping` from the `backend` interface that it embeds. The type that implements `reqctx.RequestContext` takes its methods from `context.Context` and `RequestDataStore` in the same way. The code that runs is not known, so these calls stay open ends.
-- **A call through a library interface is the largest group of library calls.** `xorm.io/builder.Cond` gives 424 of them, `error` 418 and `context.Context` 182, with the tests.
+- **A call through a library interface is the largest group of library calls.** `xorm.io/builder.Cond` gives 424 of them, `error` 418 and `context.Context` 182, with the tests. The second `awk` command of the library calls gives these counts.
 - **`go list` is the cold cost.** The first read of a repo takes about 20 times as long as the next one, because the go tool compiles the export data of the dependencies. A review on a new machine pays it once.
 
-The documents, the probe and the scripts of this measurement stay outside the repo.
+The probe is `probe.sh` and `probe.patch`, next to this record. The documents of this measurement stay outside the repo.

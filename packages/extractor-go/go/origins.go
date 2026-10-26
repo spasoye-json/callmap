@@ -92,38 +92,38 @@ func originsOf(loaded []*packages.Package) origins {
 	return found
 }
 
-// notLoadedCause tells whether an expression with an invalid type lost its type to code that does
-// not load: an import that does not resolve, or a name that no loaded file declares. Any other
-// cause is a local type error.
-type notLoadedCause struct {
+// codeNotLoaded tells whether an expression with an invalid type lost its type to code that does
+// not load: an import that does not resolve, or a name that no loaded file declares. Otherwise a
+// local type error lost it.
+type codeNotLoaded struct {
 	origins  func() origins
 	fileSet  *token.FileSet
 	visiting map[sourcePosition]bool
 }
 
-func (cause notLoadedCause) ofObject(object types.Object) bool {
-	at := positionOf(cause.fileSet, object.Pos())
+func (notLoaded codeNotLoaded) ofObject(object types.Object) bool {
+	at := positionOf(notLoaded.fileSet, object.Pos())
 	key := sourcePosition{filename: at.Filename, offset: at.Offset}
-	if cause.visiting[key] {
+	if notLoaded.visiting[key] {
 		return false
 	}
-	cause.visiting[key] = true
-	for _, each := range cause.origins()[key] {
-		if cause.of(each.info, each.expr) {
+	notLoaded.visiting[key] = true
+	for _, each := range notLoaded.origins()[key] {
+		if notLoaded.of(each.info, each.expr) {
 			return true
 		}
 	}
 	return false
 }
 
-func (cause notLoadedCause) ofIdent(info *types.Info, ident *ast.Ident) bool {
+func (notLoaded codeNotLoaded) ofIdent(info *types.Info, ident *ast.Ident) bool {
 	switch object := info.Uses[ident].(type) {
 	case nil:
 		return info.Defs[ident] == nil
 	case *types.PkgName:
 		return true
 	case *types.Var, *types.Const, *types.Func, *types.TypeName:
-		return (isInvalid(object.Type()) || isInvalidResult(object.Type())) && cause.ofObject(object)
+		return (isInvalid(object.Type()) || isInvalidResult(object.Type())) && notLoaded.ofObject(object)
 	}
 	return false
 }
@@ -141,9 +141,9 @@ func isInvalidResult(each types.Type) bool {
 	return false
 }
 
-// ofMember is the cause for a member that the type checker could not find: the member of a
-// package, or of a type that loads, comes from a file that does not load.
-func (cause notLoadedCause) ofMember(info *types.Info, selector *ast.SelectorExpr) bool {
+// A member that the type checker could not find on a package, or on a type that loads, comes from a
+// file that does not load.
+func (notLoaded codeNotLoaded) ofMember(info *types.Info, selector *ast.SelectorExpr) bool {
 	if ident, isIdent := ast.Unparen(selector.X).(*ast.Ident); isIdent {
 		if _, isPackage := info.Uses[ident].(*types.PkgName); isPackage {
 			return true
@@ -152,47 +152,47 @@ func (cause notLoadedCause) ofMember(info *types.Info, selector *ast.SelectorExp
 	if !isInvalid(info.TypeOf(selector.X)) {
 		return true
 	}
-	return cause.of(info, selector.X)
+	return notLoaded.of(info, selector.X)
 }
 
-func (cause notLoadedCause) of(info *types.Info, expr ast.Expr) bool {
+func (notLoaded codeNotLoaded) of(info *types.Info, expr ast.Expr) bool {
 	switch typed := ast.Unparen(expr).(type) {
 	case *ast.Ident:
-		return cause.ofIdent(info, typed)
+		return notLoaded.ofIdent(info, typed)
 	case *ast.SelectorExpr:
 		member := info.Uses[typed.Sel]
 		if member == nil {
-			return cause.ofMember(info, typed)
+			return notLoaded.ofMember(info, typed)
 		}
-		return cause.ofObject(member)
+		return notLoaded.ofObject(member)
 	case *ast.CallExpr:
-		return cause.of(info, typed.Fun)
+		return notLoaded.of(info, typed.Fun)
 	case *ast.StarExpr:
-		return cause.of(info, typed.X)
+		return notLoaded.of(info, typed.X)
 	case *ast.UnaryExpr:
-		return cause.of(info, typed.X)
+		return notLoaded.of(info, typed.X)
 	case *ast.IndexExpr:
-		return cause.of(info, typed.X)
+		return notLoaded.of(info, typed.X)
 	case *ast.IndexListExpr:
-		return cause.of(info, typed.X)
+		return notLoaded.of(info, typed.X)
 	case *ast.SliceExpr:
-		return cause.of(info, typed.X)
+		return notLoaded.of(info, typed.X)
 	case *ast.TypeAssertExpr:
-		return typed.Type != nil && cause.of(info, typed.Type)
+		return typed.Type != nil && notLoaded.of(info, typed.Type)
 	case *ast.CompositeLit:
-		return typed.Type != nil && cause.of(info, typed.Type)
+		return typed.Type != nil && notLoaded.of(info, typed.Type)
 	case *ast.ArrayType:
-		return cause.of(info, typed.Elt)
+		return notLoaded.of(info, typed.Elt)
 	case *ast.MapType:
-		return cause.of(info, typed.Key) || cause.of(info, typed.Value)
+		return notLoaded.of(info, typed.Key) || notLoaded.of(info, typed.Value)
 	case *ast.ChanType:
-		return cause.of(info, typed.Value)
+		return notLoaded.of(info, typed.Value)
 	case *ast.FuncType:
 		if typed.Results == nil {
 			return false
 		}
 		for _, result := range typed.Results.List {
-			if cause.of(info, result.Type) {
+			if notLoaded.of(info, result.Type) {
 				return true
 			}
 		}
