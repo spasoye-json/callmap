@@ -32,6 +32,9 @@ type rule func(resolver, callSite) (resolution, bool)
 var rules = []rule{
 	notACallRule,
 	codeNotLoadedRule,
+	dynamicKeyRule,
+	untypedRule,
+	functionValueRule,
 	staticCallRule,
 }
 
@@ -88,6 +91,54 @@ func codeNotLoadedRule(_ resolver, site callSite) (resolution, bool) {
 		return resolution{}, false
 	}
 	return resolution{kind: openEndCall, reason: "missing-module"}, true
+}
+
+func dynamicKeyRule(_ resolver, site callSite) (resolution, bool) {
+	index, isIndex := ast.Unparen(site.call.Fun).(*ast.IndexExpr)
+	if !isIndex {
+		return resolution{}, false
+	}
+	info := site.file.pkg.TypesInfo
+	mapType := info.TypeOf(index.X)
+	if mapType == nil {
+		return resolution{}, false
+	}
+	_, isMap := mapType.Underlying().(*types.Map)
+	if !isMap || info.Types[index.Index].Value != nil {
+		return resolution{}, false
+	}
+	return resolution{kind: openEndCall, reason: "dynamic-key"}, true
+}
+
+func isInvalid(each types.Type) bool {
+	basic, isBasic := each.(*types.Basic)
+	return each == nil || isBasic && basic.Kind() == types.Invalid
+}
+
+// untypedRule catches a callee whose type the checker lost after a load error. A receiver with an
+// invalid type never reaches it, because its method has no object and codeNotLoadedRule takes it.
+func untypedRule(_ resolver, site callSite) (resolution, bool) {
+	if !isInvalid(site.file.pkg.TypesInfo.TypeOf(site.call.Fun)) {
+		return resolution{}, false
+	}
+	return resolution{kind: openEndCall, reason: "untyped"}, true
+}
+
+func functionValueRule(_ resolver, site callSite) (resolution, bool) {
+	info := site.file.pkg.TypesInfo
+	if ident := calleeIdentOf(site.call.Fun); ident != nil {
+		if _, declared := info.Uses[ident].(*types.Func); declared {
+			return resolution{}, false
+		}
+	}
+	calleeType := info.TypeOf(site.call.Fun)
+	if calleeType == nil {
+		return resolution{}, false
+	}
+	if _, isFunc := calleeType.Underlying().(*types.Signature); !isFunc {
+		return resolution{}, false
+	}
+	return resolution{kind: openEndCall, reason: "function-value"}, true
 }
 
 func staticCallRule(each resolver, site callSite) (resolution, bool) {

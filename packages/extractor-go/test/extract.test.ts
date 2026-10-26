@@ -332,6 +332,134 @@ describe('extractGo', () => {
     });
   });
 
+  it('makes a call of a map value with a key that is not a constant an open end with dynamic-key, not function-value', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'pay/pay.go': lines(
+          'package pay',
+          '',
+          'var handlers = map[string]func(int){}',
+          '',
+          'func Pay(method string, cents int) {',
+          '	handlers[method](cents)',
+          '}',
+        ),
+      }),
+    });
+    expect(calls).toEqual([]);
+    expect(openEnds).toEqual([
+      {
+        caller: 'pay/pay.go#Pay',
+        line: 6,
+        expression: 'handlers[method]',
+        reason: 'dynamic-key',
+      },
+    ]);
+  });
+
+  it('makes a callee with an invalid type after a load error an open end with untyped, and a callee from code that does not load missing-module', () => {
+    const { openEnds } = extractGo({
+      repo: repoOf({
+        'pay/pay.go': lines(
+          'package pay',
+          '',
+          'import "example.com/shop/gen"',
+          '',
+          'func Pay(charge gen.Charge, cents int) {',
+          '	charge(cents)',
+          '	gen.Lookup()(cents)',
+          '}',
+        ),
+      }),
+    });
+    expect(openEnds.map(({ line, expression, reason }) => [line, expression, reason])).toEqual([
+      [6, 'charge', 'untyped'],
+      [7, 'gen.Lookup()', 'untyped'],
+      [7, 'gen.Lookup', 'missing-module'],
+    ]);
+  });
+
+  it('makes a call of a func value from a field, a variable, a parameter or a call result an open end with function-value', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'pay/pay.go': lines(
+          'package pay',
+          '',
+          'type Gateway struct{ charge func(int) }',
+          '',
+          'var handlers = map[string]func(int){}',
+          '',
+          'func Pay(gateway Gateway, done func(), next func() func(int), cents int) {',
+          '	gateway.charge(cents)',
+          '	done()',
+          '	next()(cents)',
+          '	refund := gateway.charge',
+          '	refund(cents)',
+          '	handlers["card"](cents)',
+          '}',
+        ),
+      }),
+    });
+    expect(calls).toEqual([]);
+    expect(openEnds.map(({ line, expression, reason }) => [line, expression, reason])).toEqual([
+      [8, 'gateway.charge', 'function-value'],
+      [9, 'done', 'function-value'],
+      [10, 'next()', 'function-value'],
+      [10, 'next', 'function-value'],
+      [12, 'refund', 'function-value'],
+      [13, 'handlers["card"]', 'function-value'],
+    ]);
+  });
+
+  it('makes a call that no rule ties and no other reason fits an open end with other', () => {
+    const { openEnds } = extractGo({
+      repo: repoOf({
+        'pay/pay.go': lines(
+          'package pay',
+          '',
+          'func Retry[F ~func()](attempt F) {',
+          '	attempt()',
+          '}',
+        ),
+      }),
+    });
+    expect(openEnds).toEqual([
+      { caller: 'pay/pay.go#Retry', line: 4, expression: 'attempt', reason: 'other' },
+    ]);
+  });
+
+  it('makes a call into a generated mock that is missing from a package that loads an open end with missing-module', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'store/store.go': lines(
+          'package store',
+          '',
+          '//go:generate mockgen -source=store.go -destination=store_mock.go -package=store',
+          '',
+          'type Store interface{ Save(cents int) }',
+          '',
+          'func Keep(store Store, cents int) { store.Save(cents) }',
+        ),
+        'store/store_test.go': lines(
+          'package store',
+          '',
+          'func TestKeep() {',
+          '	Keep(NewMockStore(), 1)',
+          '}',
+        ),
+      }),
+    });
+    expect(calls).toEqual([
+      { caller: 'store/store_test.go#TestKeep', callee: 'store/store.go#Keep', line: 4 },
+    ]);
+    expect(openEnds).toContainEqual({
+      caller: 'store/store_test.go#TestKeep',
+      line: 4,
+      expression: 'NewMockStore',
+      reason: 'missing-module',
+    });
+  });
+
   it('never changes go.mod or go.sum, even with -mod=mod in GOFLAGS', () => {
     const goMod = lines(
       'module example.com/shop',

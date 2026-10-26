@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { GO_EXTRACTOR } from '../src/extractors.ts';
 import type { Extractor } from '../src/extractors.ts';
 import { runReview } from '../src/review-command.ts';
-import { goRepo } from './fixture-repo.ts';
+import { commitFile, goRepo } from './fixture-repo.ts';
 import { loadReaderPage, pageDataOf, runCallmap } from './reader-page.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
 
@@ -113,6 +113,29 @@ describe('callmap review of a branch with Go and TypeScript', () => {
     expect(cacheEntriesOf(cacheHome)).toHaveLength(2);
     expect(reviewOf(repo, cacheHome).html).toBe(html);
     expect(cacheEntriesOf(cacheHome)).toHaveLength(2);
+  }, 60_000);
+});
+
+describe('callmap review of a Go call into code that does not load', () => {
+  it('shows the open end with the words code not found', async () => {
+    const root = goRepo();
+    commitFile(
+      root,
+      'checkout/audit.go',
+      [
+        'package checkout',
+        '',
+        'import "example.com/shop/gen"',
+        '',
+        'func Audit(cents int) {',
+        '\tgen.Log(cents)',
+        '}',
+        '',
+      ].join('\n'),
+    );
+    const page = await loadReaderPage(reviewOf(root, tempDir('callmap-cache-')).html);
+    const region = within(getByRole(page.window.document.body, 'region', { name: 'Open ends' }));
+    expect(region.getByRole('button', { name: 'gen.Log line 6 · code not found' })).toBeDefined();
   }, 60_000);
 });
 
