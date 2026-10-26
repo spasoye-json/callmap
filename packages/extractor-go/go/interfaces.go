@@ -10,8 +10,9 @@ import (
 )
 
 type implementedMethod struct {
-	method *types.Func
-	id     string
+	method   *types.Func
+	filename string
+	id       string
 }
 
 type methodSet map[string]implementedMethod
@@ -30,10 +31,11 @@ type implementationKey struct {
 }
 
 type implementations struct {
-	inScope   methodSets
-	inLibrary func() methodSets
-	found     map[implementationKey][]string
-	library   map[string]bool
+	inScope       methodSets
+	inLibrary     func() methodSets
+	documentFiles map[string]bool
+	found         map[implementationKey][]string
+	library       map[implementationKey]bool
 }
 
 func methodSetOf(name *types.TypeName, fileSet *token.FileSet, functionAt map[functionKey]string) methodSet {
@@ -46,7 +48,7 @@ func methodSetOf(name *types.TypeName, fileSet *token.FileSet, functionAt map[fu
 		}
 		at := positionOf(fileSet, method.Origin().Pos())
 		id := functionAt[functionKey{filename: at.Filename, line: at.Line, name: method.Name()}]
-		methods[method.Name()] = implementedMethod{method: method, id: id}
+		methods[method.Name()] = implementedMethod{method: method, filename: at.Filename, id: id}
 	}
 	return methods
 }
@@ -118,8 +120,9 @@ func newImplementations(
 			}
 			return library
 		},
-		found:   map[implementationKey][]string{},
-		library: map[string]bool{},
+		documentFiles: documentFiles,
+		found:         map[implementationKey][]string{},
+		library:       map[implementationKey]bool{},
 	}
 }
 
@@ -159,20 +162,28 @@ func (each implementations) of(called types.Type, iface *types.Interface, method
 	return callees
 }
 
+// isLibraryMethod tells whether a library type declares the method, and not an interface that a
+// type in scope embeds, whose implementation is unknown.
+func isLibraryMethod(have implementedMethod, documentFiles map[string]bool) bool {
+	return !types.IsInterface(have.method.Signature().Recv().Type()) && !documentFiles[have.filename]
+}
+
 // implementedOutOfScope tells whether a type that no file in scope declares implements the
-// interface, or a type in scope does through a method that a library type declares.
-func (each implementations) implementedOutOfScope(called types.Type, iface *types.Interface) bool {
-	key := types.TypeString(called, nil)
+// interface, or a type in scope does with the method of a library type that it embeds.
+func (each implementations) implementedOutOfScope(called types.Type, iface *types.Interface, method *types.Func) bool {
+	key := implementationKey{iface: types.TypeString(called, nil), method: method.Name()}
 	if implemented, known := each.library[key]; known {
 		return implemented
 	}
-	name := iface.Method(0).Name()
 	implemented := false
-	for _, sets := range []methodSets{each.inScope, each.inLibrary()} {
-		for _, methods := range sets[name] {
-			if methods.implements(iface) {
-				implemented = true
-			}
+	for _, methods := range each.inScope[method.Name()] {
+		if isLibraryMethod(methods[method.Name()], each.documentFiles) && methods.implements(iface) {
+			implemented = true
+		}
+	}
+	for _, methods := range each.inLibrary()[method.Name()] {
+		if methods.implements(iface) {
+			implemented = true
 		}
 	}
 	each.library[key] = implemented

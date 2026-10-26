@@ -1064,6 +1064,65 @@ describe('a call through an interface', () => {
     expect(openEnds).toEqual([]);
   });
 
+  it('makes a call a library call when the type in scope that implements the interface takes the method from a library type that it embeds', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'text/text.go': lines(
+          'package text',
+          '',
+          'import "strings"',
+          '',
+          'type Text interface {',
+          '\tGrow(n int)',
+          '\tTitle() string',
+          '}',
+          '',
+          'type Page struct{ strings.Builder }',
+          '',
+          'func (p *Page) Title() string { return "" }',
+          '',
+          'func Write(text Text) {',
+          '\ttext.Grow(1)',
+          '\ttext.Title()',
+          '}',
+        ),
+      }),
+    });
+    expect(calls).toEqual([
+      {
+        caller: 'text/text.go#Write',
+        callee: 'text/text.go#Page.Title',
+        line: 16,
+        group: 'text/text.go:16:7',
+      },
+    ]);
+    expect(openEnds).toEqual([]);
+  });
+
+  it('keeps no-implementation when the only implementation takes the method from an interface that it embeds', () => {
+    const { openEnds } = extractGo({
+      repo: repoOf({
+        'store/store.go': lines(
+          'package store',
+          '',
+          'type Saver interface{ Save() }',
+          '',
+          'type Logged struct{ Saver }',
+          '',
+          'func Keep(saver Saver) { saver.Save() }',
+        ),
+      }),
+    });
+    expect(openEnds).toEqual([
+      {
+        caller: 'store/store.go#Keep',
+        line: 7,
+        expression: 'saver.Save',
+        reason: 'no-implementation',
+      },
+    ]);
+  });
+
   it('holds a generic type in a group when one type argument for each of its type parameters makes its methods implement the interface', () => {
     const { calls } = extractGo({
       repo: repoOf({

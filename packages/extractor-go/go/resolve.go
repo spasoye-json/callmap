@@ -249,7 +249,7 @@ func interfaceCallRule(each resolver, site callSite) (resolution, bool) {
 	if callees := each.implementations.of(called, iface, method); len(callees) > 0 {
 		return resolution{kind: oneOfCall, callees: callees}, true
 	}
-	if each.implementations.implementedOutOfScope(called, iface) {
+	if each.implementations.implementedOutOfScope(called, iface, method) {
 		return resolution{kind: libraryCall}, true
 	}
 	return resolution{kind: openEndCall, reason: "no-implementation"}, true
