@@ -442,7 +442,35 @@ describe('extractGo', () => {
     ]);
   });
 
-  it('makes a call of a func value from a field, a variable, a parameter or a call result an open end with function-value', () => {
+  it('makes a method call on a receiver whose type a local type error lost untyped, and on a receiver of code that does not load missing-module', () => {
+    const { openEnds } = extractGo({
+      repo: repoOf({
+        'pay/pay.go': lines(
+          'package pay',
+          '',
+          'import "example.com/shop/gen"',
+          '',
+          'type Server struct{ client gen.Client }',
+          '',
+          'func Pay(server Server) {',
+          '	total := 1 + "cents"',
+          '	total.Round()',
+          '	client := gen.New()',
+          '	client.Send()',
+          '	server.client.Send()',
+          '}',
+        ),
+      }),
+    });
+    expect(openEnds.map(({ line, expression, reason }) => [line, expression, reason])).toEqual([
+      [9, 'total.Round', 'untyped'],
+      [10, 'gen.New', 'missing-module'],
+      [11, 'client.Send', 'missing-module'],
+      [12, 'server.client.Send', 'missing-module'],
+    ]);
+  });
+
+  it('makes a call of a func value from a field, a variable, a parameter or a call result an open end with function-value, and a map value with a constant key other', () => {
     const { calls, openEnds } = extractGo({
       repo: repoOf({
         'pay/pay.go': lines(
@@ -470,7 +498,7 @@ describe('extractGo', () => {
       [10, 'next()', 'function-value'],
       [10, 'next', 'function-value'],
       [12, 'refund', 'function-value'],
-      [13, 'handlers["card"]', 'function-value'],
+      [13, 'handlers["card"]', 'other'],
     ]);
   });
 
@@ -616,6 +644,32 @@ describe('extractGo', () => {
       { caller: 'money/money.go#Format', callee: 'money/money.go#digits', line: 5 },
     ]);
     expect(openEnds).toEqual([]);
+  });
+
+  it('makes a call into a module that is not in the module cache an open end with missing-module, and still emits the document', () => {
+    vi.stubEnv('GOMODCACHE', tempDir('callmap-go-cache-'));
+    const document = extractGo({
+      repo: repoOf({
+        'go.mod': lines(
+          'module example.com/shop',
+          '',
+          'go 1.22',
+          '',
+          'require example.com/money v1.0.0',
+        ),
+        'checkout/checkout.go': CHECKOUT_OF_MONEY_MODULE,
+      }),
+    });
+    expect(readGraphDocument(document)).toEqual(document);
+    expect(document.functions.map(({ id }) => id)).toEqual(['checkout/checkout.go#Total']);
+    expect(document.openEnds).toEqual([
+      {
+        caller: 'checkout/checkout.go#Total',
+        line: 6,
+        expression: 'money.Format',
+        reason: 'missing-module',
+      },
+    ]);
   });
 
   it('loads the modules of a go.work once, as one workspace, and emits each file once', () => {
@@ -917,5 +971,188 @@ describe('a call through an interface', () => {
     });
     expect(calls).toEqual([]);
     expect(openEnds).toEqual([]);
+  });
+
+  it('matches a method by the types of its parameters and results, not by their names', () => {
+    const { calls } = extractGo({
+      repo: repoOf({
+        'words/words.go': lines(
+          'package words',
+          '',
+          'type Translator interface {',
+          '\tTr(key string, args ...any) string',
+          '\tEach(visit func(key string) bool)',
+          '}',
+          '',
+          'type Locale struct{}',
+          '',
+          'func (l Locale) Tr(s string, values ...any) (text string) { return s }',
+          '',
+          'func (l Locale) Each(walk func(k string) bool) {}',
+          '',
+          'func Title(words Translator) string { return words.Tr("title") }',
+        ),
+      }),
+    });
+    expect(calls).toEqual([
+      {
+        caller: 'words/words.go#Title',
+        callee: 'words/words.go#Locale.Tr',
+        line: 14,
+        group: 'words/words.go:14:52',
+      },
+    ]);
+  });
+
+  it('decides a call by the interface of the receiver, so a method of a library interface that a repo interface embeds is a one-of group', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'files/files.go': lines(
+          'package files',
+          '',
+          'import "io"',
+          '',
+          'type ReadDone interface {',
+          '\tio.Reader',
+          '\tDone()',
+          '}',
+          '',
+          'type Upload struct{}',
+          '',
+          'func (u *Upload) Read(buffer []byte) (int, error) { return 0, nil }',
+          '',
+          'func (u *Upload) Done() {}',
+          '',
+          'type Plain struct{}',
+          '',
+          'func (p Plain) Read(buffer []byte) (int, error) { return 0, nil }',
+          '',
+          'func Drain(source ReadDone) {',
+          '\tsource.Read(nil)',
+          '}',
+        ),
+      }),
+    });
+    expect(calls).toEqual([
+      {
+        caller: 'files/files.go#Drain',
+        callee: 'files/files.go#Upload.Read',
+        line: 21,
+        group: 'files/files.go:21:9',
+      },
+    ]);
+    expect(openEnds).toEqual([]);
+  });
+
+  it('makes a call through an interface of the repo that only a library type implements a library call', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'text/text.go': lines(
+          'package text',
+          '',
+          'import "strings"',
+          '',
+          'type Source interface{ ReadRune() (r rune, size int, err error) }',
+          '',
+          'func Open(text string) Source { return strings.NewReader(text) }',
+          '',
+          'func First(source Source) { source.ReadRune() }',
+        ),
+      }),
+    });
+    expect(calls).toEqual([]);
+    expect(openEnds).toEqual([]);
+  });
+
+  it('makes a call a library call when the type in scope that implements the interface takes the method from a library type that it embeds', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'text/text.go': lines(
+          'package text',
+          '',
+          'import "strings"',
+          '',
+          'type Text interface {',
+          '\tGrow(n int)',
+          '\tTitle() string',
+          '}',
+          '',
+          'type Page struct{ strings.Builder }',
+          '',
+          'func (p *Page) Title() string { return "" }',
+          '',
+          'func Write(text Text) {',
+          '\ttext.Grow(1)',
+          '\ttext.Title()',
+          '}',
+        ),
+      }),
+    });
+    expect(calls).toEqual([
+      {
+        caller: 'text/text.go#Write',
+        callee: 'text/text.go#Page.Title',
+        line: 16,
+        group: 'text/text.go:16:7',
+      },
+    ]);
+    expect(openEnds).toEqual([]);
+  });
+
+  it('keeps no-implementation when the only implementation takes the method from an interface that it embeds', () => {
+    const { openEnds } = extractGo({
+      repo: repoOf({
+        'store/store.go': lines(
+          'package store',
+          '',
+          'type Saver interface{ Save() }',
+          '',
+          'type Logged struct{ Saver }',
+          '',
+          'func Keep(saver Saver) { saver.Save() }',
+        ),
+      }),
+    });
+    expect(openEnds).toEqual([
+      {
+        caller: 'store/store.go#Keep',
+        line: 7,
+        expression: 'saver.Save',
+        reason: 'no-implementation',
+      },
+    ]);
+  });
+
+  it('holds a generic type in a group when one type argument for each of its type parameters makes its methods implement the interface', () => {
+    const { calls } = extractGo({
+      repo: repoOf({
+        'box/box.go': lines(
+          'package box',
+          '',
+          'type Store interface {',
+          '\tPut(item int)',
+          '\tGet() int',
+          '}',
+          '',
+          'type Box[T any] struct{ item T }',
+          '',
+          'func (b *Box[T]) Put(item T) { b.item = item }',
+          '',
+          'func (b *Box[T]) Get() T { return b.item }',
+          '',
+          'type Label[T any] struct{}',
+          '',
+          'func (l Label[T]) Put(item T) {}',
+          '',
+          'func (l Label[T]) Get() string { return "" }',
+          '',
+          'func Keep(store Store) { store.Put(store.Get()) }',
+        ),
+      }),
+    });
+    expect(calls.map(({ callee, group }) => `${group} ${callee}`)).toEqual([
+      'box/box.go:20:32 box/box.go#Box.Put',
+      'box/box.go:20:42 box/box.go#Box.Get',
+    ]);
   });
 });

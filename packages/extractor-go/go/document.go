@@ -21,11 +21,22 @@ type call struct {
 	Group  string `json:"group,omitempty"`
 }
 
+type openEndReason string
+
+const (
+	missingModule    openEndReason = "missing-module"
+	dynamicKey       openEndReason = "dynamic-key"
+	untyped          openEndReason = "untyped"
+	functionValue    openEndReason = "function-value"
+	noImplementation openEndReason = "no-implementation"
+	otherReason      openEndReason = "other"
+)
+
 type openEnd struct {
-	Caller     string `json:"caller"`
-	Line       int    `json:"line"`
-	Expression string `json:"expression"`
-	Reason     string `json:"reason"`
+	Caller     string        `json:"caller"`
+	Line       int           `json:"line"`
+	Expression string        `json:"expression"`
+	Reason     openEndReason `json:"reason"`
 }
 
 type document struct {

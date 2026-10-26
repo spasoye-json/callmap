@@ -52,7 +52,6 @@ func goEnv(environ []string, goWork string) []string {
 	return append(env, "GOTOOLCHAIN=local", "GOPROXY=off", "GOWORK="+goWork)
 }
 
-// moduleOf is the module that holds a repo file: the deepest go.mod directory above it.
 func moduleOf(path string, moduleDirs []string) (string, bool) {
 	held, found := "", false
 	for _, dir := range moduleDirs {
@@ -79,7 +78,6 @@ func moduleRootsOf(found tree, scope []string) []string {
 	return roots
 }
 
-// workspaceOf is the go.work at the root of the repo, if there is one.
 func workspaceOf(repo string) (string, bool, error) {
 	goWork := filepath.Join(repo, "go.work")
 	_, err := os.Stat(goWork)

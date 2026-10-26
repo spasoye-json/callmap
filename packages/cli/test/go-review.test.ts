@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { getByRole, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { GO_EXTRACTOR } from '../src/extractors.ts';
+import { goExtractor } from '../src/extractors.ts';
 import type { Extractor } from '../src/extractors.ts';
 import { runReview } from '../src/review-command.ts';
 import { commitFile, goRepo } from './fixture-repo.ts';
@@ -165,12 +165,13 @@ describe('the reads of the Go extractor', () => {
   it('reads the branch and then the base, one after the other', async () => {
     const root = goRepo();
     const steps: string[] = [];
+    const go = goExtractor();
     const watched: Extractor = {
-      ...GO_EXTRACTOR,
-      extract: async (path, settings) => {
+      ...go,
+      extract: async (path, scope) => {
         const what = path === root ? 'branch' : 'base';
         steps.push(`start ${what}`);
-        const document = await GO_EXTRACTOR.extract(path, settings);
+        const document = await go.extract(path, scope);
         steps.push(`end ${what}`);
         return document;
       },

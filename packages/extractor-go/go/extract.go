@@ -62,28 +62,30 @@ func extract(repo string, scope []string) (document, error) {
 		paths = append(paths, file.path)
 		documentFiles[file.filename] = true
 	}
+	var indexed origins
 	resolve := resolver{
 		documentFiles:   documentFiles,
 		functionAt:      declared.functionAt,
-		implementations: implementationsOf(files, declared.functionAt),
+		implementations: newImplementations(files, loaded, documentFiles, declared.functionAt),
+		origins: func() origins {
+			if indexed == nil {
+				indexed = originsOf(loaded)
+			}
+			return indexed
+		},
 	}.resolve
 	calls := []call{}
 	openEnds := []openEnd{}
 	for _, site := range declared.sites {
 		resolved := resolve(site)
 		switch resolved.kind {
-		case tiedCall:
-			for _, callee := range resolved.callees {
-				calls = append(calls, call{Caller: site.caller, Callee: callee, Line: lineOf(site)})
+		case tiedCall, oneOfCall:
+			group := ""
+			if resolved.kind == oneOfCall {
+				group = groupOf(site)
 			}
-		case oneOfCall:
 			for _, callee := range resolved.callees {
-				calls = append(calls, call{
-					Caller: site.caller,
-					Callee: callee,
-					Line:   lineOf(site),
-					Group:  groupOf(site),
-				})
+				calls = append(calls, call{Caller: site.caller, Callee: callee, Line: lineOf(site), Group: group})
 			}
 		case openEndCall:
 			openEnds = append(openEnds, openEnd{

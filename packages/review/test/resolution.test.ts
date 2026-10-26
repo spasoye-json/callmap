@@ -6,7 +6,7 @@ import type {
   OpenEnd,
   OpenEndReason,
 } from '@callmap/graph-document';
-import { reviewOf } from '../src/index.ts';
+import { reviewGraphsOf, reviewOf } from '../src/index.ts';
 
 const fn = (id: string, sourceHash = `${id}@1`): GraphFunction => {
   const [file = '', name = ''] = id.split('#');
@@ -62,7 +62,7 @@ const inLanguage = (
 ): GraphDocument => ({ ...document, language, checker });
 
 const ratesOf = (branch: readonly GraphDocument[], base: readonly GraphDocument[] = []) =>
-  reviewOf({ base, branch }).resolutionRates;
+  reviewOf(reviewGraphsOf({ base, branch })).resolutionRates;
 
 describe('the resolution rates of a review', () => {
   it('divides the calls of the branch graph by those calls plus its open ends', () => {
@@ -135,7 +135,7 @@ describe('the open ends of a review', () => {
       [],
       [openEnd(A, 'JSON.parse(raw).notify', 7, 'untyped'), openEnd(D, 'hook', 9)],
     );
-    expect(reviewOf({ base: [base], branch: [branch] }).openEnds).toEqual([
+    expect(reviewOf(reviewGraphsOf({ base: [base], branch: [branch] })).openEnds).toEqual([
       { caller: A, line: 7, expression: 'JSON.parse(raw).notify', reason: 'untyped' },
       { caller: B, line: 3, expression: 'legacy.run', reason: 'missing-module' },
     ]);
@@ -149,7 +149,7 @@ describe('the one-of groups of a review', () => {
       [fn(A), fn(B), fn(C), fn(D)],
       [oneOf(A, B, 'src/a.ts:4:3'), oneOf(A, C, 'src/a.ts:4:3'), oneOf(D, B, 'src/d.ts:2:1')],
     );
-    expect(reviewOf({ base: [base], branch: [branch] }).oneOfGroups).toEqual([
+    expect(reviewOf(reviewGraphsOf({ base: [base], branch: [branch] })).oneOfGroups).toEqual([
       { id: 'src/a.ts:4:3', caller: A, line: 4, callees: [B, C] },
     ]);
   });
@@ -157,7 +157,7 @@ describe('the one-of groups of a review', () => {
   it('marks the calls of a one-of group as calls the branch added, like any other call', () => {
     const base = graph([fn(B), fn(C)]);
     const branch = graph([fn(A), fn(B), fn(C)], [oneOf(A, B, 'g'), oneOf(A, C, 'g')]);
-    expect(reviewOf({ base: [base], branch: [branch] }).calls).toEqual([
+    expect(reviewOf(reviewGraphsOf({ base: [base], branch: [branch] })).calls).toEqual([
       { caller: A, callee: B, mark: 'added' },
       { caller: A, callee: C, mark: 'added' },
     ]);

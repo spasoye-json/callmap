@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
@@ -46,7 +45,7 @@ export const goSourceFiles = (): readonly NamedFile[] => [
     .map((path) => ({ name: `go/${relative(GO_PROGRAM, path)}`, path })),
 ];
 
-export const assets = {
+export const assets: Assets = {
   typescriptExtractor: TYPESCRIPT_EXTRACTOR,
   layoutWorker: new URL('layout-worker.ts', import.meta.url),
   pageScript,
@@ -57,7 +56,6 @@ export const assets = {
       `typescript ${typescriptVersionFor(TYPESCRIPT_EXTRACTOR)}\0`,
     ),
   goExtractor: GO_EXTRACTOR,
-  goExtractorVersion: () =>
-    sha256OfFiles(goSourceFiles(), `${execFileSync('go', ['version'], { encoding: 'utf8' })}\0`),
+  goExtractorVersion: (goVersion) => sha256OfFiles(goSourceFiles(), `${goVersion}\0`),
   goExtractorEnv: () => ({}),
-} satisfies Assets;
+};
