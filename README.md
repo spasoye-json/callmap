@@ -37,17 +37,17 @@ Check out the branch, then run the review in its repo:
 callmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--no-cache] [--editor vscode|jetbrains]
 ```
 
-| Argument            | What it does                                                                                     | Default                                          |
-| ------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| `<repo>`            | The repo to review. Any folder inside it works.                                                  | The current folder                               |
-| `--base <commit>`   | The commit to compare the branch with.                                                           | The merge base with the default branch           |
-| `--scope <glob>`    | Limits the review to the files that the glob matches. Give it once for each glob.                | Every file of the repo                           |
-| `--scope '!<glob>'` | Leaves out the files that the glob matches, also when another glob takes them.                   | Nothing left out                                 |
-| `--tsconfig <file>` | The TypeScript config to read, as an absolute path or a path relative to the repo root.          | `tsconfig.json` at the repo root, if it exists   |
-| `--out <file>`      | Where the page is written.                                                                       | `review-<repo folder>.html` in `$TMPDIR/callmap` |
-| `--no-open`         | Writes the page and does not open it, for example to attach it to a merge request.               | The page opens in the browser                    |
-| `--no-cache`        | Reads the base again and does not write the cache.                                               | The base comes from the cache if it is there     |
-| `--editor <name>`   | The editor that the editor link on each function opens: `vscode` or `jetbrains`.                 | `vscode`                                         |
+| Argument            | What it does                                                                            | Default                                          |
+| ------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `<repo>`            | The repo to review. Any folder inside it works.                                         | The current folder                               |
+| `--base <commit>`   | The commit to compare the branch with.                                                  | The merge base with the default branch           |
+| `--scope <glob>`    | Limits the review to the files that the glob matches. Give it once for each glob.       | Every file of the repo                           |
+| `--scope '!<glob>'` | Leaves out the files that the glob matches, also when another glob takes them.          | Nothing left out                                 |
+| `--tsconfig <file>` | The TypeScript config to read, as an absolute path or a path relative to the repo root. | `tsconfig.json` at the repo root, if it exists   |
+| `--out <file>`      | Where the page is written.                                                              | `review-<repo folder>.html` in `$TMPDIR/callmap` |
+| `--no-open`         | Writes the page and does not open it, for example to attach it to a merge request.      | The page opens in the browser                    |
+| `--no-cache`        | Reads the base again and does not write the cache.                                      | The base comes from the cache if it is there     |
+| `--editor <name>`   | The editor that the editor link on each function opens: `vscode` or `jetbrains`.        | `vscode`                                         |
 
 The default branch is the head of `origin`, then the head of any other remote, then `main`, then `master`. The review reads the base commit in a temporary git worktree and removes it at the end, so the checkout and the uncommitted files never move. The worktree links to the `node_modules` folders of the checkout, so the library types resolve on the base too. The command prints the path of the page when it ends.
 
@@ -99,11 +99,11 @@ open zoom = 100%,             when fit is less than 92%
 
 The zoom band of the zoom decides what text the graph draws:
 
-| Zoom             | Band | What the graph draws                                                           |
-| ---------------- | ---- | ------------------------------------------------------------------------------ |
+| Zoom             | Band | What the graph draws                                                                 |
+| ---------------- | ---- | ------------------------------------------------------------------------------------ |
 | Less than 60%    | Map  | The boxes and the chips, at their screen size while they fit. A tooltip names a box. |
-| 60% to under 92% | Scan | The names at 11 px on the screen, one count on a level box, badges on the path |
-| 92% or more      | Read | All the text                                                                   |
+| 60% to under 92% | Scan | The names at 11 px on the screen, one count on a level box, badges on the path       |
+| 92% or more      | Read | All the text                                                                         |
 
 The lines, the count badges and the "one of" labels keep their screen size at every zoom. A frame label keeps its screen size while it fits the header of its frame. At a lower zoom, it shrinks with the frame. A frame label that does not fit cuts the start of its path, so the file name stays.
 
@@ -143,7 +143,7 @@ The tabs above the graph choose the view. Each view keeps the marks for added, r
 - **Folder:** a folder tree beside the graph. A click on a folder draws its functions, the calls between them, and the functions one hop outside the folder. The view draws these outside functions greyed, and it draws only the calls that touch a function of the folder.
 - **Route:** a list of entry points beside the graph. An entry point is a function in scope that no other function in scope calls. The entry points that reach a changed function come first. A click on an entry point draws its whole call tree. Each function shows once, so a cycle ends. A search opens the first entry point in the list that reaches the function. If no entry point reaches it, the view draws the call tree of the function itself.
 
-The page shows the resolution rate of the whole branch graph in scope: the calls into the repo's own code that the type checker proved, out of all of them. The list of open ends below it holds the open ends of the functions in this review only. The graph marks each open end at its call site, as a dashed line that ends in a ring with ?. It does this also on a function that a next hop or a search adds. It draws the one-of calls of one call site as dotted lines from one dot, one to each implementation. A call through an interface is an example. The lines carry the label "one of N". A call into a library is not in the graph and does not change the rate.
+The page shows one resolution rate for each language of the branch graph in scope: the calls into the repo's own code that the type checker proved, out of all of them. Each rate stands next to its checker, such as "TypeScript 6.0.3 · 90.0%". The list of open ends below it holds the open ends of the functions in this review only. The graph marks each open end at its call site, as a dashed line that ends in a ring with ?. It does this also on a function that a next hop or a search adds. It draws the one-of calls of one call site as dotted lines from one dot, one to each implementation. A call through an interface is an example. The lines carry the label "one of N". A call into a library is not in the graph and does not change the rate.
 
 ### The levels of the Whole project view
 
@@ -203,13 +203,13 @@ Then ask Claude for a Callmap review of the branch. The skill needs the `callmap
 
 The core packages read data and never read source code or a filesystem. See ADR-0009.
 
-| Package                    | What it owns                                                                                                                                             |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@callmap/graph-document`  | The graph document an extractor emits: files, functions, calls with their one-of groups, open ends, a language and a scope                               |
-| `@callmap/review`          | The review of a branch: the changed functions, their neighbours, the added and removed calls, their open ends and one-of groups, and the resolution rate |
-| `@callmap/reference-graph` | The document the Go and Ruby extractors emit: files, references, a language tag and a scope                                                              |
-| `@callmap/scope`           | The scope globs and the skipped directories that every walk of a repo shares                                                                             |
-| `@callmap/editor-link`     | The editor link that opens a file at a line                                                                                                              |
+| Package                    | What it owns                                                                                                                                                               |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@callmap/graph-document`  | The graph document an extractor emits: files, functions, calls with their one-of groups, open ends, a language and a scope                                                 |
+| `@callmap/review`          | The review of a branch: the changed functions, their neighbours, the added and removed calls, their open ends and one-of groups, and one resolution rate for each language |
+| `@callmap/reference-graph` | The document the Go and Ruby extractors emit: files, references, a language tag and a scope                                                                                |
+| `@callmap/scope`           | The scope globs and the skipped directories that every walk of a repo shares                                                                                               |
+| `@callmap/editor-link`     | The editor link that opens a file at a line                                                                                                                                |
 
 The extractors are the other side of the contract. Each one reads a repo and names its language.
 

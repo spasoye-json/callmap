@@ -1,6 +1,6 @@
 import type { Editor } from '@callmap/editor-link';
-import type { FunctionId, GraphDocument } from '@callmap/graph-document';
-import type { Review } from '@callmap/review';
+import type { FunctionId } from '@callmap/graph-document';
+import type { CallGraph, Review } from '@callmap/review';
 import type { Placement } from './layout.ts';
 
 export const DATA_BLOCK_ID = 'reader-page-data';
@@ -24,7 +24,7 @@ export interface LineSpan {
 
 export interface ReaderPageData {
   readonly review: Review;
-  readonly branchGraph: GraphDocument;
+  readonly branchGraph: CallGraph;
   readonly packedSources: string;
   readonly basePlaces: Readonly<Record<FunctionId, LineSpan>>;
   readonly editor: EditorChoice;

@@ -94,8 +94,16 @@ describe('the open ends, one-of groups and resolution rate of callmap review', (
     });
   });
 
-  it('counts the calls into the repo and the open ends, and no call into a library', () => {
-    expect(pageDataOf(html).review.resolutionRate).toEqual({ resolved: 9, open: 1, rate: 0.9 });
+  it('counts the calls into the repo and the open ends, and no call into a library, with the checker of TypeScript', () => {
+    expect(pageDataOf(html).review.resolutionRates).toEqual([
+      {
+        language: 'typescript',
+        checker: { name: 'TypeScript', version: typescriptVersion() },
+        resolved: 9,
+        open: 1,
+        rate: 0.9,
+      },
+    ]);
   });
 });
 
@@ -107,13 +115,43 @@ describe('the open ends, one-of groups and resolution rate on the reader page', 
     expect(rate.textContent).toContain('9 of 10 calls');
   });
 
-  it('shows the checker of the branch graph next to the Resolution heading', async () => {
+  it('shows the rate of TypeScript next to its checker', async () => {
     const { window } = await loadReaderPage(html);
     const rate = within(getByRole(window.document.body, 'region', { name: 'Resolution rate' }));
-    const checker = rate.getByText(`TypeScript ${typescriptVersion()}`);
-    expect(checker.parentElement?.contains(rate.getByRole('heading', { name: 'Resolution' }))).toBe(
-      true,
+    expect(rate.getByRole('heading', { name: 'Resolution' })).toBeDefined();
+    const language = rate.getByRole('group', { name: `TypeScript ${typescriptVersion()}` });
+    expect(language.querySelector('.rate')?.textContent).toBe(
+      `TypeScript ${typescriptVersion()} · 90.0%`,
     );
+  });
+
+  it('shows one rate next to its checker for each language, in the order of the page data', async () => {
+    const data = pageDataOf(html);
+    const page = await loadReaderPage(
+      withPageData(html, {
+        ...data,
+        review: {
+          ...data.review,
+          resolutionRates: [
+            {
+              language: 'go',
+              checker: { name: 'Go', version: '1.27.3' },
+              resolved: 19,
+              open: 1,
+              rate: 0.95,
+            },
+            ...data.review.resolutionRates,
+          ],
+        },
+      }),
+    );
+    const rate = within(
+      getByRole(page.window.document.body, 'region', { name: 'Resolution rate' }),
+    );
+    expect(
+      rate.getAllByRole('group').map((language) => language.querySelector('.rate')?.textContent),
+    ).toEqual(['Go 1.27.3 · 95.0%', `TypeScript ${typescriptVersion()} · 90.0%`]);
+    expect(rate.getByRole('group', { name: 'Go 1.27.3' }).textContent).toContain('19 of 20 calls');
   });
 
   it('lists the open ends of this review by the file of their caller, with the line and the reason of each', async () => {

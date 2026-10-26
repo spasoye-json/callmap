@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { FunctionId, GraphDocument } from '@callmap/graph-document';
-import type { Review } from '@callmap/review';
+import type { FunctionId } from '@callmap/graph-document';
+import type { CallGraph, Review } from '@callmap/review';
 import type { LineSpan, SourceTexts, Sources } from '../page/data.ts';
 import { fileAt } from './git.ts';
 
@@ -12,7 +12,7 @@ export const sourcesOf = (
   root: string,
   base: string,
   review: Review,
-  branchGraph: GraphDocument,
+  branchGraph: CallGraph,
 ): Sources => ({
   branch: textsOf(
     branchGraph.functions.map(({ file }) => file),
@@ -28,7 +28,7 @@ export const sourcesOf = (
 
 export const basePlacesOf = (
   review: Review,
-  baseGraph: GraphDocument,
+  baseGraph: CallGraph,
 ): Readonly<Record<FunctionId, LineSpan>> => {
   const changed = new Set(
     review.functions.filter(({ mark }) => mark === 'changed').map(({ id }) => id),
