@@ -46,10 +46,19 @@ export const removeGoExtractorBinary = (): void => {
   process.off('exit', removeGoExtractorBinary);
 };
 
-const withoutModFlag = (flags: string): string =>
+const isTrimpath = (flag: string): boolean => {
+  const name = flag.replace(/^-/, '').split('=')[0];
+  return name === '-trimpath' || name === 'trimpath';
+};
+
+/** The same filter as `keptGoFlags` in go/load.go, so the build and the load agree. */
+const keptGoFlags = (flags: string): string =>
   flags
     .split(/\s+/)
-    .filter((flag) => flag !== '' && !flag.startsWith('-mod=') && !flag.startsWith('--mod='))
+    .filter(
+      (flag) =>
+        flag !== '' && !flag.startsWith('-mod=') && !flag.startsWith('--mod=') && !isTrimpath(flag),
+    )
     .join(' ');
 
 /** A GOFLAGS from `go env -w` is in the go env file, not in the environment. */
@@ -68,7 +77,7 @@ const effectiveGoFlags = (): string => {
  */
 const buildEnv = (): NodeJS.ProcessEnv => ({
   ...process.env,
-  GOFLAGS: ` ${withoutModFlag(effectiveGoFlags())}`,
+  GOFLAGS: ` ${keptGoFlags(effectiveGoFlags())}`,
   GOTOOLCHAIN: 'local',
   GOPROXY: 'off',
   GOWORK: 'off',

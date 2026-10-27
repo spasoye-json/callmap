@@ -127,6 +127,22 @@ describe('the base checkout of a review', () => {
     );
     expect(seen).toEqual({ goWork: 'go 1.22\n\nuse .\n', goWorkSum: true, env: false });
   });
+
+  it('points each use line of an untracked go.work with an absolute path into the checkout at the same place in the base', async () => {
+    const repo = featureBranchRepo();
+    const elsewhere = tempDir('callmap-go-module-');
+    commitFile(repo, '.gitignore', 'go.work\n');
+    writeFileSync(
+      join(repo, 'go.work'),
+      `go 1.22\n\nuse ${repo}/billing\n\nuse (\n\t"${repo}/money"\n\t./cart\n\t${elsewhere}\n)\n`,
+    );
+    const { goWork, base } = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({ goWork: readFileSync(join(path, 'go.work'), 'utf8'), base: path }),
+    );
+    expect(goWork).toBe(
+      `go 1.22\n\nuse ${base}/billing\n\nuse (\n\t"${base}/money"\n\t./cart\n\t${elsewhere}\n)\n`,
+    );
+  });
 });
 
 describe('a branch that changed no function', () => {

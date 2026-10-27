@@ -4,7 +4,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { readGraphDocument } from '@callmap/graph-document';
-import { extractGo, GoExtractionError, removeGoExtractorBinary } from '../src/index.ts';
+import {
+  extractGo,
+  GoExtractionError,
+  goExtractorBinary,
+  removeGoExtractorBinary,
+} from '../src/index.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
 
 afterAll(removeGoExtractorBinary);
@@ -499,6 +504,68 @@ describe('extractGo', () => {
     ]);
   });
 
+  it('pairs a call in a file that imports C whose text cgo rewrites, so the call and its open end enter the document', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'pay/pay.go': lines(
+          'package pay',
+          '',
+          '// #include <stdlib.h>',
+          'import "C"',
+          '',
+          'func Pay() { hookFor(C.int(1))() }',
+          '',
+          'func hookFor(cents C.int) func() { return nil }',
+        ),
+      }),
+    });
+    expect(calls).toEqual([{ caller: 'pay/pay.go#Pay', callee: 'pay/pay.go#hookFor', line: 6 }]);
+    expect(openEnds).toEqual([
+      {
+        caller: 'pay/pay.go#Pay',
+        line: 6,
+        expression: 'hookFor(C.int(1))',
+        reason: 'function-value',
+      },
+    ]);
+  });
+
+  it('ties a call into a file that imports C in another module of the repo that a replace loads', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'go.mod': lines(
+          'module example.com/shop',
+          '',
+          'go 1.22',
+          '',
+          'require example.com/money v0.0.0',
+          '',
+          'replace example.com/money => ./money',
+        ),
+        'money/go.mod': MONEY_GO_MOD,
+        'money/money.go': lines(
+          'package money',
+          '',
+          '// #include <stdlib.h>',
+          'import "C"',
+          '',
+          'func Format(cents int) string {',
+          '	C.free(nil)',
+          '	return digits(cents)',
+          '}',
+          '',
+          'func digits(cents int) string { return "" }',
+        ),
+        'checkout/checkout.go': CHECKOUT_OF_MONEY_MODULE,
+      }),
+    });
+    expect(calls).toEqual([
+      { caller: 'checkout/checkout.go#Total', callee: 'money/money.go#Format', line: 6 },
+      { caller: 'money/money.go#Format', callee: 'money/money.go#digits', line: 8 },
+    ]);
+    expect(openEnds).toEqual([]);
+  });
+
   it('makes a call into code that does not load an open end with missing-module, and still reads the rest', () => {
     const document = extractGo({
       repo: repoOf({
@@ -827,6 +894,10 @@ describe('extractGo', () => {
     vi.stubEnv('GOFLAGS', undefined);
     vi.stubEnv('GOMODCACHE', tempDir('callmap-go-cache-'));
     removeGoExtractorBinary();
+    const buildSettings = execFileSync('go', ['version', '-m', goExtractorBinary()], {
+      encoding: 'utf8',
+    });
+    expect(buildSettings).not.toMatch(/-trimpath=true/);
     const goMod = lines(
       'module example.com/shop',
       '',

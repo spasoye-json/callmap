@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"regexp"
 )
 
 type pairedCall struct {
@@ -91,11 +92,24 @@ func isCallIntoC(call *ast.CallExpr) bool {
 	return isIdent && ident.Name == "C"
 }
 
+var (
+	cgoFunctionInParens = regexp.MustCompile(`\((_Cfunc_\w+)\)`)
+	cgoVariable         = regexp.MustCompile(`\(\*_Cvar_(\w+)\)`)
+	cgoName             = regexp.MustCompile(`\b_C(?:type|func|macro|iconst|fconst|sconst|var)_(\w+)`)
+)
+
+// cgo writes `_Ctype_int` for `C.int`, so the typed call and the written call differ in their text.
+func writtenTextOf(typed ast.Expr) string {
+	text := cgoFunctionInParens.ReplaceAllString(types.ExprString(typed), "$1")
+	text = cgoVariable.ReplaceAllString(text, "C.$1")
+	return cgoName.ReplaceAllString(text, "C.$1")
+}
+
 // A call that cgo adds, such as its check of a pointer, has no pair and never enters the document.
 func writtenCallsOf(typedSet *token.FileSet, typed *ast.FuncDecl, writtenSet *token.FileSet, written *ast.FuncDecl) []pairedCall {
 	typedAt := map[callKey][]*ast.CallExpr{}
 	for _, call := range callsIn(typed.Body) {
-		key := callKey{line: typedSet.PositionFor(call.Fun.Pos(), true).Line, text: types.ExprString(call.Fun)}
+		key := callKey{line: typedSet.PositionFor(call.Fun.Pos(), true).Line, text: writtenTextOf(call.Fun)}
 		typedAt[key] = append(typedAt[key], call)
 	}
 	paired := []pairedCall{}

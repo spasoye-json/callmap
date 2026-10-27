@@ -127,7 +127,7 @@ export const goExtractor = (): Extractor => {
   const goVersion = once(goVersionOnPath);
   return {
     language: 'go',
-    lockFiles: ['**/go.sum', '**/go.work.sum'],
+    lockFiles: ['go.work', '**/go.sum', '**/go.work.sum'],
     options: [],
     version: () => assets.goExtractorVersion(goVersion() ?? ''),
     claimsAnyOf: (inScope, files) => {

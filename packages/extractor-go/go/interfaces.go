@@ -166,7 +166,7 @@ func isLibraryMethod(have implementedMethod, documentFiles map[string]bool) bool
 	return !types.IsInterface(have.method.Signature().Recv().Type()) && !documentFiles[have.filename]
 }
 
-func (each implementations) implementedOutOfScope(called types.Type, iface *types.Interface, method *types.Func) bool {
+func (each implementations) implementedByLibrary(called types.Type, iface *types.Interface, method *types.Func) bool {
 	key := implementationKey{iface: types.TypeString(called, nil), method: method.Name()}
 	if implemented, known := each.library[key]; known {
 		return implemented

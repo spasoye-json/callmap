@@ -10,8 +10,8 @@ import (
 	"os"
 )
 
-// functionKey finds the function that a *types.Func declares. It holds the line and not the
-// column, because a callee from export data keeps only the line of its declaration.
+// A functionKey holds the line and not the column, because a callee from export data keeps only
+// the line of its declaration.
 type functionKey struct {
 	filename string
 	line     int
@@ -107,6 +107,8 @@ func declarationsOf(files []sourceFile) (declarations, error) {
 			})
 			at := positionOf(file.pkg.Fset, each.typed.Name.Pos())
 			declared.functionAt[functionKey{filename: at.Filename, line: at.Line, name: each.typed.Name.Name}] = id
+			// Export data names a file that imports C by its repo file, with the line of the cgo output.
+			declared.functionAt[functionKey{filename: file.repoFilename, line: at.Line, name: each.typed.Name.Name}] = id
 			for _, call := range each.calls {
 				declared.sites = append(declared.sites, callSite{caller: id, call: call.typed, written: call.written, file: file})
 			}

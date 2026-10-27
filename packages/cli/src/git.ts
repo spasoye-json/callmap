@@ -1,12 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import {
-  copyFileSync,
   existsSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   symlinkSync,
   unlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -124,11 +125,39 @@ const linkPackageFolders = (root: string, worktree: string): readonly string[] =
  */
 const GO_WORKSPACE_FILES = ['go.work', 'go.work.sum'];
 
+const inWorktree = (path: string, roots: readonly string[], worktree: string): string => {
+  const root = roots.find((each) => path === each || path.startsWith(`${each}/`));
+  return root === undefined ? path : `${worktree}${path.slice(root.length)}`;
+};
+
+const USE_LINE = /^(\s*use\s+)("?)([^\s"(]+)\2/;
+const LINE_IN_USE_BLOCK = /^(\s*)("?)([^\s")]+)\2/;
+
+const goWorkOfWorktree = (goWork: string, root: string, worktree: string): string => {
+  const roots = [root, realpathSync(root)];
+  const pointed = (_: string, before: string, quote: string, path: string): string =>
+    `${before}${quote}${inWorktree(path, roots, worktree)}${quote}`;
+  let inUseBlock = false;
+  return goWork
+    .split('\n')
+    .map((line) => {
+      if (inUseBlock) {
+        inUseBlock = !line.trim().startsWith(')');
+        return inUseBlock ? line.replace(LINE_IN_USE_BLOCK, pointed) : line;
+      }
+      inUseBlock = /^\s*use\s*\(/.test(line);
+      return line.replace(USE_LINE, pointed);
+    })
+    .join('\n');
+};
+
 const copyGoWorkspaceFiles = (root: string, worktree: string): void => {
   for (const file of GO_WORKSPACE_FILES) {
     const tracked = git(root, 'ls-files', '--', file) !== '';
     if (!tracked && existsSync(join(root, file)) && !existsSync(join(worktree, file))) {
-      copyFileSync(join(root, file), join(worktree, file));
+      const text = readFileSync(join(root, file), 'utf8');
+      const copy = file === 'go.work' ? goWorkOfWorktree(text, root, worktree) : text;
+      writeFileSync(join(worktree, file), copy);
     }
   }
 };

@@ -181,13 +181,13 @@ describe('the go of a review', () => {
     vi.unstubAllEnvs();
   });
 
-  it('runs the local go, and downloads no toolchain, when GOTOOLCHAIN names a go that is not on the machine', () => {
+  it('reads the version of the local go and skips no Go file, when GOTOOLCHAIN names a go that is not on the machine', () => {
     vi.stubEnv('GOTOOLCHAIN', 'go1.99.0');
     vi.stubEnv('GOPROXY', 'off');
     expect(goExtractor().skipNote?.()).toBeUndefined();
   });
 
-  it('runs the local go, and downloads no toolchain, when the go.mod of the current folder names a go that is not on the machine', () => {
+  it('reads the version of the local go and skips no Go file, when the go.mod of the current folder names a go that is not on the machine', () => {
     const folder = tempDir('callmap-go-toolchain-');
     writeFileSync(
       join(folder, 'go.mod'),

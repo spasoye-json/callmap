@@ -60,6 +60,7 @@ func extract(repo string, scope []string) (document, error) {
 	for _, file := range files {
 		paths = append(paths, file.path)
 		documentFiles[file.filename] = true
+		documentFiles[file.repoFilename] = true
 	}
 	var indexed origins
 	resolve := resolver{

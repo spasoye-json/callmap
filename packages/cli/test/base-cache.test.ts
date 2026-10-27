@@ -280,6 +280,15 @@ describe('the base cache with one entry for each language', () => {
     },
   );
 
+  it('misses the Go entry after the go.work at the root of the checkout is added or changed', async () => {
+    const checkout = newCheckout();
+    await reviewBase(checkout, [TYPESCRIPT, GO]);
+    writeFileSync(join(checkout, 'go.work'), 'go 1.22\n\nuse ./a\n');
+    expect((await reviewBase(checkout, [TYPESCRIPT, GO])).read).toEqual(['go']);
+    writeFileSync(join(checkout, 'go.work'), 'go 1.22\n\nuse (\n\t./a\n\t./b\n)\n');
+    expect((await reviewBase(checkout, [TYPESCRIPT, GO])).read).toEqual(['go']);
+  });
+
   it('does not give the entry of one language to another language with the same version', async () => {
     const checkout = newCheckout();
     await reviewBase(checkout, [TYPESCRIPT]);

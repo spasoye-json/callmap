@@ -53,8 +53,6 @@ func (each resolver) resolve(site callSite) resolution {
 	return resolution{kind: openEndCall, reason: otherReason}
 }
 
-// calleeIdentOf is the name that the call site calls: `f` in `f()`, `Method` in `x.Method()`, and
-// `f` in `f[int]()`. A call of any other expression, such as `fs[0]()`, has none.
 func calleeIdentOf(fun ast.Expr) *ast.Ident {
 	switch typed := ast.Unparen(fun).(type) {
 	case *ast.Ident:
@@ -101,9 +99,8 @@ func calleeSelectorOf(fun ast.Expr) *ast.SelectorExpr {
 	return nil
 }
 
-// codeNotLoadedRule catches a name that the type checker could not find, because its import does
-// not resolve or the file that declares it is missing, and a callee that took its invalid type from
-// such a name. A callee whose type a local type error lost is untyped instead.
+// The type checker cannot find a name when its import does not resolve or the file that declares it
+// is missing. A callee whose type a local type error lost is untyped, not missing-module.
 func codeNotLoadedRule(each resolver, site callSite) (resolution, bool) {
 	ident := calleeIdentOf(site.call.Fun)
 	info := site.file.pkg.TypesInfo
@@ -152,8 +149,7 @@ func untypedRule(_ resolver, site callSite) (resolution, bool) {
 	return resolution{kind: openEndCall, reason: untyped}, true
 }
 
-// functionValueRule takes a func value from a field, a variable, a parameter or a call result
-// only. A map value with a constant key is none of them.
+// A map value with a constant key is not a function value.
 func functionValueRule(_ resolver, site callSite) (resolution, bool) {
 	switch ast.Unparen(site.call.Fun).(type) {
 	case *ast.Ident, *ast.SelectorExpr, *ast.CallExpr:
@@ -290,7 +286,7 @@ func interfaceCallRule(each resolver, site callSite) (resolution, bool) {
 	if callees := each.implementations.of(called, iface, method); len(callees) > 0 {
 		return resolution{kind: oneOfCall, callees: callees}, true
 	}
-	if each.implementations.implementedOutOfScope(called, iface, method) {
+	if each.implementations.implementedByLibrary(called, iface, method) {
 		return resolution{kind: libraryCall}, true
 	}
 	return resolution{kind: openEndCall, reason: noImplementation}, true
