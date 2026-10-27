@@ -116,6 +116,10 @@ describe('the packed @callmap/cli', () => {
     );
   });
 
+  it('leaves out the Go tests of the extractor', () => {
+    expect(tarball.files.filter((path) => path.endsWith('_test.go'))).toEqual([]);
+  });
+
   it('carries the name, the version, the license and the license text of each bundled third-party package', () => {
     const notices = readFileSync(
       join(

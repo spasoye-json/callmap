@@ -33,13 +33,15 @@ const GO_EXTRACTOR = fileURLToPath(import.meta.resolve('@callmap/extractor-go/cl
 
 export const GO_PROGRAM = join(dirname(GO_EXTRACTOR), '..', 'go');
 
+export const isGoTestFile = (path: string): boolean => path.endsWith('_test.go');
+
 export const goSourceFiles = (): readonly NamedFile[] => [
   ...sourceFilesOf(dirname(GO_EXTRACTOR)).map((file) => ({
     name: `src/${file}`,
     path: join(dirname(GO_EXTRACTOR), file),
   })),
   ...readdirSync(GO_PROGRAM, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile())
+    .filter((entry) => entry.isFile() && !isGoTestFile(entry.name))
     .map((entry) => join(entry.parentPath, entry.name))
     .sort()
     .map((path) => ({ name: `go/${relative(GO_PROGRAM, path)}`, path })),

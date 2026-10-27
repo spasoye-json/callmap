@@ -10,7 +10,12 @@ import {
 import { join } from 'node:path';
 import { build } from 'rolldown';
 import { assets } from './src/assets.ts';
-import { extractorSourceFiles, GO_PROGRAM, goSourceFiles } from './src/clone-assets.ts';
+import {
+  extractorSourceFiles,
+  GO_PROGRAM,
+  goSourceFiles,
+  isGoTestFile,
+} from './src/clone-assets.ts';
 import { sha256OfFiles } from './src/file-hash.ts';
 import { packageManifestAt } from './src/package-manifest.ts';
 import { pageBundle } from './src/page-build.ts';
@@ -103,7 +108,10 @@ const page = await pageBundle();
 writeFileSync(join(DIST, 'page.js'), page.script);
 writeFileSync(join(DIST, 'page.css'), assets.pageStyle());
 writeFileSync(join(DIST, 'extractor-source.sha256'), sha256OfFiles(extractorSourceFiles()));
-cpSync(GO_PROGRAM, join(DIST, 'go'), { recursive: true });
+cpSync(GO_PROGRAM, join(DIST, 'go'), {
+  recursive: true,
+  filter: (source) => !isGoTestFile(source),
+});
 writeFileSync(join(DIST, 'go-extractor-source.sha256'), sha256OfFiles(goSourceFiles()));
 writeFileSync(
   join(DIST, 'THIRD-PARTY-NOTICES.txt'),
