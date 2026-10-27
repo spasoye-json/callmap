@@ -210,13 +210,13 @@ describe('the base cache with one entry for each language', () => {
 
   const TYPESCRIPT: CachedExtractor = {
     language: 'typescript',
-    lockFiles: ['package-lock.json'],
+    dependencyFiles: ['package-lock.json'],
     options: [],
     version: () => 'typescript extractor 1',
   };
   const GO: CachedExtractor = {
     language: 'go',
-    lockFiles: goExtractor().lockFiles,
+    dependencyFiles: goExtractor().dependencyFiles,
     options: [],
     version: () => 'go extractor 1',
   };
@@ -292,7 +292,11 @@ describe('the base cache with one entry for each language', () => {
   it('does not give the entry of one language to another language with the same version', async () => {
     const checkout = newCheckout();
     await reviewBase(checkout, [TYPESCRIPT]);
-    const sameVersionGo = { ...GO, version: TYPESCRIPT.version, lockFiles: TYPESCRIPT.lockFiles };
+    const sameVersionGo = {
+      ...GO,
+      version: TYPESCRIPT.version,
+      dependencyFiles: TYPESCRIPT.dependencyFiles,
+    };
     const { read, documents } = await reviewBase(checkout, [sameVersionGo]);
     expect(read).toEqual(['go']);
     expect(documents[0]?.language).toBe('go');

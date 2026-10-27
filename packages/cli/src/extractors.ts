@@ -40,7 +40,7 @@ const TYPESCRIPT_FILE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 
 export const typescriptExtractor = (tsconfig: string | undefined): Extractor => ({
   language: 'typescript',
-  lockFiles: [
+  dependencyFiles: [
     'package-lock.json',
     'npm-shrinkwrap.json',
     'yarn.lock',
@@ -127,7 +127,7 @@ export const goExtractor = (): Extractor => {
   const goVersion = once(goVersionOnPath);
   return {
     language: 'go',
-    lockFiles: ['go.work', '**/go.sum', '**/go.work.sum'],
+    dependencyFiles: ['go.work', '**/go.sum', '**/go.work.sum'],
     options: [],
     version: () => assets.goExtractorVersion(goVersion() ?? ''),
     claimsAnyOf: (inScope, files) => {

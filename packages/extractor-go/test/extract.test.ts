@@ -530,6 +530,107 @@ describe('extractGo', () => {
     ]);
   });
 
+  const CGO_PREAMBLE = [
+    'package pay',
+    '',
+    '/*',
+    '#include <stdlib.h>',
+    'static int take(void* p) { return 0; }',
+    'static void drop(void* p) {}',
+    '#define LIMIT 3',
+    'enum { RED = 1 };',
+    '*/',
+    'import "C"',
+    '',
+    'import "unsafe"',
+    '',
+    'func getF(n C.int) func() { return nil }',
+    '',
+    'func hookFor(any) func() { return nil }',
+    '',
+    'type W struct{}',
+    '',
+    'func (W) Run() {}',
+    '',
+    'func wrap(n C.int) W { return W{} }',
+    '',
+    'func g() int { return 0 }',
+    '',
+  ];
+  const cgoPayOf = (...body: readonly string[]): ReturnType<typeof extractGo> =>
+    extractGo({ repo: repoOf({ 'pay/pay.go': lines(...CGO_PREAMBLE, ...body) }) });
+  const LINE = CGO_PREAMBLE.length + 1;
+  const callsAndOpenEndsOfPay = (
+    document: ReturnType<typeof extractGo>,
+  ): readonly (readonly [string, string, number])[] => [
+    ...document.calls
+      .filter(({ caller }) => caller === 'pay/pay.go#Pay')
+      .map(({ callee, line }) => [callee, '', line] as const),
+    ...document.openEnds.map(({ expression, reason, line }) => [expression, reason, line] as const),
+  ];
+
+  it('pairs a call whose argument is a C constant or a C size', () => {
+    const document = cgoPayOf(
+      'func Pay() {',
+      '	getF(C.LIMIT)()',
+      '	getF(C.RED)()',
+      '	getF(C.int(C.sizeof_int))()',
+      '}',
+    );
+    expect(callsAndOpenEndsOfPay(document)).toEqual([
+      ['pay/pay.go#getF', '', LINE + 1],
+      ['pay/pay.go#getF', '', LINE + 2],
+      ['pay/pay.go#getF', '', LINE + 3],
+      ['getF(C.LIMIT)', 'function-value', LINE + 1],
+      ['getF(C.RED)', 'function-value', LINE + 2],
+      ['getF(C.int(C.sizeof_int))', 'function-value', LINE + 3],
+    ]);
+  });
+
+  it('pairs a call whose argument calls C.malloc', () => {
+    const document = cgoPayOf('func Pay() {', '	hookFor(C.malloc(1))()', '}');
+    expect(callsAndOpenEndsOfPay(document)).toEqual([
+      ['pay/pay.go#hookFor', '', LINE + 1],
+      ['hookFor(C.malloc(1))', 'function-value', LINE + 1],
+    ]);
+  });
+
+  it('pairs a call whose argument passes a Go pointer to C, which cgo wraps in a check', () => {
+    const document = cgoPayOf(
+      'func Pay(p unsafe.Pointer, b []byte) {',
+      '	getF(C.take(p))()',
+      '	hookFor(C.take(unsafe.Pointer(&b[g()])))()',
+      '}',
+    );
+    expect(callsAndOpenEndsOfPay(document)).toEqual([
+      ['pay/pay.go#getF', '', LINE + 1],
+      ['pay/pay.go#hookFor', '', LINE + 2],
+      ['pay/pay.go#g', '', LINE + 2],
+      ['getF(C.take(p))', 'function-value', LINE + 1],
+      ['hookFor(C.take(unsafe.Pointer(&b[g()])))', 'function-value', LINE + 2],
+    ]);
+  });
+
+  it('ties each call after a call into C on the same line', () => {
+    const document = cgoPayOf(
+      'func Pay(p unsafe.Pointer) {',
+      '	wrap(C.LIMIT).Run()',
+      '	wrap(C.take(p)).Run()',
+      '	wrap(C.int(C.RED)).Run()',
+      '	defer C.drop(p); g()',
+      '}',
+    );
+    expect(callsAndOpenEndsOfPay(document)).toEqual([
+      ['pay/pay.go#W.Run', '', LINE + 1],
+      ['pay/pay.go#wrap', '', LINE + 1],
+      ['pay/pay.go#W.Run', '', LINE + 2],
+      ['pay/pay.go#wrap', '', LINE + 2],
+      ['pay/pay.go#W.Run', '', LINE + 3],
+      ['pay/pay.go#wrap', '', LINE + 3],
+      ['pay/pay.go#g', '', LINE + 4],
+    ]);
+  });
+
   it('ties a call into a file that imports C in another module of the repo that a replace loads', () => {
     const { calls, openEnds } = extractGo({
       repo: repoOf({

@@ -22,7 +22,7 @@ const ENTRIES_FOR_EACH_REPO = 20;
 
 export interface CachedExtractor {
   readonly language: string;
-  readonly lockFiles: readonly string[];
+  readonly dependencyFiles: readonly string[];
   readonly options: readonly string[];
   readonly version: () => string;
 }
@@ -48,7 +48,7 @@ const filesBelow = (folder: string, prefix = ''): readonly string[] =>
 
 const isPattern = (glob: string): boolean => /[*?]/.test(glob);
 
-const lockFilesOf = (checkout: string, globs: readonly string[]): readonly NamedFile[] => {
+const dependencyFilesOf = (checkout: string, globs: readonly string[]): readonly NamedFile[] => {
   const walked = globs.some(isPattern) ? filesBelow(checkout).toSorted() : [];
   return globs
     .flatMap((glob) => (isPattern(glob) ? walked.filter((path) => inScope(path, [glob])) : [glob]))
@@ -56,8 +56,8 @@ const lockFilesOf = (checkout: string, globs: readonly string[]): readonly Named
     .filter(({ path }) => existsSync(path));
 };
 
-const lockHashOf = (checkout: string, lockFiles: readonly string[]): string =>
-  sha256OfFiles(lockFilesOf(checkout, lockFiles));
+const dependencyHashOf = (checkout: string, dependencyFiles: readonly string[]): string =>
+  sha256OfFiles(dependencyFilesOf(checkout, dependencyFiles));
 
 const entryNameOf = ({ checkout, commit, scope, extractor }: BaseKey): string =>
   sha256(
@@ -66,7 +66,7 @@ const entryNameOf = ({ checkout, commit, scope, extractor }: BaseKey): string =>
       commit,
       scope,
       extractor.options,
-      lockHashOf(checkout, extractor.lockFiles),
+      dependencyHashOf(checkout, extractor.dependencyFiles),
       extractor.version(),
     ]),
   );

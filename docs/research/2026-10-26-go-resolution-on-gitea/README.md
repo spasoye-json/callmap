@@ -4,7 +4,7 @@ This measurement closes ticket 82 of spec 74. It asks one question: how many cal
 
 - **The repo:** `go-gitea/gitea` at commit `85211296ddcf2640d7e4110cb0d034cd92cf4c04`, the tip of `main` on 2026-10-26. It is one module, `gitea.dev`, with `go 1.27`.
 - **The scope:** the whole repo, once with the test files and once with `--scope '!**/*_test.go'`. The document holds 3,144 Go files with the tests and 2,076 without.
-- **The tool:** the Go extractor of the branch `spec/74-go-calls`, built with go 1.27.3. Its source is the tree `c30ead5` of `packages/extractor-go/go`, which the commit `chore: fix review round 2 findings` holds. Its checker is Go 1.27.3. It ties each call site with `go/types`, as ADR-0024 records.
+- **The tool:** the Go extractor of the branch `spec/74-go-calls`, built with go 1.27.3. Its source is the tree `c30ead5` of `packages/extractor-go/go`, which the commit `chore: fix review round 2 findings` holds. Its checker is Go 1.27.3. It ties each call site with `go/types`, as ADR-0024 records. The tree `7741c6a`, after the fourth round of fixes, gives the same 2 documents byte for byte.
 - **The network:** `go mod download` filled the module cache once, with the network. Each read ran with `GOPROXY=off`.
 - **The machine:** an Intel Core Ultra 9 185H with 22 threads and 30 GB of memory. Other agents ran on it, so each time has the load average next to it.
 
@@ -51,14 +51,14 @@ The 3 reads of each scope, byte for byte. Each scope gives one hash for its 3 do
 sha256sum with-tests-*.json without-tests-*.json
 ```
 
-The extractor at `ae9f1d8`, before the second round of fixes, gives the same 2 documents when `cmp` prints no line:
+The extractor at `ae9f1d8`, before the second round of fixes, gives the same 2 documents when `cmp` prints no line. The same commands with the tree `7741c6a` check the fourth round:
 
 ```sh
 mkdir <old source> && git -C <callmap> archive ae9f1d8:packages/extractor-go/go | tar -x -C <old source>
 cd <old source>
 GOFLAGS= GOTOOLCHAIN=local GOPROXY=off GOWORK=off go build -o /tmp/callmap-extract-go-ae9f1d8 .
-GOPROXY=off /tmp/callmap-extract-go-ae9f1d8 <gitea> | cmp - with-tests.json
-GOPROXY=off /tmp/callmap-extract-go-ae9f1d8 <gitea> --scope '!**/*_test.go' | cmp - without-tests.json
+GOPROXY=off /tmp/callmap-extract-go-ae9f1d8 <gitea> | cmp - <source>/with-tests.json
+GOPROXY=off /tmp/callmap-extract-go-ae9f1d8 <gitea> --scope '!**/*_test.go' | cmp - <source>/without-tests.json
 ```
 
 `readGraphDocument` accepts both documents when this prints `accepted`. Run it from the callmap checkout:
@@ -86,7 +86,7 @@ jq -r '.openEnds[] | "\(.reason) \(.expression | gsub("\\s+"; ""))"' with-tests.
 | With tests    | 3,144 | 16,079    | 81,787         | 3,635                 | 5,353     | 93.9% |
 | Without tests | 2,076 | 12,645    | 50,924         | 2,893                 | 1,232     | 97.6% |
 
-The rate does not count a library call. `readGraphDocument` accepts both documents. 3 reads of each scope gave the same document byte for byte. The extractor at `ae9f1d8`, before the second round of fixes, gives the same 2 documents byte for byte. So the second round changed no number on gitea. The first round changed some numbers, as the findings below say.
+The rate does not count a library call. `readGraphDocument` accepts both documents. 3 reads of each scope gave the same document byte for byte. The extractor at `ae9f1d8`, before the second round of fixes, gives the same 2 documents byte for byte. The extractor of the tree `7741c6a`, after the fourth round of fixes, gives them too. So the second, third and fourth rounds changed no number on gitea. The first round changed some numbers, as the findings below say.
 
 The open ends by reason:
 
@@ -216,7 +216,7 @@ awk -F'\t' '$1 == "IFACE" && $2 == "library-interface" {print $3}' with-tests.ts
 
 - **The tests add function values.** `defer tests.PrintCurrentTest(t)()` and `defer tests.PrepareTestEnv(t)()` call the cleanup function that a helper returns. They make 786 open ends, 461 and 325 in the row of "the result of a call". A test that calls a closure in a local variable, such as `test` in `cmd/main_test.go`, makes 337 more. So the rate falls from 97.6% to 93.9% with the tests.
 - **The database layer is a repo interface with only library implementations.** `models/db/engine.go:105` declares that `*xorm.Engine` and `*xorm.Session` implement `db.Engine`, `db.Session` and `db.EngineMigration`. No type in scope implements them. The owner decided on 2026-10-26 that such a call is a library call, and ADR-0028 records the rule. So 2,138 calls with tests and 1,920 without are library calls now, and the rate does not count them. The probe gives these counts with the first `awk` command of the library calls. They hold the aliases `base.EngineMigration` and `base.Session` of `modelmigration/base/db.go`, because the probe names the interface that an alias stands for.
-- **The rest of `no-implementation` takes its methods from an embedded interface.** `stringCache` implements `cache.StringCache`, but it takes `Get`, `Delete`, `IsExist` and `Ping` from the `backend` interface that it embeds. The type that implements `reqctx.RequestContext` takes its methods from `context.Context` and `RequestDataStore` in the same way. The extractor does not know the code that runs, so these calls stay open ends. Without the tests, `*Response` in `services/context/response.go` is the only implementation of `context.ResponseWriter`, and it takes `Header` from the `http.ResponseWriter` that it embeds. So 95 calls stay open ends. With the tests, the mock in `services/context/access_log_test.go` implements the interface too, and these calls are one-of groups.
+- **The rest of `no-implementation` takes its methods from an embedded interface.** `stringCache` implements `cache.StringCache`, but it takes `Get`, `Delete`, `IsExist` and `Ping` from the `backend` interface that it embeds. The type that implements `reqctx.RequestContext` takes its methods from `context.Context` and `RequestDataStore` in the same way. The extractor does not know the code that runs, so these calls stay open ends. Without the tests, `*Response` in `services/context/response.go` is the only implementation of `context.ResponseWriter`. It takes `Header` from the `http.ResponseWriter` that it embeds. So 95 calls stay open ends. With the tests, the mock in `services/context/access_log_test.go` implements the interface too, and these calls are one-of groups.
 - **A type parameter with a function type as its constraint is a function value.** `compression` was `other` in the second measurement. It is a `function-value` from a parameter now, as ADR-0028 says.
 - **A call through a library interface is the largest group of library calls.** `xorm.io/builder.Cond` gives 424 of them, `error` 418 and `context.Context` 182, with the tests. The second `awk` command of the library calls gives these counts.
 - **`go list` is the cold cost.** The first read of a repo takes about 20 times as long as the next one. In the first read, the go tool compiles the export data of the dependencies. A review on a new machine pays it once.

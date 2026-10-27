@@ -1,6 +1,10 @@
 # The Go extractor resolves each call site with `go/types`
 
-> Changed in part by ADR-0028. Decision 2 now has an exception. A call through an interface of the repo that no type in scope implements can be a library call. It is one when a loaded library type implements the interface. Decisions 5 and 6 change too. The test variants load only when a test file is in scope. The extractor loads only the packages of the files in scope, not each whole module. Decision 7 changes in 3 ways. A module that the root `go.work` does not use loads on its own, with `GOWORK=off`. The extractor removes `-trimpath` from `GOFLAGS`, as it removes `-mod`. It reads `GOFLAGS` from the go env file of `go env -w` too. ADR-0028 also records how a method matches an interface, and the rules of the resolver that follow the spec text.
+> Changed in part by ADR-0028:
+>
+> - Decision 2: a call through a repo interface that only a loaded library type implements is a library call.
+> - Decisions 5 and 6: the test variants load only when a test file is in scope.
+> - Decision 7: the extractor loads only the packages in scope. A module that the root `go.work` does not use loads with `GOWORK=off`. The extractor removes `-trimpath` from `GOFLAGS` and reads the go env file of `go env -w`.
 
 The Go extractor emits a graph document. It loads the packages in scope with `golang.org/x/tools/go/packages`, and `go/types` ties each call site to one function, like the TypeScript extractor does with its type checker. It does not use the call graph of `golang.org/x/tools` (SSA with CHA or VTA). A load error does not stop the extractor. A call into code that does not load becomes an open end. The owner made these decisions in a grilling on 2026-10-23 and 2026-10-24.
 

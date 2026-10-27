@@ -99,8 +99,8 @@ func calleeSelectorOf(fun ast.Expr) *ast.SelectorExpr {
 	return nil
 }
 
-// The type checker cannot find a name when its import does not resolve or the file that declares it
-// is missing. A callee whose type a local type error lost is untyped, not missing-module.
+// A missing name gives missing-module, and so does a callee that took its invalid type from one. A
+// callee whose type a local type error lost is untyped, not missing-module.
 func codeNotLoadedRule(each resolver, site callSite) (resolution, bool) {
 	ident := calleeIdentOf(site.call.Fun)
 	info := site.file.pkg.TypesInfo

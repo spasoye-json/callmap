@@ -143,6 +143,95 @@ describe('the base checkout of a review', () => {
       `go 1.22\n\nuse ${base}/billing\n\nuse (\n\t"${base}/money"\n\t./cart\n\t${elsewhere}\n)\n`,
     );
   });
+
+  it('points each replace line of an untracked go.work with an absolute path into the checkout at the same place in the base', async () => {
+    const repo = featureBranchRepo();
+    const elsewhere = tempDir('callmap-go-module-');
+    commitFile(repo, '.gitignore', 'go.work\n');
+    writeFileSync(
+      join(repo, 'go.work'),
+      [
+        'go 1.22',
+        '',
+        `replace example.com/a => ${repo}/a`,
+        '',
+        'replace (',
+        `\texample.com/b v1.0.0 => "${repo}/b"`,
+        '\texample.com/c => ./c',
+        `\texample.com/d => ${elsewhere}`,
+        '\texample.com/e => example.com/f v1.2.0',
+        ')',
+        '',
+      ].join('\n'),
+    );
+    const { goWork, base } = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({ goWork: readFileSync(join(path, 'go.work'), 'utf8'), base: path }),
+    );
+    expect(goWork).toBe(
+      [
+        'go 1.22',
+        '',
+        `replace example.com/a => ${base}/a`,
+        '',
+        'replace (',
+        `\texample.com/b v1.0.0 => "${base}/b"`,
+        '\texample.com/c => ./c',
+        `\texample.com/d => ${elsewhere}`,
+        '\texample.com/e => example.com/f v1.2.0',
+        ')',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('points a quoted path with a space in an untracked go.work into the checkout at the same place in the base', async () => {
+    const repo = featureBranchRepo();
+    commitFile(repo, '.gitignore', 'go.work\n');
+    writeFileSync(
+      join(repo, 'go.work'),
+      [
+        'go 1.22',
+        '',
+        `use "${repo}/re po/a"`,
+        '',
+        `use ( "${repo}/re po/b" )`,
+        '',
+        'use (',
+        `\t"${repo}/re po/c"`,
+        ')',
+        '',
+        `replace example.com/d => "${repo}/re po/d"`,
+        '',
+        'replace (',
+        `\texample.com/e => "${repo}/re po/e"`,
+        ')',
+        '',
+      ].join('\n'),
+    );
+    const { goWork, base } = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({ goWork: readFileSync(join(path, 'go.work'), 'utf8'), base: path }),
+    );
+    expect(goWork).toBe(
+      [
+        'go 1.22',
+        '',
+        `use "${base}/re po/a"`,
+        '',
+        `use ( "${base}/re po/b" )`,
+        '',
+        'use (',
+        `\t"${base}/re po/c"`,
+        ')',
+        '',
+        `replace example.com/d => "${base}/re po/d"`,
+        '',
+        'replace (',
+        `\texample.com/e => "${base}/re po/e"`,
+        ')',
+        '',
+      ].join('\n'),
+    );
+  });
 });
 
 describe('a branch that changed no function', () => {

@@ -125,28 +125,48 @@ const linkPackageFolders = (root: string, worktree: string): readonly string[] =
  */
 const GO_WORKSPACE_FILES = ['go.work', 'go.work.sum'];
 
-const inWorktree = (path: string, roots: readonly string[], worktree: string): string => {
+const pathInWorktree = (path: string, roots: readonly string[], worktree: string): string => {
   const root = roots.find((each) => path === each || path.startsWith(`${each}/`));
   return root === undefined ? path : `${worktree}${path.slice(root.length)}`;
 };
 
-const USE_LINE = /^(\s*use\s+)("?)([^\s"(]+)\2/;
-const LINE_IN_USE_BLOCK = /^(\s*)("?)([^\s")]+)\2/;
+const DIRECTIVE = /^(\s*(use|replace)\b)(.*)$/;
+const PATH = /"([^"]*)"|([^\s"()]+)/;
 
 const goWorkOfWorktree = (goWork: string, root: string, worktree: string): string => {
   const roots = [root, realpathSync(root)];
-  const pointed = (_: string, before: string, quote: string, path: string): string =>
-    `${before}${quote}${inWorktree(path, roots, worktree)}${quote}`;
-  let inUseBlock = false;
+  const rewriteFirstPath = (text: string): string =>
+    text.replace(PATH, (path, quoted?: string, bare?: string) =>
+      quoted === undefined
+        ? pathInWorktree(bare ?? path, roots, worktree)
+        : `"${pathInWorktree(quoted, roots, worktree)}"`,
+    );
+  const rewriteTarget = (text: string): string => {
+    const arrow = text.indexOf('=>');
+    return arrow === -1
+      ? text
+      : `${text.slice(0, arrow + 2)}${rewriteFirstPath(text.slice(arrow + 2))}`;
+  };
+  const rewriteEntry = (directive: string, text: string): string =>
+    directive === 'use' ? rewriteFirstPath(text) : rewriteTarget(text);
+  let block: string | undefined;
   return goWork
     .split('\n')
     .map((line) => {
-      if (inUseBlock) {
-        inUseBlock = !line.trim().startsWith(')');
-        return inUseBlock ? line.replace(LINE_IN_USE_BLOCK, pointed) : line;
+      if (block !== undefined) {
+        if (line.trim().startsWith(')')) {
+          block = undefined;
+          return line;
+        }
+        return rewriteEntry(block, line);
       }
-      inUseBlock = /^\s*use\s*\(/.test(line);
-      return line.replace(USE_LINE, pointed);
+      const [, before, directive, rest] = DIRECTIVE.exec(line) ?? [];
+      if (before === undefined || directive === undefined || rest === undefined) return line;
+      if (/^\s*\(\s*(\/\/.*)?$/.test(rest)) {
+        block = directive;
+        return line;
+      }
+      return `${before}${rewriteEntry(directive, rest)}`;
     })
     .join('\n');
 };
