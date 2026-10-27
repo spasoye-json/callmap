@@ -45,6 +45,9 @@ var rules = []rule{
 }
 
 func (each resolver) resolve(site callSite) resolution {
+	if site.call == nil {
+		return resolution{kind: openEndCall, reason: otherReason}
+	}
 	for _, apply := range rules {
 		if decided, found := apply(each, site); found {
 			return decided

@@ -172,7 +172,8 @@ func (order *writtenOrder) visitArguments(body *ast.BlockStmt) {
 }
 
 // cgo rewrites the text and the columns of a call into C, so a call pairs by its place in the order
-// of the calls of its function, once the calls that only one side holds drop out.
+// of the calls of its function, once the calls that only one side holds drop out. If the 2 orders
+// differ in length, a cgo form that the walk does not know is in the function, so no call pairs.
 func writtenCallsOf(typed *ast.FuncDecl, written *ast.FuncDecl) []pairedCall {
 	order := writtenOrder{calls: []*ast.CallExpr{}}
 	ast.Inspect(typed.Body, order.visit)
@@ -182,12 +183,13 @@ func writtenCallsOf(typed *ast.FuncDecl, written *ast.FuncDecl) []pairedCall {
 			writtenCalls = append(writtenCalls, call)
 		}
 	}
-	if len(order.calls) != len(writtenCalls) {
-		return []pairedCall{}
-	}
 	paired := make([]pairedCall, 0, len(writtenCalls))
 	for index, call := range writtenCalls {
-		paired = append(paired, pairedCall{typed: order.calls[index], written: call})
+		if len(order.calls) == len(writtenCalls) {
+			paired = append(paired, pairedCall{typed: order.calls[index], written: call})
+		} else {
+			paired = append(paired, pairedCall{written: call})
+		}
 	}
 	return paired
 }
