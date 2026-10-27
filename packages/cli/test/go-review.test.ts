@@ -151,6 +151,56 @@ describe('callmap review of a Go call into code that does not load', () => {
   }, 60_000);
 });
 
+const GO_MOD_THAT_NEEDS_AN_UPDATE = [
+  'module example.com/tools',
+  '',
+  'go 1.22',
+  '',
+  'require example.com/lint v1.0.0',
+  'require example.com/lint v1.1.0',
+  '',
+].join('\n');
+
+const commitRefusedModule = (repo: string, folder: string): void => {
+  mkdirSync(join(repo, folder));
+  commitFile(repo, `${folder}/go.mod`, GO_MOD_THAT_NEEDS_AN_UPDATE);
+  commitFile(repo, `${folder}/lint.go`, 'package tools\n\nfunc Lint() {}\n');
+};
+
+const skippedModuleLineOf = (folder: string): RegExp =>
+  new RegExp(
+    `^callmap skipped the Go module in ${folder}, because the go tool refused it: .*updates to go.mod needed.*$`,
+  );
+
+describe('callmap review of a Go module that the go tool refuses', () => {
+  it('writes the page, and prints one line that names the module it skipped', () => {
+    const root = goRepo();
+    commitRefusedModule(root, 'tools');
+    const { html, stderr } = reviewOf(root, tempDir('callmap-cache-'));
+    const lines = stderr.split('\n').filter((line) => line !== '');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(skippedModuleLineOf('tools'));
+    expect(pageDataOf(html).review.functions.map(({ id }) => id)).toContain(`${CHECKOUT}#Total`);
+  }, 60_000);
+
+  it('prints the line once when the base and the branch both skip the module, and one line for each module', () => {
+    const root = goRepo();
+    commitRefusedModule(root, 'tools');
+    commitRefusedModule(root, 'lint');
+    const out = join(tempDir('callmap-out-'), 'review.html');
+    const finished = runCallmap(
+      ['review', root, '--no-open', '--no-cache', '--base', 'HEAD', '--out', out],
+      undefined,
+      tempDir('callmap-cache-'),
+    );
+    expect(finished.status, finished.stderr).toBe(0);
+    const lines = finished.stderr.split('\n').filter((line) => line !== '');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatch(skippedModuleLineOf('lint'));
+    expect(lines[1]).toMatch(skippedModuleLineOf('tools'));
+  }, 60_000);
+});
+
 describe('callmap review with no go on the PATH', () => {
   it('writes the TypeScript page, and prints one line that it skipped Go', () => {
     const skipped = reviewOf(goRepo(), tempDir('callmap-cache-'), pathWithoutGo());

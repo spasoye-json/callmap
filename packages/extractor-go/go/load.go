@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -174,9 +176,9 @@ func workspaceModulesOf(repo string, goWork string, goFlags string) (map[string]
 // each import between them as a build does. A module that the go.work does not use loads on its
 // own, so its files still enter the document. A package that does not load comes back with its
 // errors on it, and a module that the go tool refuses, such as one that needs a newer go, is left
-// out, so neither stops the extractor. A go.work that the go tool refuses leaves each module to
-// load on its own.
-func load(repo string, inScope map[string][]string, tests bool) ([]*packages.Package, error) {
+// out with one line on stderr, so neither stops the extractor. A go.work that the go tool refuses
+// leaves each module to load on its own, with one line on stderr.
+func load(repo string, inScope map[string][]string, tests bool, stderr io.Writer) ([]*packages.Package, error) {
 	if len(inScope) == 0 {
 		return []*packages.Package{}, nil
 	}
@@ -190,11 +192,12 @@ func load(repo string, inScope map[string][]string, tests bool) ([]*packages.Pac
 	}
 	moduleRoots := slices.Sorted(maps.Keys(inScope))
 	if !inWorkspace {
-		return loadEachOnItsOwn(repo, goFlags, inScope, moduleRoots, tests), nil
+		return loadEachOnItsOwn(repo, goFlags, inScope, moduleRoots, tests, stderr), nil
 	}
 	loaded := []*packages.Package{}
 	alone := moduleRoots
-	if used, err := workspaceModulesOf(repo, goWork, goFlags); err == nil {
+	used, err := workspaceModulesOf(repo, goWork, goFlags)
+	if err == nil {
 		patterns := []string{}
 		apart := []string{}
 		for _, root := range moduleRoots {
@@ -206,20 +209,38 @@ func load(repo string, inScope map[string][]string, tests bool) ([]*packages.Pac
 		}
 		if len(patterns) == 0 {
 			alone = apart
-		} else if fromWorkspace, err := loadFrom(repo, goFlags, goWork, patterns, tests); err == nil {
+		} else if fromWorkspace, loadErr := loadFrom(repo, goFlags, goWork, patterns, tests); loadErr == nil {
 			loaded, alone = fromWorkspace, apart
+		} else {
+			err = loadErr
 		}
 	}
-	return append(loaded, loadEachOnItsOwn(repo, goFlags, inScope, alone, tests)...), nil
+	if err != nil {
+		fmt.Fprintf(stderr, "callmap read each Go module on its own, because the go tool refused the go.work: %s\n", oneLineOf(err))
+	}
+	return append(loaded, loadEachOnItsOwn(repo, goFlags, inScope, alone, tests, stderr)...), nil
 }
 
-func loadEachOnItsOwn(repo string, goFlags string, inScope map[string][]string, moduleRoots []string, tests bool) []*packages.Package {
+func loadEachOnItsOwn(repo string, goFlags string, inScope map[string][]string, moduleRoots []string, tests bool, stderr io.Writer) []*packages.Package {
 	loaded := []*packages.Package{}
 	for _, root := range moduleRoots {
 		found, err := loadFrom(filepath.Join(repo, filepath.FromSlash(root)), goFlags, "off", patternsOf(root, inScope[root]), tests)
 		if err == nil {
 			loaded = append(loaded, found...)
+		} else {
+			fmt.Fprintf(stderr, "callmap skipped the Go module %s, because the go tool refused it: %s\n", moduleNameOf(root), oneLineOf(err))
 		}
 	}
 	return loaded
+}
+
+func moduleNameOf(root string) string {
+	if root == "" {
+		return "at the root of the repo"
+	}
+	return "in " + root
+}
+
+func oneLineOf(err error) string {
+	return strings.Join(strings.Fields(err.Error()), " ")
 }

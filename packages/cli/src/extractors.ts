@@ -5,11 +5,16 @@ import type { GraphDocument } from '@callmap/graph-document';
 import { assets } from './assets.ts';
 import type { CachedExtractor } from './base-cache.ts';
 
+interface FinishedExtractorProcess {
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
 const runExtractorProcess = (
   command: string,
   args: readonly string[],
   env: Readonly<Record<string, string>> = {},
-): Promise<string> =>
+): Promise<FinishedExtractorProcess> =>
   new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -21,7 +26,11 @@ const runExtractorProcess = (
     child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
     child.on('error', reject);
     child.on('close', (code) => {
-      if (code === 0) resolve(Buffer.concat(stdout).toString('utf8'));
+      if (code === 0)
+        resolve({
+          stdout: Buffer.concat(stdout).toString('utf8'),
+          stderr: Buffer.concat(stderr).toString('utf8'),
+        });
       else reject(new Error(Buffer.concat(stderr).toString('utf8').trim()));
     });
   });
@@ -33,6 +42,7 @@ export interface Extractor extends CachedExtractor {
   readonly claimsAnyOf: (inScope: readonly string[], files: readonly string[]) => boolean;
   readonly readsInParallel: boolean;
   readonly skipNote?: () => string | undefined;
+  readonly notes?: () => readonly string[];
   readonly extract: (repo: string, scope: readonly string[]) => Promise<GraphDocument>;
 }
 
@@ -55,14 +65,16 @@ export const typescriptExtractor = (tsconfig: string | undefined): Extractor => 
   extract: async (repo, scope) =>
     readGraphDocument(
       JSON.parse(
-        await runExtractorProcess(process.execPath, [
-          assets.typescriptExtractor,
-          repo,
-          ...scopeArgumentsOf(scope),
-          ...(tsconfig === undefined
-            ? []
-            : ['--tsconfig', isAbsolute(tsconfig) ? tsconfig : join(repo, tsconfig)]),
-        ]),
+        (
+          await runExtractorProcess(process.execPath, [
+            assets.typescriptExtractor,
+            repo,
+            ...scopeArgumentsOf(scope),
+            ...(tsconfig === undefined
+              ? []
+              : ['--tsconfig', isAbsolute(tsconfig) ? tsconfig : join(repo, tsconfig)]),
+          ])
+        ).stdout,
       ),
     ),
 });
@@ -126,6 +138,10 @@ const goBuildSettings = (): readonly string[] => {
   });
 };
 
+/** The lines that packages/extractor-go/go/load.go writes to stderr about a module it skipped. */
+const goNotesIn = (stderr: string): readonly string[] =>
+  stderr.split('\n').filter((line) => line.startsWith('callmap '));
+
 const directoryOf = (path: string): string => path.split('/').slice(0, -1).join('/');
 
 const isGoMod = (path: string): boolean => path === 'go.mod' || path.endsWith('/go.mod');
@@ -156,6 +172,7 @@ const once = <T>(read: () => T): (() => T) => {
 export const goExtractor = (): Extractor => {
   const goVersion = once(goVersionOnPath);
   const buildSettings = once(goBuildSettings);
+  const notes = new Set<string>();
   return {
     language: 'go',
     dependencyFiles: ['go.work', '**/go.sum', '**/go.work.sum'],
@@ -169,16 +186,16 @@ export const goExtractor = (): Extractor => {
     },
     readsInParallel: false,
     skipNote: () => goSkipNoteOf(goVersion()),
-    extract: async (repo, scope) =>
-      readGraphDocument(
-        JSON.parse(
-          await runExtractorProcess(
-            process.execPath,
-            [assets.goExtractor, repo, ...scopeArgumentsOf(scope)],
-            assets.goExtractorEnv(goVersion() ?? ''),
-          ),
-        ),
-      ),
+    notes: () => [...notes],
+    extract: async (repo, scope) => {
+      const { stdout, stderr } = await runExtractorProcess(
+        process.execPath,
+        [assets.goExtractor, repo, ...scopeArgumentsOf(scope)],
+        assets.goExtractorEnv(goVersion() ?? ''),
+      );
+      for (const note of goNotesIn(stderr)) notes.add(note);
+      return readGraphDocument(JSON.parse(stdout));
+    },
   };
 };
 

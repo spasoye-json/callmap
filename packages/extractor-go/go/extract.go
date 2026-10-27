@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -45,7 +46,7 @@ func extract(repo string, scope []string) (document, error) {
 	if err != nil {
 		return document{}, err
 	}
-	loaded, err := load(root, packagesInScope(found, scope), testsInScope(found, scope))
+	loaded, err := load(root, packagesInScope(found, scope), testsInScope(found, scope), os.Stderr)
 	if err != nil {
 		return document{}, err
 	}

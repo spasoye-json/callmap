@@ -147,5 +147,12 @@ export const runReview = async (
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, html);
   if (invocation.open) openInBrowser(out);
-  return { out, notes: [...checked.flatMap(({ skipNote }) => skipNote ?? []), ...notes] };
+  return {
+    out,
+    notes: [
+      ...checked.flatMap(({ skipNote }) => skipNote ?? []),
+      ...checked.flatMap(({ extractor }) => extractor.notes?.() ?? []),
+      ...notes,
+    ],
+  };
 };
