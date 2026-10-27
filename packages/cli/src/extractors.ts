@@ -96,6 +96,36 @@ const goSkipNoteOf = (goVersion: string | undefined): string | undefined => {
   return `callmap skipped the Go files, because the Go extractor needs go ${major}.${minor} or later, and the go on the PATH is ${older}.`;
 };
 
+const isTrimpath = (flag: string): boolean => {
+  const name = flag.replace(/^-/, '').split('=')[0];
+  return name === '-trimpath' || name === 'trimpath';
+};
+
+/** The flags that `keptGoFlags` in packages/extractor-go/go/load.go keeps, so the two agree. */
+const keptGoFlags = (flags: string): string =>
+  flags
+    .split(/\s+/)
+    .filter(
+      (flag) =>
+        flag !== '' && !flag.startsWith('-mod=') && !flag.startsWith('--mod=') && !isTrimpath(flag),
+    )
+    .join(' ');
+
+const GO_BUILD_SETTINGS = ['CGO_ENABLED', 'GOOS', 'GOARCH', 'GOEXPERIMENT', 'GOFLAGS'] as const;
+
+/** The go env settings that choose the files of one build, as the load of the repo sees them. */
+const goBuildSettings = (): readonly string[] => {
+  const finished = spawnSync('go', ['env', ...GO_BUILD_SETTINGS], {
+    encoding: 'utf8',
+    env: { ...process.env, GOTOOLCHAIN: 'local' },
+  });
+  const values = finished.error === undefined ? finished.stdout.split('\n') : [];
+  return GO_BUILD_SETTINGS.map((setting, index) => {
+    const value = values[index] ?? '';
+    return `${setting}=${setting === 'GOFLAGS' ? keptGoFlags(value) : value}`;
+  });
+};
+
 const directoryOf = (path: string): string => path.split('/').slice(0, -1).join('/');
 
 const isGoMod = (path: string): boolean => path === 'go.mod' || path.endsWith('/go.mod');
@@ -125,10 +155,13 @@ const once = <T>(read: () => T): (() => T) => {
 
 export const goExtractor = (): Extractor => {
   const goVersion = once(goVersionOnPath);
+  const buildSettings = once(goBuildSettings);
   return {
     language: 'go',
     dependencyFiles: ['go.work', '**/go.sum', '**/go.work.sum'],
-    options: [],
+    get options() {
+      return buildSettings();
+    },
     version: () => assets.goExtractorVersion(goVersion() ?? ''),
     claimsAnyOf: (inScope, files) => {
       const moduleDirs = new Set(files.filter(isGoMod).map(directoryOf));

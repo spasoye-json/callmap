@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GraphDocument } from '@callmap/graph-document';
 import { throughBaseCache } from '../src/base-cache.ts';
 import type { CachedExtractor } from '../src/base-cache.ts';
@@ -204,6 +204,7 @@ const documentOf = (language: string, file: string): GraphDocument => ({
 describe('the base cache with one entry for each language', () => {
   const previousCacheHome = process.env['XDG_CACHE_HOME'];
   afterEach(() => {
+    vi.unstubAllEnvs();
     if (previousCacheHome === undefined) delete process.env['XDG_CACHE_HOME'];
     else process.env['XDG_CACHE_HOME'] = previousCacheHome;
   });
@@ -288,6 +289,34 @@ describe('the base cache with one entry for each language', () => {
     writeFileSync(join(checkout, 'go.work'), 'go 1.22\n\nuse (\n\t./a\n\t./b\n)\n');
     expect((await reviewBase(checkout, [TYPESCRIPT, GO])).read).toEqual(['go']);
   });
+
+  it.each([
+    ['CGO_ENABLED', '1', '0'],
+    ['GOOS', 'linux', 'windows'],
+    ['GOARCH', 'amd64', 'arm64'],
+    ['GOEXPERIMENT', '', 'jsonv2'],
+    ['GOFLAGS', '-tags=integration', '-tags=integration,cloud'],
+  ])(
+    'misses the Go entry after a change of the Go build setting %s',
+    async (setting, first, second) => {
+      const checkout = newCheckout();
+      vi.stubEnv(setting, first);
+      await reviewBase(checkout, [goExtractor()]);
+      expect((await reviewBase(checkout, [goExtractor()])).read).toEqual([]);
+      vi.stubEnv(setting, second);
+      expect((await reviewBase(checkout, [goExtractor()])).read).toEqual(['go']);
+      expect(entriesOf(process.env['XDG_CACHE_HOME'] ?? '')).toHaveLength(2);
+    },
+    30_000,
+  );
+
+  it('keeps the Go entry after a change of a -mod flag, which the extractor drops from GOFLAGS', async () => {
+    const checkout = newCheckout();
+    vi.stubEnv('GOFLAGS', '-tags=integration -mod=mod');
+    await reviewBase(checkout, [goExtractor()]);
+    vi.stubEnv('GOFLAGS', '-tags=integration -mod=readonly');
+    expect((await reviewBase(checkout, [goExtractor()])).read).toEqual([]);
+  }, 30_000);
 
   it('does not give the entry of one language to another language with the same version', async () => {
     const checkout = newCheckout();
