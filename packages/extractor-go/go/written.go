@@ -6,7 +6,6 @@ import (
 	"go/parser"
 	"go/token"
 	"regexp"
-	"strings"
 )
 
 type pairedCall struct {
@@ -87,8 +86,10 @@ func isCallIntoC(call *ast.CallExpr) bool {
 	return isIdent && ident.Name == "C"
 }
 
+var cgoName = regexp.MustCompile(`^(_C(2func|func|type|macro|var|fpvar|iconst|fconst|sconst)_|_Cgo_(ptr|use|keepalive)$|_cgoCheck(Pointer|Result)$|_cgo(Index|Base|Slice)?\d+$)`)
+
 func isCgoName(name string) bool {
-	return strings.HasPrefix(name, "_C") || strings.HasPrefix(name, "_cgo")
+	return cgoName.MatchString(name)
 }
 
 func callsCgoName(call *ast.CallExpr) bool {
@@ -96,8 +97,8 @@ func callsCgoName(call *ast.CallExpr) bool {
 	return isIdent && isCgoName(ident.Name)
 }
 
-// cgo rewrites a call into C that passes a Go pointer into a func literal that binds each argument to
-// a _cgo name first. A deferred call takes one more func literal, which returns the first.
+// cgo wraps a call into C that passes a Go pointer in a func literal. The literal first binds each
+// argument to a _cgo name. A deferred call takes one more func literal, which returns the first.
 func cgoCheckBodyOf(call *ast.CallExpr) *ast.BlockStmt {
 	fun := ast.Unparen(call.Fun)
 	if deferred, isCall := fun.(*ast.CallExpr); isCall && len(deferred.Args) == 0 {
@@ -131,9 +132,9 @@ func cgoBindingOf(statement ast.Stmt) (string, ast.Expr) {
 
 var cgoArgument = regexp.MustCompile(`^_cgo\d+$`)
 
-// The calls of a typed body in the order that callsIn finds them in the repo file. cgo moves part of
-// an argument, such as `a` of `&a[i]`, into a _cgoIndex, _cgoBase or _cgoSlice name before the
-// argument, so the walk visits that part where the argument names it.
+// cgo moves a part of an argument, such as `a` of `&a[i]`, to a _cgoIndex, _cgoBase or _cgoSlice
+// name. That name comes before the argument. So the walk visits the part where the argument names
+// it, as callsIn does in the repo file.
 type writtenOrder struct {
 	calls []*ast.CallExpr
 	moved map[string]ast.Expr
@@ -171,9 +172,9 @@ func (order *writtenOrder) visitArguments(body *ast.BlockStmt) {
 	order.moved = outer
 }
 
-// cgo rewrites the text and the columns of a call into C, so a call pairs by its place in the order
-// of the calls of its function, once the calls that only one side holds drop out. If the 2 orders
-// differ in length, a cgo form that the walk does not know is in the function, so no call pairs.
+// cgo rewrites the text and the columns of a call into C. So a call pairs by its place in the calls of
+// its function. The calls that only one side holds drop out first. If the 2 orders differ in length,
+// the function holds a cgo form that the walk does not know. Then no call pairs.
 func writtenCallsOf(typed *ast.FuncDecl, written *ast.FuncDecl) []pairedCall {
 	order := writtenOrder{calls: []*ast.CallExpr{}}
 	ast.Inspect(typed.Body, order.visit)
@@ -183,13 +184,13 @@ func writtenCallsOf(typed *ast.FuncDecl, written *ast.FuncDecl) []pairedCall {
 			writtenCalls = append(writtenCalls, call)
 		}
 	}
+	typedCalls := order.calls
+	if len(typedCalls) != len(writtenCalls) {
+		typedCalls = make([]*ast.CallExpr, len(writtenCalls))
+	}
 	paired := make([]pairedCall, 0, len(writtenCalls))
 	for index, call := range writtenCalls {
-		if len(order.calls) == len(writtenCalls) {
-			paired = append(paired, pairedCall{typed: order.calls[index], written: call})
-		} else {
-			paired = append(paired, pairedCall{written: call})
-		}
+		paired = append(paired, pairedCall{typed: typedCalls[index], written: call})
 	}
 	return paired
 }

@@ -259,7 +259,7 @@ describe('the base cache with one entry for each language', () => {
     expect((await reviewBase(checkout, [newTypescript, newGo])).read).toEqual(['typescript']);
   });
 
-  it('misses only the entry of the language whose lock file changed', async () => {
+  it('misses only the entry of the language whose dependency file changed', async () => {
     const checkout = newCheckout();
     writeFileSync(join(checkout, 'go.sum'), 'example.com/a v1.0.0 h1:a=\n');
     writeFileSync(join(checkout, 'package-lock.json'), '{ "lockfileVersion": 3 }\n');
@@ -270,12 +270,12 @@ describe('the base cache with one entry for each language', () => {
 
   it.each(['tools/go.sum', 'work/go.work.sum'])(
     'misses the Go entry after a change of %s below the root of the checkout',
-    async (lockFile) => {
+    async (dependencyFile) => {
       const checkout = newCheckout();
-      mkdirSync(join(checkout, dirname(lockFile)));
-      writeFileSync(join(checkout, lockFile), 'example.com/a v1.0.0 h1:a=\n');
+      mkdirSync(join(checkout, dirname(dependencyFile)));
+      writeFileSync(join(checkout, dependencyFile), 'example.com/a v1.0.0 h1:a=\n');
       await reviewBase(checkout, [TYPESCRIPT, GO]);
-      writeFileSync(join(checkout, lockFile), 'example.com/a v1.0.1 h1:b=\n');
+      writeFileSync(join(checkout, dependencyFile), 'example.com/a v1.0.1 h1:b=\n');
       expect((await reviewBase(checkout, [TYPESCRIPT, GO])).read).toEqual(['go']);
     },
   );

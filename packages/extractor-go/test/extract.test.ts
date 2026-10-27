@@ -631,6 +631,21 @@ describe('extractGo', () => {
     ]);
   });
 
+  it('ties a call of a repo function whose name starts with _C in a file that imports C', () => {
+    const document = cgoPayOf(
+      'func _Cleanup() {}',
+      '',
+      'func Pay() {',
+      '	g(); _Cleanup(); g()',
+      '}',
+    );
+    expect(callsAndOpenEndsOfPay(document)).toEqual([
+      ['pay/pay.go#g', '', LINE + 3],
+      ['pay/pay.go#_Cleanup', '', LINE + 3],
+      ['pay/pay.go#g', '', LINE + 3],
+    ]);
+  });
+
   it('ties a call into a file that imports C in another module of the repo that a replace loads', () => {
     const { calls, openEnds } = extractGo({
       repo: repoOf({

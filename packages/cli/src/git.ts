@@ -131,15 +131,15 @@ const pathInWorktree = (path: string, roots: readonly string[], worktree: string
 };
 
 const DIRECTIVE = /^(\s*(use|replace)\b)(.*)$/;
-const PATH = /"([^"]*)"|([^\s"()]+)/;
+const GO_WORK_PATH = /(["`])(.*?)\1|([^\s"`()]+)/;
 
 const goWorkOfWorktree = (goWork: string, root: string, worktree: string): string => {
   const roots = [root, realpathSync(root)];
   const rewriteFirstPath = (text: string): string =>
-    text.replace(PATH, (path, quoted?: string, bare?: string) =>
-      quoted === undefined
+    text.replace(GO_WORK_PATH, (path, quote?: string, quoted?: string, bare?: string) =>
+      quote === undefined || quoted === undefined
         ? pathInWorktree(bare ?? path, roots, worktree)
-        : `"${pathInWorktree(quoted, roots, worktree)}"`,
+        : `${quote}${pathInWorktree(quoted, roots, worktree)}${quote}`,
     );
   const rewriteTarget = (text: string): string => {
     const arrow = text.indexOf('=>');

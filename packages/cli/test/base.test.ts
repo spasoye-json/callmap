@@ -232,6 +232,43 @@ describe('the base checkout of a review', () => {
       ].join('\n'),
     );
   });
+
+  it('points a backquoted path with a space in an untracked go.work into the checkout at the same place in the base', async () => {
+    const repo = featureBranchRepo();
+    commitFile(repo, '.gitignore', 'go.work\n');
+    writeFileSync(
+      join(repo, 'go.work'),
+      [
+        'go 1.22',
+        '',
+        `use \`${repo}/re po/a\``,
+        '',
+        'use (',
+        `\t\`${repo}/re po/b\``,
+        ')',
+        '',
+        `replace example.com/c => \`${repo}/re po/c\``,
+        '',
+      ].join('\n'),
+    );
+    const { goWork, base } = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({ goWork: readFileSync(join(path, 'go.work'), 'utf8'), base: path }),
+    );
+    expect(goWork).toBe(
+      [
+        'go 1.22',
+        '',
+        `use \`${base}/re po/a\``,
+        '',
+        'use (',
+        `\t\`${base}/re po/b\``,
+        ')',
+        '',
+        `replace example.com/c => \`${base}/re po/c\``,
+        '',
+      ].join('\n'),
+    );
+  });
 });
 
 describe('a branch that changed no function', () => {

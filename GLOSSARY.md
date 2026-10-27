@@ -164,6 +164,10 @@ _Avoid_: PR view, change summary
 The commit that a review compares the branch against: the merge base with the default branch, or the commit that `--base` names. The top bar names the base as git names it, such as `origin/main`, or as the reader typed it, such as `HEAD~8`.
 _Avoid_: target, parent, main
 
+**Dependency file**:
+A file of the checkout that decides which code from outside the repo a language loads. The cache keeps one entry of the base for each language. A change of a dependency file reads the base of its language again. The dependency files of TypeScript are the lock files of npm, Yarn, pnpm and Bun. The dependency files of Go are every `go.sum` and every `go.work.sum`, and the `go.work` at the repo root.
+_Avoid_: lock file, for a file of Go
+
 **Changed function**:
 A function that the branch added, removed, or changed in its body.
 _Avoid_: touched function, dirty function

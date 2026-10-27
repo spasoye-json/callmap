@@ -9,7 +9,13 @@ describe('the Go tests of the extractor', () => {
     const finished = spawnSync('go', ['test', './...'], {
       cwd: PROGRAM,
       encoding: 'utf8',
-      env: { ...process.env, GOTOOLCHAIN: 'local', GOPROXY: 'off', GOFLAGS: '-mod=vendor' },
+      env: {
+        ...process.env,
+        GOTOOLCHAIN: 'local',
+        GOPROXY: 'off',
+        GOFLAGS: '-mod=vendor',
+        GOWORK: 'off',
+      },
     });
     expect(finished.error).toBeUndefined();
     expect(finished.status, `${finished.stdout}${finished.stderr}`).toBe(0);
