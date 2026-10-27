@@ -1,7 +1,8 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fireEvent, within } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
+import { inWorktreeAt } from '../src/git.ts';
 import { commitFile, featureBranchRepo, git } from './fixture-repo.ts';
 import {
   boxesOf,
@@ -110,6 +111,22 @@ describe('the base checkout of a review', () => {
     expect(review.openEnds).toEqual([]);
     expect(git(repo, 'status', '--porcelain', '--ignored')).toBe('!! node_modules/');
   }, 60_000);
+
+  it('holds the go.work and go.work.sum of the repo root that git ignores or does not track, and no other ignored file', async () => {
+    const repo = featureBranchRepo();
+    commitFile(repo, '.gitignore', 'go.work\n.env\n');
+    writeFileSync(join(repo, 'go.work'), 'go 1.22\n\nuse .\n');
+    writeFileSync(join(repo, 'go.work.sum'), '');
+    writeFileSync(join(repo, '.env'), 'TOKEN=1\n');
+    const seen = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({
+        goWork: readFileSync(join(path, 'go.work'), 'utf8'),
+        goWorkSum: existsSync(join(path, 'go.work.sum')),
+        env: existsSync(join(path, '.env')),
+      }),
+    );
+    expect(seen).toEqual({ goWork: 'go 1.22\n\nuse .\n', goWorkSum: true, env: false });
+  });
 });
 
 describe('a branch that changed no function', () => {

@@ -30,7 +30,7 @@ const scopeArgumentsOf = (scope: readonly string[]): readonly string[] =>
   scope.flatMap((glob) => ['--scope', glob]);
 
 export interface Extractor extends CachedExtractor {
-  readonly claims: (path: string) => boolean;
+  readonly claimsAnyOf: (inScope: readonly string[], files: readonly string[]) => boolean;
   readonly readsInParallel: boolean;
   readonly skipNote?: () => string | undefined;
   readonly extract: (repo: string, scope: readonly string[]) => Promise<GraphDocument>;
@@ -50,7 +50,7 @@ export const typescriptExtractor = (tsconfig: string | undefined): Extractor => 
   ],
   options: tsconfig === undefined ? [] : [tsconfig],
   version: () => assets.typescriptExtractorVersion(),
-  claims: (path) => TYPESCRIPT_FILE.test(path),
+  claimsAnyOf: (inScope) => inScope.some((path) => TYPESCRIPT_FILE.test(path)),
   readsInParallel: true,
   extract: async (repo, scope) =>
     readGraphDocument(
@@ -75,6 +75,49 @@ const goVersionOnPath = (): string | undefined => {
   return finished.error === undefined && finished.status === 0 ? finished.stdout : undefined;
 };
 
+/** The go line of the go.mod of the Go extractor. An older go cannot build it. */
+const GO_THAT_BUILDS_THE_EXTRACTOR = [1, 26] as const;
+
+const goOlderThanTheExtractorNeeds = (goVersion: string): string | undefined => {
+  const found = /go(\d+)\.(\d+)\S*/.exec(goVersion);
+  if (found === null) return undefined;
+  const [major, minor] = GO_THAT_BUILDS_THE_EXTRACTOR;
+  const older =
+    Number(found[1]) < major || (Number(found[1]) === major && Number(found[2]) < minor);
+  return older ? found[0] : undefined;
+};
+
+const goSkipNoteOf = (goVersion: string | undefined): string | undefined => {
+  if (goVersion === undefined)
+    return 'callmap skipped the Go files, because go is not on the PATH.';
+  const older = goOlderThanTheExtractorNeeds(goVersion);
+  if (older === undefined) return undefined;
+  const [major, minor] = GO_THAT_BUILDS_THE_EXTRACTOR;
+  return `callmap skipped the Go files, because the Go extractor needs go ${major}.${minor} or later, and the go on the PATH is ${older}.`;
+};
+
+const directoryOf = (path: string): string => path.split('/').slice(0, -1).join('/');
+
+const isGoMod = (path: string): boolean => path === 'go.mod' || path.endsWith('/go.mod');
+
+/** The directories that `skipped` in packages/extractor-go/go/walk.go names, so the two agree. */
+const goSkipsDirectory = (name: string): boolean =>
+  name === 'vendor' ||
+  name === 'testdata' ||
+  name === 'node_modules' ||
+  name.startsWith('.') ||
+  name.startsWith('_');
+
+const goWalkReads = (path: string, moduleDirs: ReadonlySet<string>): boolean => {
+  if (!path.endsWith('.go')) return false;
+  const dirs = path.split('/').slice(0, -1);
+  if (dirs.some(goSkipsDirectory)) return false;
+  return (
+    dirs.some((_, index) => moduleDirs.has(dirs.slice(0, index + 1).join('/'))) ||
+    moduleDirs.has('')
+  );
+};
+
 const once = <T>(read: () => T): (() => T) => {
   let done: { readonly value: T } | undefined;
   return () => (done ??= { value: read() }).value;
@@ -87,12 +130,12 @@ export const goExtractor = (): Extractor => {
     lockFiles: ['**/go.sum', '**/go.work.sum'],
     options: [],
     version: () => assets.goExtractorVersion(goVersion() ?? ''),
-    claims: (path) => path.endsWith('.go'),
+    claimsAnyOf: (inScope, files) => {
+      const moduleDirs = new Set(files.filter(isGoMod).map(directoryOf));
+      return inScope.some((path) => goWalkReads(path, moduleDirs));
+    },
     readsInParallel: false,
-    skipNote: () =>
-      goVersion() === undefined
-        ? 'callmap skipped the Go files, because go is not on the PATH.'
-        : undefined,
+    skipNote: () => goSkipNoteOf(goVersion()),
     extract: async (repo, scope) =>
       readGraphDocument(
         JSON.parse(

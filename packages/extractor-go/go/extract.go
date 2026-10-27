@@ -10,11 +10,11 @@ import (
 )
 
 func calleePositionOf(site callSite) token.Position {
-	at := site.call.Fun
-	if ident := calleeIdentOf(site.call.Fun); ident != nil {
+	at := site.written.Fun
+	if ident := calleeIdentOf(site.written.Fun); ident != nil {
 		at = ident
 	}
-	return site.file.placeOf(at.Pos())
+	return positionOf(site.file.writtenSet, at.Pos())
 }
 
 func lineOf(site callSite) int {
@@ -27,8 +27,8 @@ func groupOf(site callSite) string {
 }
 
 func sourceTextOf(site callSite, node ast.Node) string {
-	start := site.file.placeOf(node.Pos())
-	end := site.file.placeOf(node.End())
+	start := positionOf(site.file.writtenSet, node.Pos())
+	end := positionOf(site.file.writtenSet, node.End())
 	return string(site.file.source[start.Offset:end.Offset])
 }
 
@@ -45,7 +45,7 @@ func extract(repo string, scope []string) (document, error) {
 	if err != nil {
 		return document{}, err
 	}
-	loaded, err := load(root, moduleRootsOf(found, scope), testsInScope(found, scope))
+	loaded, err := load(root, packagesInScope(found, scope), testsInScope(found, scope))
 	if err != nil {
 		return document{}, err
 	}
@@ -90,7 +90,7 @@ func extract(repo string, scope []string) (document, error) {
 			openEnds = append(openEnds, openEnd{
 				Caller:     site.caller,
 				Line:       lineOf(site),
-				Expression: sourceTextOf(site, site.call.Fun),
+				Expression: sourceTextOf(site, site.written.Fun),
 				Reason:     resolved.reason,
 			})
 		}

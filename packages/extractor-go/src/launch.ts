@@ -29,8 +29,8 @@ export interface GoExtractOptions {
 }
 
 /**
- * The Go program to build. A host that carries the program elsewhere, such as the npm package
- * with the program in its dist folder, names it in CALLMAP_GO_EXTRACTOR_SOURCE.
+ * A host that carries the program elsewhere, such as the npm package with the program in its dist
+ * folder, names it in CALLMAP_GO_EXTRACTOR_SOURCE.
  */
 const PROGRAM = process.env['CALLMAP_GO_EXTRACTOR_SOURCE'] ?? join(import.meta.dirname, '../go');
 
@@ -52,13 +52,23 @@ const withoutModFlag = (flags: string): string =>
     .filter((flag) => flag !== '' && !flag.startsWith('-mod=') && !flag.startsWith('--mod='))
     .join(' ');
 
+/** A GOFLAGS from `go env -w` is in the go env file, not in the environment. */
+const effectiveGoFlags = (): string => {
+  const finished = spawnSync('go', ['env', 'GOFLAGS'], {
+    encoding: 'utf8',
+    env: { ...process.env, GOTOOLCHAIN: 'local' },
+  });
+  return finished.error === undefined ? finished.stdout.trim() : '';
+};
+
 /**
  * The build reads only the vendored modules of the extractor, with the local go, so it needs no
- * network. GOWORK is off because the package can sit inside a repo with its own go.work.
+ * network. GOWORK is off because the package can sit inside a repo with its own go.work. GOFLAGS
+ * is never empty, because the go tool reads an empty GOFLAGS from the go env file instead.
  */
 const buildEnv = (): NodeJS.ProcessEnv => ({
   ...process.env,
-  GOFLAGS: withoutModFlag(process.env['GOFLAGS'] ?? ''),
+  GOFLAGS: ` ${withoutModFlag(effectiveGoFlags())}`,
   GOTOOLCHAIN: 'local',
   GOPROXY: 'off',
   GOWORK: 'off',

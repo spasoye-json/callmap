@@ -18,18 +18,7 @@ type sourceFile struct {
 	syntax       *ast.File
 	pkg          *packages.Package
 	source       []byte
-	lines        *token.File
-}
-
-// placeOf is a position in the file of the repo. The type checker reads a file that imports "C" as
-// the output of cgo in the build cache, whose //line directives point back to the file of the repo.
-func (file sourceFile) placeOf(pos token.Pos) token.Position {
-	if file.filename == file.repoFilename {
-		return positionOf(file.pkg.Fset, pos)
-	}
-	at := file.pkg.Fset.PositionFor(pos, true)
-	at.Offset = file.lines.Offset(file.lines.LineStart(at.Line)) + at.Column - 1
-	return at
+	writtenSet   *token.FileSet
 }
 
 type variantRank int

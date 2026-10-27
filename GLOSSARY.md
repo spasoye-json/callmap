@@ -17,7 +17,7 @@ An arrow from one function to a function it calls, proven by static rules: the t
 _Avoid_: edge, link, dependency
 
 **Call graph**:
-Every function in scope and every call between them.
+Every function in scope, every call between them, and every open end.
 _Avoid_: map, dependency graph, reference graph
 
 **Open end**:

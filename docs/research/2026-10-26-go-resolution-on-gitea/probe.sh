@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-callmap=${1:?usage: probe.sh <callmap checkout> <gitea checkout> <out folder> [extractor commit]}
-gitea=${2:?usage: probe.sh <callmap checkout> <gitea checkout> <out folder> [extractor commit]}
-out=${3:?usage: probe.sh <callmap checkout> <gitea checkout> <out folder> [extractor commit]}
-commit=${4:-cb22653}
+callmap=${1:?usage: probe.sh <callmap checkout> <gitea checkout> <out folder> [extractor tree]}
+gitea=${2:?usage: probe.sh <callmap checkout> <gitea checkout> <out folder> [extractor tree]}
+out=${3:?usage: probe.sh <callmap checkout> <gitea checkout> <out folder> [extractor tree]}
+tree=${4:-c30ead5}
 patch=$(cd "$(dirname "$0")" && pwd)/probe.patch
 build=$(mktemp -d)
 trap 'rm -rf "$build"' EXIT
 
-git -C "$callmap" archive "$commit" packages/extractor-go/go | tar -x -C "$build"
+mkdir -p "$build/packages/extractor-go/go"
+git -C "$callmap" archive "$tree" | tar -x -C "$build/packages/extractor-go/go"
 (cd "$build" && git apply "$patch")
 (cd "$build/packages/extractor-go/go" && GOFLAGS= GOTOOLCHAIN=local GOPROXY=off GOWORK=off go build -o "$build/probe" .)
 

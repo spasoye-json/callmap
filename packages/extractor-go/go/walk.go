@@ -7,10 +7,12 @@ import (
 	"strings"
 )
 
-// Directories that hold no source of the repo that the extractor reads. The go tool itself never builds
-// testdata, vendor holds other people's modules, and a dot directory holds a tool's bookkeeping.
+// Directories that hold no source of the repo that the extractor reads. The pattern ./... of the go
+// tool skips testdata and a directory whose name starts with _, vendor holds other people's
+// modules, and a dot directory holds a tool's bookkeeping.
 func skipped(name string) bool {
-	return name == "vendor" || name == "testdata" || name == "node_modules" || strings.HasPrefix(name, ".")
+	return name == "vendor" || name == "testdata" || name == "node_modules" ||
+		strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
 }
 
 // tree is what one walk of the repo finds: every Go file, and the directory of every go.mod, both

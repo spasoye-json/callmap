@@ -39,7 +39,7 @@ npm run test:browser
 
 Each pull request and each push to `master` runs the `lint and test` check in GitHub Actions. The workflow is `.github/workflows/ci.yml`. It runs `npm ci`, `npm run lint` and `npm test` on Node 22, with Go and Ruby installed. It does not run `npm run test:browser`, so run that check on your machine.
 
-The `packed cli` check in the same workflow runs `npm run test:pack`. It packs `@callmap/cli`, installs the tarball in a fixture repo and runs `callmap review` from that install. It fails when the tarball holds a file other than the manifest, the README, the LICENSE, the built files and the Go extractor source with its vendored modules in `dist/go/`. The check builds the Go extractor from `dist/go/`, so it needs `go` 1.26 or newer on the `PATH`.
+The `packed cli` check in the same workflow runs `npm run test:pack`. It packs `@callmap/cli`, installs the tarball in a fixture repo and runs `callmap review` from that install. It fails when the tarball holds a file other than the manifest, the README, the LICENSE, the built files and the Go extractor source with its vendored modules in `dist/go/`. The check builds the Go extractor from `dist/go/`, so it needs `go` 1.26 or later on the `PATH`.
 
 ## Issues and triage
 

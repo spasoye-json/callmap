@@ -1,7 +1,7 @@
 diff --git a/packages/extractor-go/go/extract.go b/packages/extractor-go/go/extract.go
 --- a/packages/extractor-go/go/extract.go
 +++ b/packages/extractor-go/go/extract.go
-@@ -88,6 +88,7 @@
+@@ -87,6 +87,7 @@
  				calls = append(calls, call{Caller: site.caller, Callee: callee, Line: lineOf(site), Group: group})
  			}
  		case openEndCall:
@@ -12,7 +12,7 @@ diff --git a/packages/extractor-go/go/extract.go b/packages/extractor-go/go/extr
 diff --git a/packages/extractor-go/go/resolve.go b/packages/extractor-go/go/resolve.go
 --- a/packages/extractor-go/go/resolve.go
 +++ b/packages/extractor-go/go/resolve.go
-@@ -244,13 +244,17 @@
+@@ -285,13 +285,17 @@
  		return resolution{}, false
  	}
  	if !each.declaredInScope(site, called, iface) {
@@ -48,7 +48,7 @@ new file mode 100644
 +var probedInterfaces = map[*ast.CallExpr]string{}
 +
 +func probeExpression(site callSite) string {
-+	return strings.Join(strings.Fields(sourceTextOf(site, site.call.Fun)), "")
++	return strings.Join(strings.Fields(sourceTextOf(site, site.written.Fun)), "")
 +}
 +
 +func probeValueKind(site callSite) string {

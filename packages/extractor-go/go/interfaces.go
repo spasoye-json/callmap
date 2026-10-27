@@ -76,9 +76,8 @@ func inScopeMethodSetsOf(files []sourceFile, functionAt map[functionKey]string) 
 	return sets
 }
 
-// libraryMethodSetsOf holds each named type of the loaded packages and of the packages they import
-// that no file in scope declares. It reads every imported package, so it runs only when an
-// interface of the repo has no implementation in scope.
+// The walk reads every imported package, so it runs only when an interface of the repo has no
+// implementation in scope.
 func libraryMethodSetsOf(loaded []*packages.Package, documentFiles map[string]bool) methodSets {
 	sets := methodSets{}
 	seen := map[*types.Package]bool{}

@@ -1,8 +1,5 @@
 #!/usr/bin/env node
-/**
- * The Go extractor as a Node CLI, so a host runs it the way it runs every other extractor. It
- * builds the Go program, then hands it the arguments, standard output and standard error.
- */
+/** The Go extractor as a Node CLI, so a host runs it the way it runs every other extractor. */
 
 import { spawnSync } from 'node:child_process';
 import { goExtractorBinary } from './launch.ts';

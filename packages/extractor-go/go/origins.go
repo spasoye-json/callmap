@@ -69,6 +69,8 @@ func (found origins) addFile(fileSet *token.FileSet, info *types.Info, file *ast
 					}
 				}
 			}
+		case *ast.TypeSwitchStmt:
+			found.addCaseTypes(fileSet, info, typed)
 		case *ast.RangeStmt:
 			if typed.Tok == token.DEFINE {
 				for _, each := range []ast.Expr{typed.Key, typed.Value} {
@@ -82,6 +84,23 @@ func (found origins) addFile(fileSet *token.FileSet, info *types.Info, file *ast
 	})
 }
 
+// The name of `switch v := x.(type)` takes its type from the type of each case clause.
+func (found origins) addCaseTypes(fileSet *token.FileSet, info *types.Info, typeSwitch *ast.TypeSwitchStmt) {
+	assign, isAssign := typeSwitch.Assign.(*ast.AssignStmt)
+	if !isAssign || len(assign.Lhs) != 1 {
+		return
+	}
+	name, isName := assign.Lhs[0].(*ast.Ident)
+	if !isName {
+		return
+	}
+	for _, each := range typeSwitch.Body.List {
+		if clause, isClause := each.(*ast.CaseClause); isClause {
+			found.add(fileSet, info, name, clause.List...)
+		}
+	}
+}
+
 func originsOf(loaded []*packages.Package) origins {
 	found := origins{}
 	for _, pkg := range loaded {
@@ -92,9 +111,8 @@ func originsOf(loaded []*packages.Package) origins {
 	return found
 }
 
-// codeNotLoaded tells whether an expression with an invalid type lost its type to code that does
-// not load: an import that does not resolve, or a name that no loaded file declares. Otherwise a
-// local type error lost it.
+// Code that does not load is an import that does not resolve, or a name that no loaded file
+// declares. Any other invalid type comes from a local type error.
 type codeNotLoaded struct {
 	origins  func() origins
 	fileSet  *token.FileSet
@@ -171,6 +189,8 @@ func (notLoaded codeNotLoaded) of(info *types.Info, expr ast.Expr) bool {
 		return notLoaded.of(info, typed.X)
 	case *ast.UnaryExpr:
 		return notLoaded.of(info, typed.X)
+	case *ast.BinaryExpr:
+		return notLoaded.of(info, typed.X) || notLoaded.of(info, typed.Y)
 	case *ast.IndexExpr:
 		return notLoaded.of(info, typed.X)
 	case *ast.IndexListExpr:

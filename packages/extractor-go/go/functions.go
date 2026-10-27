@@ -19,9 +19,10 @@ type functionKey struct {
 }
 
 type callSite struct {
-	caller string
-	call   *ast.CallExpr
-	file   sourceFile
+	caller  string
+	call    *ast.CallExpr
+	written *ast.CallExpr
+	file    sourceFile
 }
 
 type declarations struct {
@@ -81,23 +82,21 @@ func declarationsOf(files []sourceFile) (declarations, error) {
 			return declared, err
 		}
 		file.source = source
-		file.lines = token.NewFileSet().AddFile(file.repoFilename, -1, len(source))
-		file.lines.SetLinesForContent(source)
-		fileSet := file.pkg.Fset
+		paired, writtenSet, err := writtenFunctionsOf(file)
+		if err != nil {
+			return declared, err
+		}
+		file.writtenSet = writtenSet
 		seen := map[string]int{}
-		for _, each := range file.syntax.Decls {
-			decl, isFunc := each.(*ast.FuncDecl)
-			if !isFunc || decl.Body == nil {
-				continue
-			}
-			name := functionNameOf(decl)
+		for _, each := range paired {
+			name := functionNameOf(each.typed)
 			seen[name]++
 			id := file.path + "#" + name
 			if seen[name] > 1 {
 				id = fmt.Sprintf("%s~%d", id, seen[name])
 			}
-			first := file.placeOf(decl.Pos())
-			last := file.placeOf(decl.End())
+			first := positionOf(writtenSet, each.written.Pos())
+			last := positionOf(writtenSet, each.written.End())
 			declared.functions = append(declared.functions, function{
 				ID:         id,
 				Name:       name,
@@ -106,10 +105,10 @@ func declarationsOf(files []sourceFile) (declarations, error) {
 				LastLine:   last.Line,
 				SourceHash: sourceHashOf(source[first.Offset:last.Offset]),
 			})
-			at := positionOf(fileSet, decl.Name.Pos())
-			declared.functionAt[functionKey{filename: at.Filename, line: at.Line, name: decl.Name.Name}] = id
-			for _, call := range callsIn(decl.Body) {
-				declared.sites = append(declared.sites, callSite{caller: id, call: call, file: file})
+			at := positionOf(file.pkg.Fset, each.typed.Name.Pos())
+			declared.functionAt[functionKey{filename: at.Filename, line: at.Line, name: each.typed.Name.Name}] = id
+			for _, call := range each.calls {
+				declared.sites = append(declared.sites, callSite{caller: id, call: call.typed, written: call.written, file: file})
 			}
 		}
 	}

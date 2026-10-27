@@ -69,7 +69,7 @@ const extractorsInScope = (
   scope: readonly string[],
 ): readonly Extractor[] => {
   const inScopeFiles = files.filter((path) => !inSkippedDirectory(path) && inScope(path, scope));
-  return extractors.filter((extractor) => inScopeFiles.some((path) => extractor.claims(path)));
+  return extractors.filter((extractor) => extractor.claimsAnyOf(inScopeFiles, files));
 };
 
 interface LanguageDocuments {

@@ -348,6 +348,43 @@ describe('extractGo', () => {
     ]);
   });
 
+  it('type-checks only the packages in scope, so a type of a package that no package in scope imports implements no interface', () => {
+    const repo = repoOf({
+      'size/size.go': lines(
+        'package size',
+        '',
+        'type Sizer interface{ Size() int64 }',
+        '',
+        'func Measure(sizer Sizer) int64 { return sizer.Size() }',
+      ),
+      'disk/disk.go': lines(
+        'package disk',
+        '',
+        'type File struct{}',
+        '',
+        'func (File) Size() int64 { return 0 }',
+      ),
+    });
+    expect(extractGo({ repo, scope: ['size/**'] }).openEnds).toEqual([
+      {
+        caller: 'size/size.go#Measure',
+        line: 5,
+        expression: 'sizer.Size',
+        reason: 'no-implementation',
+      },
+    ]);
+  });
+
+  it('leaves out a directory whose name starts with _, as the go tool does', () => {
+    const { files } = extractGo({
+      repo: repoOf({
+        'money/money.go': MONEY,
+        '_examples/main.go': lines('package main', '', 'func main() {}'),
+      }),
+    });
+    expect(files).toEqual(['money/money.go']);
+  });
+
   it('leaves out a file that a build tag excludes', () => {
     const { files, functions } = extractGo({
       repo: repoOf({
@@ -419,6 +456,47 @@ describe('extractGo', () => {
       { caller: 'pay/refund.go#Refund', callee: 'pay/pay.go#Pay', line: 3 },
     ]);
     expect(openEnds).toEqual([]);
+  });
+
+  it('takes the source and the expressions of a file that imports C from that file, even where cgo rewrites a call into C with a pointer', () => {
+    const free = 'func Free(p unsafe.Pointer) { C.free(p) }';
+    const pay = 'func Pay(k string) { p := C.malloc(1); defer C.free(p); hooks[k]() }';
+    const { functions, calls, openEnds } = extractGo({
+      repo: repoOf({
+        'pay/pay.go': [
+          'package pay',
+          '',
+          '// #include <stdlib.h>',
+          'import "C"',
+          '',
+          'import "unsafe"',
+          '',
+          'var hooks = map[string]func(){}',
+          '',
+          free,
+          '',
+          'func Next() int { return 1 }',
+          '',
+          pay,
+        ].join('\n'),
+      }),
+    });
+    expect(
+      functions.map(({ name, firstLine, lastLine, sourceHash }) => [
+        name,
+        firstLine,
+        lastLine,
+        sourceHash,
+      ]),
+    ).toEqual([
+      ['Free', 10, 10, sha256(free)],
+      ['Next', 12, 12, sha256('func Next() int { return 1 }')],
+      ['Pay', 14, 14, sha256(pay)],
+    ]);
+    expect(calls).toEqual([]);
+    expect(openEnds).toEqual([
+      { caller: 'pay/pay.go#Pay', line: 14, expression: 'hooks[k]', reason: 'dynamic-key' },
+    ]);
   });
 
   it('makes a call into code that does not load an open end with missing-module, and still reads the rest', () => {
@@ -494,7 +572,7 @@ describe('extractGo', () => {
     ]);
   });
 
-  it('makes a callee whose invalid type comes from code that does not load an open end with missing-module, and a callee whose type a local type error lost untyped', () => {
+  it('makes a callee whose invalid type comes from code that does not load an open end with missing-module, through a type switch or an operator too, and a callee whose type a local type error lost untyped', () => {
     const { openEnds } = extractGo({
       repo: repoOf({
         'pay/pay.go': lines(
@@ -515,6 +593,12 @@ describe('extractGo', () => {
           '	server.client(cents)',
           '	total := 1 + "cents"',
           '	total(cents)',
+          '	switch v := any(cents).(type) {',
+          '	case gen.T:',
+          '		v.Do()',
+          '	}',
+          '	sum := gen.A + 1',
+          '	sum(cents)',
           '}',
         ),
       }),
@@ -527,6 +611,8 @@ describe('extractGo', () => {
       [14, 'handler', 'missing-module'],
       [15, 'server.client', 'missing-module'],
       [17, 'total', 'untyped'],
+      [20, 'v.Do', 'missing-module'],
+      [23, 'sum', 'missing-module'],
     ]);
   });
 
@@ -734,6 +820,44 @@ describe('extractGo', () => {
     });
   });
 
+  it('drops -mod and -trimpath from the GOFLAGS of the go env file too, in the build of the extractor and in the load of the repo', () => {
+    const goEnvFile = join(tempDir('callmap-go-env-'), 'env');
+    writeFileSync(goEnvFile, lines('GOFLAGS=-mod=mod -trimpath'));
+    vi.stubEnv('GOENV', goEnvFile);
+    vi.stubEnv('GOFLAGS', undefined);
+    vi.stubEnv('GOMODCACHE', tempDir('callmap-go-cache-'));
+    removeGoExtractorBinary();
+    const goMod = lines(
+      'module example.com/shop',
+      '',
+      'go 1.22',
+      '',
+      'replace example.com/money => ./money',
+    );
+    const repo = repoOf({
+      'go.mod': goMod,
+      'money/go.mod': MONEY_GO_MOD,
+      'money/money.go': MONEY,
+      'checkout/checkout.go': CHECKOUT_OF_MONEY_MODULE,
+    });
+    extractGo({ repo });
+    expect(readFileSync(join(repo, 'go.mod'), 'utf8')).toBe(goMod);
+    expect(existsSync(join(repo, 'go.sum'))).toBe(false);
+    const { calls } = extractGo({
+      repo: repoOf({
+        'go.mod': lines(goMod, 'require example.com/money v0.0.0'),
+        'money/go.mod': MONEY_GO_MOD,
+        'money/money.go': MONEY,
+        'checkout/checkout.go': CHECKOUT_OF_MONEY_MODULE,
+      }),
+    });
+    expect(calls).toContainEqual({
+      caller: 'checkout/checkout.go#Total',
+      callee: 'money/money.go#Format',
+      line: 6,
+    });
+  });
+
   it('makes a call into another module of the repo a library call when the go tool loads it from the module cache', () => {
     const money = {
       'go.mod': MONEY_GO_MOD,
@@ -813,6 +937,31 @@ describe('extractGo', () => {
       { caller: 'money/money_test.go#TestDigits', callee: 'money/money.go#digits', line: 3 },
     ]);
     expect(openEnds).toEqual([]);
+  });
+
+  it('loads a module that the go.work does not use on its own, next to the workspace', () => {
+    const { files, calls } = extractGo({
+      repo: repoOf({
+        'go.work': lines('go 1.22', '', 'use (', '\t.', '\t./money', ')'),
+        'money/go.mod': MONEY_GO_MOD,
+        'money/money.go': MONEY,
+        'checkout/checkout.go': CHECKOUT_OF_MONEY_MODULE,
+        'tools/go.mod': lines('module example.com/tools', '', 'go 1.22'),
+        'tools/lint.go': lines(
+          'package tools',
+          '',
+          'func Lint() { check() }',
+          '',
+          'func check() {}',
+        ),
+      }),
+    });
+    expect(files).toEqual(['checkout/checkout.go', 'money/money.go', 'tools/lint.go']);
+    expect(calls).toEqual([
+      { caller: 'checkout/checkout.go#Total', callee: 'money/money.go#Format', line: 6 },
+      { caller: 'money/money.go#Format', callee: 'money/money.go#digits', line: 5 },
+      { caller: 'tools/lint.go#Lint', callee: 'tools/lint.go#check', line: 3 },
+    ]);
   });
 
   it('reads the other modules when the go tool refuses one, and leaves out the files of the refused module', () => {
@@ -1244,6 +1393,40 @@ describe('a call through an interface', () => {
         line: 16,
         group: 'text/text.go:16:7',
       },
+    ]);
+    expect(openEnds).toEqual([]);
+  });
+
+  it('holds in a one-of group only the methods that a file in scope declares, and leaves out a type whose method comes from a library type that it embeds', () => {
+    const { calls, openEnds } = extractGo({
+      repo: repoOf({
+        'text/text.go': lines(
+          'package text',
+          '',
+          'import "strings"',
+          '',
+          'type Writer interface{ WriteString(s string) (int, error) }',
+          '',
+          'type buf struct{ *strings.Builder }',
+          '',
+          'type Log struct{}',
+          '',
+          'func (Log) WriteString(s string) (int, error) { return 0, nil }',
+          '',
+          'func Write(writer Writer) { writer.WriteString("") }',
+          '',
+          'func Use() { Write(buf{}) }',
+        ),
+      }),
+    });
+    expect(calls).toEqual([
+      {
+        caller: 'text/text.go#Write',
+        callee: 'text/text.go#Log.WriteString',
+        line: 13,
+        group: 'text/text.go:13:36',
+      },
+      { caller: 'text/text.go#Use', callee: 'text/text.go#Write', line: 15 },
     ]);
     expect(openEnds).toEqual([]);
   });

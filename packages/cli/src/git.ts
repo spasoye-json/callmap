@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
@@ -110,6 +118,21 @@ const linkPackageFolders = (root: string, worktree: string): readonly string[] =
     return [link];
   });
 
+/**
+ * A go.work that git does not track decides how the go tool loads the modules of the branch, so the
+ * base loads them the same way.
+ */
+const GO_WORKSPACE_FILES = ['go.work', 'go.work.sum'];
+
+const copyGoWorkspaceFiles = (root: string, worktree: string): void => {
+  for (const file of GO_WORKSPACE_FILES) {
+    const tracked = git(root, 'ls-files', '--', file) !== '';
+    if (!tracked && existsSync(join(root, file)) && !existsSync(join(worktree, file))) {
+      copyFileSync(join(root, file), join(worktree, file));
+    }
+  }
+};
+
 export const inWorktreeAt = async <T>(
   root: string,
   commit: string,
@@ -121,6 +144,7 @@ export const inWorktreeAt = async <T>(
   const links: string[] = [];
   try {
     links.push(...linkPackageFolders(root, path));
+    copyGoWorkspaceFiles(root, path);
     return await read(path);
   } finally {
     for (const link of links) unlinkSync(link);

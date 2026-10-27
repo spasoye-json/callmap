@@ -29,7 +29,9 @@ type resolver struct {
 }
 
 // A rule decides a call site, or passes it to the next rule. The first rule that decides wins, so
-// the order of rules is the order of the open-end reasons.
+// the order of rules is the order of the open-end reasons. One rule breaks that order:
+// codeNotLoadedRule also gives untyped, to a method call on a receiver whose type a local type
+// error lost.
 type rule func(resolver, callSite) (resolution, bool)
 
 var rules = []rule{
@@ -141,8 +143,8 @@ func isInvalid(each types.Type) bool {
 	return each == nil || isBasic && basic.Kind() == types.Invalid
 }
 
-// untypedRule catches a callee whose type the checker lost after a load error. A receiver with an
-// invalid type never reaches it, because its method has no object and codeNotLoadedRule decides it.
+// A receiver with an invalid type never reaches this rule, because its method has no object and
+// codeNotLoadedRule decides it.
 func untypedRule(_ resolver, site callSite) (resolution, bool) {
 	if !isInvalid(site.file.pkg.TypesInfo.TypeOf(site.call.Fun)) {
 		return resolution{}, false
@@ -263,8 +265,7 @@ func interfaceOf(site callSite) (types.Type, *types.Interface, *types.Func) {
 	return called, iface, method
 }
 
-// declaredInScope tells whether the repo declares the interface in a file in scope. An interface
-// with no name belongs to the repo when a file in scope declares one of its methods.
+// An interface with no name belongs to the repo when a file in scope declares one of its methods.
 func (each resolver) declaredInScope(site callSite, called types.Type, iface *types.Interface) bool {
 	fileSet := site.file.pkg.Fset
 	if named, isNamed := called.(*types.Named); isNamed {

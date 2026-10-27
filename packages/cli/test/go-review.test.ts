@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { getByRole, within } from '@testing-library/dom';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { goExtractor } from '../src/extractors.ts';
 import type { Extractor } from '../src/extractors.ts';
 import { runReview } from '../src/review-command.ts';
-import { commitFile, goRepo } from './fixture-repo.ts';
+import { commitFile, featureBranchRepo, goRepo } from './fixture-repo.ts';
 import { loadReaderPage, pageDataOf, runCallmap } from './reader-page.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
 
@@ -161,6 +161,21 @@ describe('callmap review with no go on the PATH', () => {
   }, 60_000);
 });
 
+describe('callmap review of a repo whose Go files the Go extractor never reads', () => {
+  it('runs no Go extractor, and prints no line about Go when go is not on the PATH', () => {
+    const repo = featureBranchRepo();
+    mkdirSync(join(repo, 'testdata'));
+    commitFile(repo, 'testdata/sample.go', 'package sample\n');
+    mkdirSync(join(repo, 'tools'));
+    commitFile(repo, 'tools/lint.go', 'package tools\n');
+    const withGo = reviewOf(repo, tempDir('callmap-cache-'));
+    expect(pageDataOf(withGo.html).review.resolutionRates.map(({ language }) => language)).toEqual([
+      'typescript',
+    ]);
+    expect(reviewOf(repo, tempDir('callmap-cache-'), pathWithoutGo()).stderr).toBe('');
+  }, 60_000);
+});
+
 describe('the go of a review', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -170,6 +185,32 @@ describe('the go of a review', () => {
     vi.stubEnv('GOTOOLCHAIN', 'go1.99.0');
     vi.stubEnv('GOPROXY', 'off');
     expect(goExtractor().skipNote?.()).toBeUndefined();
+  });
+
+  it('runs the local go, and downloads no toolchain, when the go.mod of the current folder names a go that is not on the machine', () => {
+    const folder = tempDir('callmap-go-toolchain-');
+    writeFileSync(
+      join(folder, 'go.mod'),
+      'module example.com/shop\n\ngo 1.22\n\ntoolchain go1.99.0\n',
+    );
+    const started = process.cwd();
+    process.chdir(folder);
+    try {
+      expect(goExtractor().skipNote?.()).toBeUndefined();
+    } finally {
+      process.chdir(started);
+    }
+  });
+
+  it('skips Go with one line that names the go it needs, when the go on the PATH is older', () => {
+    const bin = tempDir('callmap-old-go-');
+    writeFileSync(join(bin, 'go'), '#!/bin/sh\necho "go version go1.25.3 linux/amd64"\n', {
+      mode: 0o755,
+    });
+    vi.stubEnv('PATH', `${bin}${delimiter}${process.env['PATH'] ?? ''}`);
+    expect(goExtractor().skipNote?.()).toBe(
+      'callmap skipped the Go files, because the Go extractor needs go 1.26 or later, and the go on the PATH is go1.25.3.',
+    );
   });
 });
 
