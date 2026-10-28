@@ -1,5 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { getByRole, within } from '@testing-library/dom';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -35,11 +42,22 @@ const cacheEntriesOf = (cacheHome: string): readonly string[] =>
     entry.endsWith('.json'),
   );
 
-const pathWithoutGo = (): string =>
-  (process.env['PATH'] ?? '')
-    .split(delimiter)
-    .filter((folder) => !existsSync(join(folder, 'go')))
-    .join(delimiter);
+const holdsGo = (folder: string): boolean => existsSync(join(folder, 'go'));
+
+// A CI runner can hold go in /usr/bin next to git and sh, so the other commands of that folder stay.
+const pathWithoutGo = (): string => {
+  const folders = (process.env['PATH'] ?? '').split(delimiter);
+  const otherCommands = tempDir('callmap-path-without-go-');
+  const linked = new Set<string>();
+  for (const folder of folders.filter(holdsGo)) {
+    for (const command of readdirSync(folder)) {
+      if (command === 'go' || linked.has(command)) continue;
+      symlinkSync(join(folder, command), join(otherCommands, command));
+      linked.add(command);
+    }
+  }
+  return [...folders.filter((folder) => !holdsGo(folder)), otherCommands].join(delimiter);
+};
 
 let repo = '';
 let cacheHome = '';
