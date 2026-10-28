@@ -1,5 +1,7 @@
 # The npm package carries the Go and Ruby extractors
 
+> Changed in part by ADR-0028. The key of the built binary leaves out the Go test files, and so does the package.
+
 `@callmap/cli` carries the source of the Go extractor and the Ruby script of the Ruby extractor in `dist/`. On the first run in a repo with Go files, the CLI builds the Go extractor with the `go` of the user into the Callmap cache, and later runs reuse the binary. The Go source holds a vendored copy of `golang.org/x/tools`, so the build needs no network. The Ruby extractor runs its script with the `ruby` of the user. The owner made these decisions in a grilling on 2026-10-23 and 2026-10-24.
 
 This supersedes decision 4 of ADR-0021, "Go and Ruby stay out", and the rule of ADR-0021 that everything except `typescript` is bundled.

@@ -2,7 +2,7 @@
 
 Sometimes no type in scope implements an interface of the repo. A call through that interface is a library call when a loaded library type implements the interface. The owner decided this on 2026-10-26, after the measurement on gitea. The owner made decisions 4 and 5 on 2026-10-27, after the second code review of spec 74. The code review of spec 74 also found places where the Go extractor did not follow the spec. This record holds the decisions, the rules of the match that it needs, and the rules that follow the spec text.
 
-This changes in part decision 2 of ADR-0024. That decision made every such call an open end with `no-implementation`.
+This changes in part decision 2 of ADR-0024. That decision made every such call an open end with `no-implementation`. It also changes in part decision 4 of ADR-0025 and the binary key of ADR-0026.
 
 ## Decisions
 
@@ -36,3 +36,4 @@ This changes in part decision 2 of ADR-0024. That decision made every such call 
 - The gitea record of `docs/research/2026-10-26-go-resolution-on-gitea/` counts the calls on `db.Engine`, `db.Session` and `db.EngineMigration` as library calls.
 - On 2026-10-27, the base cache keys a Go entry on the dependency files of Go, not on its lock files. ADR-0025 decision 4 says "the lock files". The dependency files of Go are each `go.sum`, each `go.work.sum` and the workspace file `go.work` at the repo root. A `go.work` decides which modules the base loads, as a lock file decides the versions.
 - On 2026-10-27, the key of the built binary leaves out the Go test files, and so does the package. A Go test file is a file whose name ends in `_test.go`. ADR-0026 says "a hash of the Go source with its vendored modules". `go build` does not compile a test file. So a change of a test file does not change the binary, and the package does not need the test files.
+- On 2026-10-27, the base cache also keys a Go entry on 5 go env settings. They choose the files of one build: `CGO_ENABLED`, `GOOS`, `GOARCH`, `GOEXPERIMENT` and `GOFLAGS` without `-mod` and `-trimpath`. A change of cgo or of the build tags then gives a new base entry. Before, the review reused the old entry and marked functions as removed by mistake.
