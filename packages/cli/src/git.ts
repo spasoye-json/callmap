@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
+  lstatSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
@@ -105,19 +106,29 @@ export const filesAtCommit = (root: string, commit: string): readonly string[] =
 export const fileAt = (root: string, commit: string, file: string): string =>
   gitOutput(root, 'show', `${commit}:${file}`);
 
-const packageFoldersOf = (root: string): readonly string[] =>
+const untrackedEntriesOf = (root: string): readonly string[] =>
   git(root, 'ls-files', '--others', '--directory', '-z')
     .split('\0')
-    .map((entry) => entry.replace(/\/$/, ''))
-    .filter((folder) => basename(folder) === 'node_modules');
+    .map((entry) => entry.replace(/\/$/, ''));
 
-const linkPackageFolders = (root: string, worktree: string): readonly string[] =>
-  packageFoldersOf(root).flatMap((folder) => {
-    const link = join(worktree, folder);
-    if (!existsSync(dirname(link)) || existsSync(link)) return [];
-    symlinkSync(join(root, folder), link, 'junction');
-    return [link];
-  });
+const isPackageFolder = (entry: string): boolean => basename(entry) === 'node_modules';
+
+/**
+ * A Bazel repo can track a link into bazel-bin for each generated file, so the base reads the
+ * generated files through the Bazel output links of the branch.
+ */
+const isBazelOutputLink = (root: string, entry: string): boolean =>
+  /^bazel-[^/]+$/.test(entry) && lstatSync(join(root, entry)).isSymbolicLink();
+
+const linkUntrackedEntries = (root: string, worktree: string): readonly string[] =>
+  untrackedEntriesOf(root)
+    .filter((entry) => isPackageFolder(entry) || isBazelOutputLink(root, entry))
+    .flatMap((entry) => {
+      const link = join(worktree, entry);
+      if (!existsSync(dirname(link)) || existsSync(link)) return [];
+      symlinkSync(join(root, entry), link, 'junction');
+      return [link];
+    });
 
 /**
  * A go.work that git does not track decides how the go tool loads the modules of the branch, so the
@@ -192,7 +203,7 @@ export const inWorktreeAt = async <T>(
   git(root, 'worktree', 'add', '--detach', '--quiet', path, commit);
   const links: string[] = [];
   try {
-    links.push(...linkPackageFolders(root, path));
+    links.push(...linkUntrackedEntries(root, path));
     copyGoWorkspaceFiles(root, path);
     return await read(path);
   } finally {

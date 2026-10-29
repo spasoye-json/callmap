@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fireEvent, within } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
@@ -126,6 +126,33 @@ describe('the base checkout of a review', () => {
       }),
     );
     expect(seen).toEqual({ goWork: 'go 1.22\n\nuse .\n', goWorkSum: true, env: false });
+  });
+
+  it('resolves a tracked link into bazel-bin through the Bazel output links of the repo root, and no other ignored link', async () => {
+    const repo = featureBranchRepo();
+    const output = tempDir('callmap-bazel-output-');
+    writeFileSync(
+      join(output, 'flag_mock.go'),
+      'package flag\n\nfunc Bool() bool { return true }\n',
+    );
+    symlinkSync(output, join(repo, 'bazel-bin'));
+    symlinkSync(output, join(repo, 'cache'));
+    commitFile(repo, '.gitignore', '/bazel-*\n/cache\n');
+    mkdirSync(join(repo, 'lib'));
+    symlinkSync('../bazel-bin/flag_mock.go', join(repo, 'lib/flag_mock.go'));
+    git(repo, 'add', 'lib/flag_mock.go');
+    git(repo, 'commit', '--quiet', '--message', 'link lib/flag_mock.go');
+    const seen = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({
+        mock: readFileSync(join(path, 'lib/flag_mock.go'), 'utf8'),
+        cache: existsSync(join(path, 'cache')),
+      }),
+    );
+    expect(seen).toEqual({
+      mock: 'package flag\n\nfunc Bool() bool { return true }\n',
+      cache: false,
+    });
+    expect(git(repo, 'status', '--porcelain', '--ignored')).toBe('!! bazel-bin\n!! cache');
   });
 
   it('points each use line of an untracked go.work with an absolute path into the checkout at the same place in the base', async () => {
