@@ -17,7 +17,7 @@ An arrow from one function to a function it calls, proven by static rules: the t
 _Avoid_: edge, link, dependency
 
 **Call graph**:
-Every function in scope and every call between them.
+Every function in scope, every call between them, and every open end.
 _Avoid_: map, dependency graph, reference graph
 
 **Open end**:
@@ -29,7 +29,7 @@ The cause, from a fixed list, of why the language's tools cannot tie an open end
 _Avoid_: cause, error, why
 
 **Library call**:
-A call whose callee is code outside the repo, such as the standard library, a module, a gem or a framework. In Ruby, a call that the class chain passes to a framework class, and a call to a method that a framework macro makes, such as `has_many`, are library calls too. The call graph does not hold a library call, and the resolution rate does not count it.
+A call whose callee is code outside the repo, such as the standard library, a module, a gem or a framework. In Ruby, a call that the class chain passes to a framework class, and a call to a method that a framework macro makes, such as `has_many`, are library calls too. In Go, a call through an interface of the repo that only library types implement is a library call too. The call graph does not hold a library call, and the resolution rate does not count it.
 _Avoid_: external call, vendor call, leaf
 
 **One-of call**:
@@ -79,7 +79,7 @@ The tool of a language that proves the calls of a graph document, with its name 
 _Avoid_: compiler, type checker version, toolchain
 
 **Reference graph document**:
-What the extractors emit before spec 15: the files in scope and the import edges between them. The graph document replaces it for the review, and the Go and Ruby extractors keep it until they emit functions and calls.
+What the extractors emit before spec 15: the files in scope and the import edges between them. The graph document replaces it for the review, and the Ruby extractor keeps it until it emits functions and calls.
 _Avoid_: graph document (that holds functions and calls)
 
 **Scope**:
@@ -163,6 +163,10 @@ _Avoid_: PR view, change summary
 **Base**:
 The commit that a review compares the branch against: the merge base with the default branch, or the commit that `--base` names. The top bar names the base as git names it, such as `origin/main`, or as the reader typed it, such as `HEAD~8`.
 _Avoid_: target, parent, main
+
+**Dependency file**:
+A file of the checkout that decides which code from outside the repo a language loads. The cache keeps one entry of the base for each language. A change of a dependency file reads the base of its language again. The dependency files of TypeScript are the lock files of npm, Yarn, pnpm and Bun. The dependency files of Go are every `go.sum` and every `go.work.sum`, and the `go.work` at the repo root.
+_Avoid_: lock file, for a file of Go
 
 **Changed function**:
 A function that the branch added, removed, or changed in its body.

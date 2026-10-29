@@ -50,6 +50,11 @@ jobs:
           node-version: 22.x
           cache: npm
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/extractor-go/go/go.mod
+          cache-dependency-path: packages/extractor-go/go/go.mod
+
       - run: npm ci
 
       - run: npm run test:pack

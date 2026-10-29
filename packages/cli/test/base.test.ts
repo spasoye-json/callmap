@@ -1,7 +1,8 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fireEvent, within } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
+import { inWorktreeAt } from '../src/git.ts';
 import { commitFile, featureBranchRepo, git } from './fixture-repo.ts';
 import {
   boxesOf,
@@ -110,6 +111,191 @@ describe('the base checkout of a review', () => {
     expect(review.openEnds).toEqual([]);
     expect(git(repo, 'status', '--porcelain', '--ignored')).toBe('!! node_modules/');
   }, 60_000);
+
+  it('holds the go.work and go.work.sum of the repo root that git ignores or does not track, and no other ignored file', async () => {
+    const repo = featureBranchRepo();
+    commitFile(repo, '.gitignore', 'go.work\n.env\n');
+    writeFileSync(join(repo, 'go.work'), 'go 1.22\n\nuse .\n');
+    writeFileSync(join(repo, 'go.work.sum'), '');
+    writeFileSync(join(repo, '.env'), 'TOKEN=1\n');
+    const seen = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({
+        goWork: readFileSync(join(path, 'go.work'), 'utf8'),
+        goWorkSum: existsSync(join(path, 'go.work.sum')),
+        env: existsSync(join(path, '.env')),
+      }),
+    );
+    expect(seen).toEqual({ goWork: 'go 1.22\n\nuse .\n', goWorkSum: true, env: false });
+  });
+
+  it('resolves a tracked link into bazel-bin through the Bazel output links of the repo root, and no other ignored link', async () => {
+    const repo = featureBranchRepo();
+    const output = tempDir('callmap-bazel-output-');
+    writeFileSync(
+      join(output, 'flag_mock.go'),
+      'package flag\n\nfunc Bool() bool { return true }\n',
+    );
+    symlinkSync(output, join(repo, 'bazel-bin'));
+    symlinkSync(output, join(repo, 'cache'));
+    commitFile(repo, '.gitignore', '/bazel-*\n/cache\n');
+    mkdirSync(join(repo, 'lib'));
+    symlinkSync('../bazel-bin/flag_mock.go', join(repo, 'lib/flag_mock.go'));
+    git(repo, 'add', 'lib/flag_mock.go');
+    git(repo, 'commit', '--quiet', '--message', 'link lib/flag_mock.go');
+    const seen = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({
+        mock: readFileSync(join(path, 'lib/flag_mock.go'), 'utf8'),
+        cache: existsSync(join(path, 'cache')),
+      }),
+    );
+    expect(seen).toEqual({
+      mock: 'package flag\n\nfunc Bool() bool { return true }\n',
+      cache: false,
+    });
+    expect(git(repo, 'status', '--porcelain', '--ignored')).toBe('!! bazel-bin\n!! cache');
+  });
+
+  it('points each use line of an untracked go.work with an absolute path into the checkout at the same place in the base', async () => {
+    const repo = featureBranchRepo();
+    const elsewhere = tempDir('callmap-go-module-');
+    commitFile(repo, '.gitignore', 'go.work\n');
+    writeFileSync(
+      join(repo, 'go.work'),
+      `go 1.22\n\nuse ${repo}/billing\n\nuse (\n\t"${repo}/money"\n\t./cart\n\t${elsewhere}\n)\n`,
+    );
+    const { goWork, base } = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({ goWork: readFileSync(join(path, 'go.work'), 'utf8'), base: path }),
+    );
+    expect(goWork).toBe(
+      `go 1.22\n\nuse ${base}/billing\n\nuse (\n\t"${base}/money"\n\t./cart\n\t${elsewhere}\n)\n`,
+    );
+  });
+
+  it('points each replace line of an untracked go.work with an absolute path into the checkout at the same place in the base', async () => {
+    const repo = featureBranchRepo();
+    const elsewhere = tempDir('callmap-go-module-');
+    commitFile(repo, '.gitignore', 'go.work\n');
+    writeFileSync(
+      join(repo, 'go.work'),
+      [
+        'go 1.22',
+        '',
+        `replace example.com/a => ${repo}/a`,
+        '',
+        'replace (',
+        `\texample.com/b v1.0.0 => "${repo}/b"`,
+        '\texample.com/c => ./c',
+        `\texample.com/d => ${elsewhere}`,
+        '\texample.com/e => example.com/f v1.2.0',
+        ')',
+        '',
+      ].join('\n'),
+    );
+    const { goWork, base } = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({ goWork: readFileSync(join(path, 'go.work'), 'utf8'), base: path }),
+    );
+    expect(goWork).toBe(
+      [
+        'go 1.22',
+        '',
+        `replace example.com/a => ${base}/a`,
+        '',
+        'replace (',
+        `\texample.com/b v1.0.0 => "${base}/b"`,
+        '\texample.com/c => ./c',
+        `\texample.com/d => ${elsewhere}`,
+        '\texample.com/e => example.com/f v1.2.0',
+        ')',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('points a quoted path with a space in an untracked go.work into the checkout at the same place in the base', async () => {
+    const repo = featureBranchRepo();
+    commitFile(repo, '.gitignore', 'go.work\n');
+    writeFileSync(
+      join(repo, 'go.work'),
+      [
+        'go 1.22',
+        '',
+        `use "${repo}/re po/a"`,
+        '',
+        `use ( "${repo}/re po/b" )`,
+        '',
+        'use (',
+        `\t"${repo}/re po/c"`,
+        ')',
+        '',
+        `replace example.com/d => "${repo}/re po/d"`,
+        '',
+        'replace (',
+        `\texample.com/e => "${repo}/re po/e"`,
+        ')',
+        '',
+      ].join('\n'),
+    );
+    const { goWork, base } = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({ goWork: readFileSync(join(path, 'go.work'), 'utf8'), base: path }),
+    );
+    expect(goWork).toBe(
+      [
+        'go 1.22',
+        '',
+        `use "${base}/re po/a"`,
+        '',
+        `use ( "${base}/re po/b" )`,
+        '',
+        'use (',
+        `\t"${base}/re po/c"`,
+        ')',
+        '',
+        `replace example.com/d => "${base}/re po/d"`,
+        '',
+        'replace (',
+        `\texample.com/e => "${base}/re po/e"`,
+        ')',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('points a backquoted path with a space in an untracked go.work into the checkout at the same place in the base', async () => {
+    const repo = featureBranchRepo();
+    commitFile(repo, '.gitignore', 'go.work\n');
+    writeFileSync(
+      join(repo, 'go.work'),
+      [
+        'go 1.22',
+        '',
+        `use \`${repo}/re po/a\``,
+        '',
+        'use (',
+        `\t\`${repo}/re po/b\``,
+        ')',
+        '',
+        `replace example.com/c => \`${repo}/re po/c\``,
+        '',
+      ].join('\n'),
+    );
+    const { goWork, base } = await inWorktreeAt(repo, git(repo, 'rev-parse', 'HEAD'), (path) =>
+      Promise.resolve({ goWork: readFileSync(join(path, 'go.work'), 'utf8'), base: path }),
+    );
+    expect(goWork).toBe(
+      [
+        'go 1.22',
+        '',
+        `use \`${base}/re po/a\``,
+        '',
+        'use (',
+        `\t\`${base}/re po/b\``,
+        ')',
+        '',
+        `replace example.com/c => \`${base}/re po/c\``,
+        '',
+      ].join('\n'),
+    );
+  });
 });
 
 describe('a branch that changed no function', () => {

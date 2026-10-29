@@ -10,53 +10,64 @@ import {
   utimesSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
-import { isAbsolute, join } from 'node:path';
+import { join } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
-import { assets } from './assets.ts';
-import type { ExtractorSettings } from './extractors.ts';
+import { inScope, isSkippedDirectory } from '@callmap/scope';
+import { callmapCacheFolder } from './cache-folder.ts';
 import { sha256OfFiles } from './file-hash.ts';
+import type { NamedFile } from './file-hash.ts';
 
 const ENTRIES_FOR_EACH_REPO = 20;
 
-const LOCK_FILES: readonly string[] = [
-  'package-lock.json',
-  'npm-shrinkwrap.json',
-  'yarn.lock',
-  'pnpm-lock.yaml',
-  'bun.lock',
-  'bun.lockb',
-];
+export interface CachedExtractor {
+  readonly language: string;
+  readonly dependencyFiles: readonly string[];
+  readonly options: readonly string[];
+  readonly version: () => string;
+}
 
-export interface BaseKey extends ExtractorSettings {
+export interface BaseKey {
   readonly repo: string;
   readonly checkout: string;
   readonly commit: string;
+  readonly scope: readonly string[];
+  readonly extractor: CachedExtractor;
 }
 
 const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex');
 
-const cacheHomeOf = (): string => {
-  const home = process.env['XDG_CACHE_HOME'];
-  return home !== undefined && isAbsolute(home) ? home : join(homedir(), '.cache');
+const filesBelow = (folder: string, prefix = ''): readonly string[] =>
+  readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {
+    const path = `${prefix}${entry.name}`;
+    if (entry.isDirectory()) {
+      return isSkippedDirectory(entry.name) ? [] : filesBelow(join(folder, entry.name), `${path}/`);
+    }
+    return entry.isFile() ? [path] : [];
+  });
+
+const isPattern = (glob: string): boolean => /[*?]/.test(glob);
+
+const dependencyFilesOf = (checkout: string, globs: readonly string[]): readonly NamedFile[] => {
+  const walked = globs.some(isPattern) ? filesBelow(checkout).toSorted() : [];
+  return globs
+    .flatMap((glob) => (isPattern(glob) ? walked.filter((path) => inScope(path, [glob])) : [glob]))
+    .map((name) => ({ name, path: join(checkout, name) }))
+    .filter(({ path }) => existsSync(path));
 };
 
-const lockHashOf = (checkout: string): string =>
-  sha256OfFiles(
-    LOCK_FILES.map((name) => ({ name, path: join(checkout, name) })).filter(({ path }) =>
-      existsSync(path),
-    ),
-  );
+const dependencyHashOf = (checkout: string, dependencyFiles: readonly string[]): string =>
+  sha256OfFiles(dependencyFilesOf(checkout, dependencyFiles));
 
-const entryNameOf = ({ checkout, commit, scope, tsconfig }: BaseKey): string =>
+const entryNameOf = ({ checkout, commit, scope, extractor }: BaseKey): string =>
   sha256(
     JSON.stringify([
+      extractor.language,
       commit,
       scope,
-      tsconfig ?? null,
-      lockHashOf(checkout),
-      assets.extractorVersion(),
+      extractor.options,
+      dependencyHashOf(checkout, extractor.dependencyFiles),
+      extractor.version(),
     ]),
   );
 
@@ -95,7 +106,7 @@ export const throughBaseCache = async (
   key: BaseKey,
   read: () => Promise<GraphDocument>,
 ): Promise<GraphDocument> => {
-  const folder = join(cacheHomeOf(), 'callmap', sha256(key.repo));
+  const folder = join(callmapCacheFolder(), sha256(key.repo));
   const entry = join(folder, `${entryNameOf(key)}.json`);
   const cached = cachedAt(entry);
   if (cached !== undefined) return cached;

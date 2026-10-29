@@ -22,6 +22,11 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/extractor-go/go/go.mod
+          cache-dependency-path: packages/extractor-go/go/go.mod
+
       # npm trusted publishing with the OIDC token of the job needs npm 11.5.1 or later.
       - run: npm install --global npm@^11.5.1
 

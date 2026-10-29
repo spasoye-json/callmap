@@ -1,3 +1,5 @@
+export { callGraphOf } from './call-graph.ts';
+export type { CallGraph } from './call-graph.ts';
 export type { CallMark, MarkedCall } from './calls.ts';
 export { callTreeOf, entryPointsOf } from './entry-points.ts';
 export type { EntryPoint } from './entry-points.ts';
@@ -7,7 +9,9 @@ export { addTo, appendTo } from './indexes.ts';
 export { oneOfGroupsOf } from './one-of-groups.ts';
 export type { OneOfGroup } from './one-of-groups.ts';
 export { byText } from './order.ts';
-export type { ResolutionRate } from './rate.ts';
+export type { LanguageRate, ResolutionRate } from './rate.ts';
 export type { Resolution } from './resolution.ts';
 export { reviewOf } from './review.ts';
-export type { FunctionMark, MarkedFunction, Review, ReviewInput } from './review.ts';
+export type { FunctionMark, MarkedFunction, Review } from './review.ts';
+export { reviewGraphsOf } from './review-graphs.ts';
+export type { ReviewGraphs, ReviewInput } from './review-graphs.ts';

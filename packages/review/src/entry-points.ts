@@ -1,4 +1,5 @@
-import type { FunctionId, GraphDocument } from '@callmap/graph-document';
+import type { FunctionId } from '@callmap/graph-document';
+import type { CallGraph } from './call-graph.ts';
 import { hopsOf } from './hops.ts';
 import type { Hops } from './hops.ts';
 import { byText } from './order.ts';
@@ -28,12 +29,12 @@ const isEntryPoint = (hops: Hops, id: FunctionId): boolean =>
   [...(hops.callers.get(id) ?? NONE)].every((caller) => caller === id);
 
 export const entryPointsOf = (
-  document: GraphDocument,
+  graph: CallGraph,
   changed: ReadonlySet<FunctionId> = NONE,
 ): readonly EntryPoint[] => {
-  const hops = hopsOf(document.calls);
+  const hops = hopsOf(graph.calls);
   const reachingChange = reachedFrom(changed, hops.callers);
-  return document.functions
+  return graph.functions
     .filter(({ id }) => isEntryPoint(hops, id))
     .map(({ id }) => ({ id, reachesChange: reachingChange.has(id) }))
     .sort(
@@ -42,6 +43,6 @@ export const entryPointsOf = (
     );
 };
 
-export const callTreeOf = (document: GraphDocument, entry: FunctionId): readonly FunctionId[] => [
-  ...reachedFrom([entry], hopsOf(document.calls).callees),
+export const callTreeOf = (graph: CallGraph, entry: FunctionId): readonly FunctionId[] => [
+  ...reachedFrom([entry], hopsOf(graph.calls).callees),
 ];

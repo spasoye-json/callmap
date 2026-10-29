@@ -107,14 +107,14 @@ describe('a monorepo whose packages import each other by name', () => {
   const document = () =>
     extractGraphDocument({
       repo: REPO,
-      scope: ['packages/extractor-go/src/**', 'packages/reference-graph/**'],
+      scope: ['packages/extractor-go/src/**', 'packages/graph-document/**'],
     });
 
   it('ties a call through a package name to the function the package exports', () => {
     expect(document().calls).toContainEqual({
       caller: 'packages/extractor-go/src/launch.ts#extractGo',
-      callee: 'packages/reference-graph/src/document.ts#readReferenceGraphDocument',
-      line: 81,
+      callee: 'packages/graph-document/src/document.ts#readGraphDocument',
+      line: 157,
     });
   });
 
@@ -123,7 +123,7 @@ describe('a monorepo whose packages import each other by name', () => {
       document().files.every(
         (path) =>
           path.startsWith('packages/extractor-go/src/') ||
-          path.startsWith('packages/reference-graph/'),
+          path.startsWith('packages/graph-document/'),
       ),
     ).toBe(true);
   });

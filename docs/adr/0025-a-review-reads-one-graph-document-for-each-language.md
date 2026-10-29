@@ -1,5 +1,7 @@
 # A review reads one graph document for each language
 
+> Changed in part by ADR-0028. Decision 4: the base cache keys a Go entry on the dependency files of Go, not on its lock files. The key also holds the go env settings that choose the files of one build.
+
 `callmap review` runs each extractor whose language has files in scope, and the review reads one graph document for each language. The page draws them as one call graph. A call never crosses a language. The page shows one resolution rate and one checker for each language. The owner made these decisions in a grilling on 2026-10-23 and 2026-10-24.
 
 This supersedes the sentence of ADR-0009 that says a boundary edge crosses a language and carries evidence. No call of the graph crosses a language now. It also changes ADR-0016 and ADR-0021 where they say that the review starts only the TypeScript extractor.

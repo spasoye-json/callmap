@@ -31,6 +31,7 @@ export const runCallmap = (
   args: readonly string[],
   opener?: Opener,
   cacheHome: string = tempDir('callmap-cache-'),
+  env: NodeJS.ProcessEnv = {},
 ) =>
   spawnSync(process.execPath, [CLI, ...args], {
     encoding: 'utf8',
@@ -40,6 +41,7 @@ export const runCallmap = (
       ...(opener === undefined
         ? {}
         : { PATH: `${opener.bin}${delimiter}${process.env['PATH'] ?? ''}` }),
+      ...env,
     },
   });
 

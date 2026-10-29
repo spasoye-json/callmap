@@ -1,104 +1,110 @@
 package main
 
 import (
-	"go/parser"
+	"fmt"
+	"go/ast"
 	"go/token"
+	"os"
 	"path/filepath"
-	"sort"
-	"strconv"
+	"runtime"
 	"strings"
 )
 
-type edge struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-}
-
-type document struct {
-	Language string   `json:"language"`
-	Scope    []string `json:"scope"`
-	Files    []string `json:"files"`
-	Edges    []edge   `json:"edges"`
-}
-
-// importPaths reads only the import block of a file, so a file whose body does not compile still
-// gives up its references. A file whose imports cannot be parsed gives up whatever was read before
-// the error.
-func importPaths(files *token.FileSet, path string) []string {
-	parsed, _ := parser.ParseFile(files, path, nil, parser.ImportsOnly)
-	if parsed == nil {
-		return nil
+func calleePositionOf(site callSite) token.Position {
+	at := site.written.Fun
+	if ident := calleeIdentOf(site.written.Fun); ident != nil {
+		at = ident
 	}
-	found := []string{}
-	for _, spec := range parsed.Imports {
-		if value, err := strconv.Unquote(spec.Path.Value); err == nil {
-			found = append(found, value)
-		}
-	}
-	return found
+	return positionOf(site.file.writtenSet, at.Pos())
 }
 
-// A test file is never compiled into the package another package imports, so it can reference
-// other files but nothing can reference it.
-func isTestFile(path string) bool {
-	return strings.HasSuffix(path, "_test.go")
+func lineOf(site callSite) int {
+	return calleePositionOf(site).Line
 }
 
-// extract reads a repo and builds its reference graph document. An import is resolved to a
-// package directory of the repo and expanded to an edge to every file of that package, which is
-// a crude reading of a Go reference: a package is the unit Go imports, so a
-// file reaches every file its package is built from. An edge is emitted only when both ends are
-// files the document claims, as every extractor does.
+func groupOf(site callSite) string {
+	at := calleePositionOf(site)
+	return fmt.Sprintf("%s:%d:%d", site.file.path, at.Line, at.Column)
+}
+
+func sourceTextOf(site callSite, node ast.Node) string {
+	start := positionOf(site.file.writtenSet, node.Pos())
+	end := positionOf(site.file.writtenSet, node.End())
+	return string(site.file.source[start.Offset:end.Offset])
+}
+
 func extract(repo string, scope []string) (document, error) {
-	found, err := walk(repo)
+	absolute, err := filepath.Abs(repo)
 	if err != nil {
 		return document{}, err
 	}
-	all, err := modules(repo, found.moduleDirs)
+	root, err := filepath.EvalSymlinks(absolute)
 	if err != nil {
 		return document{}, err
 	}
-	moduleDirs := map[string]bool{}
-	for _, each := range all {
-		moduleDirs[each.dir] = true
+	found, err := walk(root)
+	if err != nil {
+		return document{}, err
+	}
+	loaded, err := load(root, packagesInScope(found, scope), testsInScope(found, scope), os.Stderr)
+	if err != nil {
+		return document{}, err
+	}
+	files := sourceFilesOf(root, scope, loaded)
+	declared, err := declarationsOf(files)
+	if err != nil {
+		return document{}, err
 	}
 
-	files := []string{}
-	packages := map[string][]string{}
-	for _, path := range found.files {
-		if !inScope(path, scope) {
-			continue
-		}
-		files = append(files, path)
-		if !isTestFile(path) {
-			packages[dirOf(path)] = append(packages[dirOf(path)], path)
-		}
+	paths := make([]string, 0, len(files))
+	documentFiles := map[string]bool{}
+	for _, file := range files {
+		paths = append(paths, file.path)
+		documentFiles[file.filename] = true
+		documentFiles[file.repoFilename] = true
 	}
-
-	fileSet := token.NewFileSet()
-	edges := []edge{}
-	for _, from := range files {
-		reached := map[string]bool{}
-		for _, importPath := range importPaths(fileSet, filepath.Join(repo, filepath.FromSlash(from))) {
-			dir, found := packageDir(importPath, all, moduleDirs)
-			if !found {
-				continue
+	var indexed origins
+	resolve := resolver{
+		documentFiles:   documentFiles,
+		functionAt:      declared.functionAt,
+		implementations: newImplementations(files, loaded, documentFiles, declared.functionAt),
+		origins: func() origins {
+			if indexed == nil {
+				indexed = originsOf(loaded)
 			}
-			for _, to := range packages[dir] {
-				if to != from {
-					reached[to] = true
-				}
+			return indexed
+		},
+	}.resolve
+	calls := []call{}
+	openEnds := []openEnd{}
+	for _, site := range declared.sites {
+		resolved := resolve(site)
+		switch resolved.kind {
+		case tiedCall, oneOfCall:
+			group := ""
+			if resolved.kind == oneOfCall {
+				group = groupOf(site)
 			}
-		}
-		targets := make([]string, 0, len(reached))
-		for to := range reached {
-			targets = append(targets, to)
-		}
-		sort.Strings(targets)
-		for _, to := range targets {
-			edges = append(edges, edge{From: from, To: to})
+			for _, callee := range resolved.callees {
+				calls = append(calls, call{Caller: site.caller, Callee: callee, Line: lineOf(site), Group: group})
+			}
+		case openEndCall:
+			openEnds = append(openEnds, openEnd{
+				Caller:     site.caller,
+				Line:       lineOf(site),
+				Expression: sourceTextOf(site, site.written.Fun),
+				Reason:     resolved.reason,
+			})
 		}
 	}
 
-	return document{Language: "go", Scope: scope, Files: files, Edges: edges}, nil
+	return document{
+		Language:  "go",
+		Checker:   checker{Name: "Go", Version: strings.TrimPrefix(runtime.Version(), "go")},
+		Scope:     scope,
+		Files:     paths,
+		Functions: declared.functions,
+		Calls:     calls,
+		OpenEnds:  openEnds,
+	}, nil
 }

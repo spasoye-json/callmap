@@ -2,8 +2,16 @@
   order: -3;
 }
 
+.resolution-rate .eyebrow {
+  margin-bottom: 8px;
+}
+
+.resolution-rate .language-rate + .language-rate {
+  margin-top: 14px;
+}
+
 .resolution-rate .checker {
-  color: var(--muted);
+  color: var(--ink-2);
   font: 11px var(--font-code);
 }
 
@@ -17,7 +25,7 @@
 }
 
 .resolution-rate .rate-value {
-  margin-right: 4px;
+  margin-left: 2px;
   color: var(--ink);
   font: 600 26px/1 var(--font-ui);
   font-variant-numeric: tabular-nums;

@@ -1,0 +1,121 @@
+diff --git a/packages/extractor-go/go/extract.go b/packages/extractor-go/go/extract.go
+--- a/packages/extractor-go/go/extract.go
++++ b/packages/extractor-go/go/extract.go
+@@ -87,6 +87,7 @@
+ 				calls = append(calls, call{Caller: site.caller, Callee: callee, Line: lineOf(site), Group: group})
+ 			}
+ 		case openEndCall:
++			probeOpenEnd(site, resolved.reason)
+ 			openEnds = append(openEnds, openEnd{
+ 				Caller:     site.caller,
+ 				Line:       lineOf(site),
+diff --git a/packages/extractor-go/go/resolve.go b/packages/extractor-go/go/resolve.go
+--- a/packages/extractor-go/go/resolve.go
++++ b/packages/extractor-go/go/resolve.go
+@@ -285,13 +285,17 @@
+ 		return resolution{}, false
+ 	}
+ 	if !each.declaredInScope(site, called, iface) {
++		probeInterface("library-interface", called, site)
+ 		return resolution{kind: libraryCall}, true
+ 	}
+ 	if callees := each.implementations.of(called, iface, method); len(callees) > 0 {
++		probeInterface("group", called, site)
+ 		return resolution{kind: oneOfCall, callees: callees}, true
+ 	}
+ 	if each.implementations.implementedOutOfScope(called, iface, method) {
++		probeInterface("library-implementation", called, site)
+ 		return resolution{kind: libraryCall}, true
+ 	}
++	probeInterface("no-implementation", called, site)
+ 	return resolution{kind: openEndCall, reason: noImplementation}, true
+ }
+diff --git a/packages/extractor-go/go/probe.go b/packages/extractor-go/go/probe.go
+new file mode 100644
+--- /dev/null
++++ b/packages/extractor-go/go/probe.go
+@@ -0,0 +1,84 @@
++package main
++
++import (
++	"fmt"
++	"go/ast"
++	"go/types"
++	"os"
++	"strings"
++)
++
++var probedInterfaces = map[*ast.CallExpr]string{}
++
++func probeExpression(site callSite) string {
++	return strings.Join(strings.Fields(sourceTextOf(site, site.written.Fun)), "")
++}
++
++func probeValueKind(site callSite) string {
++	info := site.file.pkg.TypesInfo
++	switch fun := ast.Unparen(site.call.Fun).(type) {
++	case *ast.CallExpr:
++		return "the result of a call"
++	case *ast.SelectorExpr:
++		if variable, isVar := info.Uses[fun.Sel].(*types.Var); isVar && variable.IsField() {
++			return "a struct field"
++		}
++		return "a package variable"
++	case *ast.Ident:
++		variable, isVar := info.Uses[fun].(*types.Var)
++		switch {
++		case !isVar:
++			return "another expression"
++		case variable.Parent() == variable.Pkg().Scope():
++			return "a package variable"
++		case variable.Kind() == types.ParamVar || variable.Kind() == types.RecvVar || variable.Kind() == types.ResultVar:
++			return "a parameter"
++		}
++		return "a local variable"
++	}
++	return "another expression"
++}
++
++func probeOtherKind(site callSite) string {
++	info := site.file.pkg.TypesInfo
++	fun := ast.Unparen(site.call.Fun)
++	if _, isStar := fun.(*ast.StarExpr); isStar {
++		return "a dereferenced pointer"
++	}
++	if index, isIndex := fun.(*ast.IndexExpr); isIndex {
++		if indexed := info.TypeOf(index.X); indexed != nil {
++			if _, isMap := indexed.Underlying().(*types.Map); isMap {
++				return "a map value with a constant key"
++			}
++		}
++		return "a slice element"
++	}
++	if _, isParameter := types.Unalias(info.TypeOf(fun)).(*types.TypeParam); isParameter {
++		return "a type parameter"
++	}
++	return "another expression"
++}
++
++func probeDetailOf(site callSite, reason openEndReason) string {
++	switch reason {
++	case functionValue:
++		return probeValueKind(site)
++	case noImplementation:
++		return probedInterfaces[site.call]
++	case otherReason:
++		return probeOtherKind(site)
++	case dynamicKey:
++		return "a map value with a key that is not a constant"
++	}
++	return string(reason)
++}
++
++func probeOpenEnd(site callSite, reason openEndReason) {
++	fmt.Fprintf(os.Stderr, "OPEN\t%s\t%s\t%s\t%s:%d\n", reason, probeDetailOf(site, reason), probeExpression(site), site.file.path, lineOf(site))
++}
++
++func probeInterface(decision string, called types.Type, site callSite) {
++	name := types.TypeString(called, func(pkg *types.Package) string { return pkg.Name() })
++	probedInterfaces[site.call] = name
++	fmt.Fprintf(os.Stderr, "IFACE\t%s\t%s\t%s\t%s:%d\n", decision, name, probeExpression(site), site.file.path, lineOf(site))
++}
