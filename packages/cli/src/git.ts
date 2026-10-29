@@ -91,14 +91,37 @@ export const commitOf = (root: string, revision: string): string =>
     `${revision}^{commit}`,
   );
 
+export const branchNameOf = (root: string): string | undefined =>
+  succeeds(root, 'symbolic-ref', '--quiet', 'HEAD')
+    ? git(root, 'symbolic-ref', '--quiet', '--short', 'HEAD')
+    : undefined;
+
+// git grows the length of --short with the object count, so 2 clones of the same commits can differ.
+const SHORT_COMMIT_LENGTH = 7;
+
 export const shortCommitOf = (root: string, commit: string): string =>
-  git(root, 'rev-parse', '--short', commit);
+  git(root, 'rev-parse', `--short=${String(SHORT_COMMIT_LENGTH)}`, commit);
 
 const pathsOf = (listing: string): readonly string[] =>
   listing.split('\0').filter((path) => path !== '');
 
 export const workingTreeFilesOf = (root: string): readonly string[] =>
   pathsOf(gitOutput(root, 'ls-files', '--cached', '--others', '--exclude-standard', '-z'));
+
+const STATUS_CODE_LENGTH = 'XY '.length;
+
+export const uncommittedFilesOf = (root: string): readonly string[] =>
+  pathsOf(
+    gitOutput(
+      root,
+      '--no-optional-locks',
+      'status',
+      '--porcelain=v1',
+      '-z',
+      '--no-renames',
+      '--untracked-files=all',
+    ),
+  ).map((entry) => entry.slice(STATUS_CODE_LENGTH));
 
 export const filesAtCommit = (root: string, commit: string): readonly string[] =>
   pathsOf(gitOutput(root, 'ls-tree', '-r', '--name-only', '-z', commit));

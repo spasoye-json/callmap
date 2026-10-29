@@ -48,7 +48,7 @@ const translateOf = (page: LoadedPage): readonly [number, number] => {
 };
 
 describe('the top bar', () => {
-  it('shows the product name, and the count of changed functions on the Diff tab, with no branch name', async () => {
+  it('shows the product name, and the count of changed functions on the Diff tab', async () => {
     const page = await loadReaderPage(html);
     const banner = bodyOf(page).getByRole('banner');
     const bar = within(banner);
@@ -56,7 +56,6 @@ describe('the top bar', () => {
     const diff = bar.getByRole('tab', { name: 'Diff' });
     expect(diff.querySelector('.count')?.textContent).toBe('5');
     expect(diff.title).toBe('5 changed functions');
-    expect(banner.textContent).not.toMatch(/feature|main/);
   });
 });
 
