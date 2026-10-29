@@ -13,11 +13,12 @@ import (
 	"strings"
 )
 
-const usage = "usage: callmap-extract-go <repo> [--scope <glob>]..."
+const usage = "usage: callmap-extract-go <repo> [--scope <glob>]... [--tests]"
 
 type invocation struct {
 	repo  string
 	scope []string
+	tests bool
 }
 
 // readArguments refuses a flag it does not know and a value that follows no flag, rather than
@@ -28,6 +29,8 @@ func readArguments(args []string) (invocation, error) {
 	for index := 0; index < len(args); index++ {
 		argument := args[index]
 		switch {
+		case argument == "--tests":
+			read.tests = true
 		case argument == "--scope":
 			if index+1 >= len(args) || strings.HasPrefix(args[index+1], "--") {
 				return read, errors.New("--scope needs a value after it")
@@ -53,7 +56,7 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	doc, err := extract(read.repo, read.scope)
+	doc, err := extract(read.repo, effectiveScope(read.scope, read.tests))
 	if err != nil {
 		return err
 	}
