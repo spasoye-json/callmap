@@ -1,7 +1,7 @@
 import { EDITOR_NAMES, isEditor } from '@callmap/editor-link';
 import type { Editor } from '@callmap/editor-link';
 
-export const USAGE = `usage: callmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--no-cache] [--editor ${EDITOR_NAMES.join('|')}]`;
+export const USAGE = `usage: callmap review [<repo>] [--base <commit>] [--scope <glob>]... [--tsconfig <file>] [--out <file>] [--no-open] [--no-cache] [--editor ${EDITOR_NAMES.join('|')}] [--tests]`;
 
 export class CliError extends Error {
   override readonly name = 'CliError';
@@ -16,6 +16,7 @@ export interface ReviewInvocation {
   readonly open: boolean;
   readonly cache: boolean;
   readonly editor: Editor;
+  readonly tests: boolean;
 }
 
 const VALUE_FLAGS: readonly string[] = ['--base', '--scope', '--tsconfig', '--out', '--editor'];
@@ -32,6 +33,7 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
   let open = true;
   let cache = true;
   let editor: Editor = 'vscode';
+  let tests = false;
 
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index] ?? '';
@@ -39,6 +41,8 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
       open = false;
     } else if (argument === '--no-cache') {
       cache = false;
+    } else if (argument === '--tests') {
+      tests = true;
     } else if (VALUE_FLAGS.includes(argument)) {
       const value = rest[index + 1];
       if (value === undefined || value.startsWith('--')) {
@@ -60,5 +64,5 @@ export const readArguments = (args: readonly string[], cwd: string): ReviewInvoc
     }
   }
 
-  return { repo: repo ?? cwd, base, scope, tsconfig, out, open, cache, editor };
+  return { repo: repo ?? cwd, base, scope, tsconfig, out, open, cache, editor, tests };
 };

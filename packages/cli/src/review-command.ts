@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { GraphDocument } from '@callmap/graph-document';
 import { reviewGraphsOf, reviewOf } from '@callmap/review';
-import { inScope, isSkippedDirectory } from '@callmap/scope';
+import { effectiveScope, inScope, isSkippedDirectory } from '@callmap/scope';
 import { DIFF_LIMIT } from '../page/views/diff.ts';
 import type { Checkout } from '../page/data.ts';
 import type { ReviewInvocation } from './arguments.ts';
@@ -119,7 +119,7 @@ export const runReview = async (
   const root = repoRootOf(resolve(invocation.repo));
   const reviewBase = baseOf(root, invocation.base);
   const base = reviewBase.commit;
-  const { scope } = invocation;
+  const scope = effectiveScope(invocation.scope, invocation.tests);
   const documentsOf = async (extractor: Extractor): Promise<LanguageDocuments> => {
     const readBranch = (): Promise<GraphDocument> =>
       readGraphDocumentOf('the branch', root, extractor, scope);
