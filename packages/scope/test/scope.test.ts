@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inScope } from '../src/index.ts';
+import { effectiveScope, inScope } from '../src/index.ts';
 
 describe('inScope', () => {
   it('takes every file when no glob narrows the repo', () => {
@@ -59,5 +59,56 @@ describe('inScope', () => {
   it('takes every file but the negated ones when no glob takes files in', () => {
     expect(inScope('tools/build.ts', ['!**/*.spec.ts'])).toBe(true);
     expect(inScope('src/cart.spec.ts', ['!**/*.spec.ts'])).toBe(false);
+  });
+});
+
+describe('effectiveScope', () => {
+  const leftOut = (path: string, scope: readonly string[] = []): boolean =>
+    !inScope(path, effectiveScope(scope, false));
+
+  it('leaves out the test files of each language by their file name', () => {
+    expect(leftOut('internal/orders/orders_test.go')).toBe(true);
+    expect(leftOut('src/checkout.test.ts')).toBe(true);
+    expect(leftOut('src/checkout.spec.tsx')).toBe(true);
+    expect(leftOut('app/models/order_spec.rb')).toBe(true);
+    expect(leftOut('lib/order_test.rb')).toBe(true);
+  });
+
+  it('leaves out every file under a test folder, also with no test suffix in its name', () => {
+    expect(leftOut('src/__tests__/helpers.ts')).toBe(true);
+    expect(leftOut('test/fixtures.ts')).toBe(true);
+    expect(leftOut('pkg/tests/data.go')).toBe(true);
+    expect(leftOut('spec/support/factories.rb')).toBe(true);
+  });
+
+  it('keeps the files that only look like a test file', () => {
+    expect(leftOut('src/contest.ts')).toBe(false);
+    expect(leftOut('src/latest/orders.go')).toBe(false);
+    expect(leftOut('lib/inspect.rb')).toBe(false);
+  });
+
+  it('does not let a glob of the user put a test file back', () => {
+    expect(leftOut('src/a.test.ts', ['src/**'])).toBe(true);
+    expect(leftOut('src/a.ts', ['src/**'])).toBe(false);
+  });
+
+  it('adds each test glob to the scope once, as a negated glob after the globs of the user', () => {
+    expect(effectiveScope(['src/**', '!**/*_test.go'], false)).toEqual([
+      'src/**',
+      '!**/*_test.go',
+      '!**/*.test.*',
+      '!**/*.spec.*',
+      '!**/*_spec.rb',
+      '!**/*_test.rb',
+      '!**/__tests__/**',
+      '!**/test/**',
+      '!**/tests/**',
+      '!**/spec/**',
+    ]);
+  });
+
+  it('keeps the scope of the user as it is when the tests are asked for', () => {
+    expect(effectiveScope(['src/**'], true)).toEqual(['src/**']);
+    expect(inScope('src/a.test.ts', effectiveScope(['src/**'], true))).toBe(true);
   });
 });
