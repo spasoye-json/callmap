@@ -4,7 +4,7 @@ Each version of Callmap gets a section here. The changes that no version holds y
 
 ## Unreleased
 
-No change yet.
+- `callmap review` and each extractor CLI read no test file by default, in every language. `--tests` reads them. ADR-0029 names the test globs.
 
 ## 0.1.0
 
