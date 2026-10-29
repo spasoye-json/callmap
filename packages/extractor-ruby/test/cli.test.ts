@@ -1,11 +1,27 @@
 import { spawnSync } from 'node:child_process';
 import type { SpawnSyncReturns } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@callmap/reference-graph';
+import { effectiveScope } from '@callmap/scope';
+import { tempDir } from '../../../test/temp-dir.ts';
 
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
+
+const WITH_TESTS = tempDir('callmap-ruby-cli-tests-');
+for (const path of [
+  'lib/order.rb',
+  'lib/order_spec.rb',
+  'lib/order_test.rb',
+  'spec/support/factories.rb',
+  'test/test_helper.rb',
+]) {
+  mkdirSync(dirname(join(WITH_TESTS, path)), { recursive: true });
+  writeFileSync(join(WITH_TESTS, path), 'class Order\nend\n');
+}
 
 /**
  * The extractor as the caller runs it: another process, answering over its standard output. A run
@@ -48,14 +64,32 @@ describe('the Ruby extractor as a separate process', () => {
 
   it('takes every glob it is given and records them', () => {
     const document = documentOf(FIXTURE, '--scope', 'shop/lib/**', '--scope', 'tools/**');
-    expect(document.scope).toEqual(['shop/lib/**', 'tools/**']);
+    expect(document.scope).toEqual(effectiveScope(['shop/lib/**', 'tools/**'], false));
     expect(document.files).toEqual(['shop/lib/reconcile.rb', 'tools/release.rb']);
+  });
+
+  it('reads no test file by default, also under a glob of the user', () => {
+    expect(documentOf(WITH_TESTS).files).toEqual(['lib/order.rb']);
+    expect(documentOf(WITH_TESTS, '--scope', 'lib/**').files).toEqual(['lib/order.rb']);
+  });
+
+  it('reads the test files when it is asked for the tests', () => {
+    const document = documentOf(WITH_TESTS, '--tests');
+    expect(document.scope).toEqual([]);
+    expect(document.files).toEqual([
+      'lib/order.rb',
+      'lib/order_spec.rb',
+      'lib/order_test.rb',
+      'spec/support/factories.rb',
+      'test/test_helper.rb',
+    ]);
   });
 
   it('refuses to run with no repo to read', () => {
     const finished = run();
     expect(finished.status).not.toBe(0);
     expect(finished.stderr).toMatch(/usage/i);
+    expect(finished.stderr).toContain('[--tests]');
   });
 
   it('refuses a flag it does not know, rather than reading a repo it was not asked for', () => {

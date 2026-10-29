@@ -35,8 +35,11 @@ const runExtractorProcess = (
     });
   });
 
-const scopeArgumentsOf = (scope: readonly string[]): readonly string[] =>
-  scope.flatMap((glob) => ['--scope', glob]);
+/** The review command already put the test globs in the scope, so the extractor reads it as it is. */
+const effectiveScopeArgumentsOf = (scope: readonly string[]): readonly string[] => [
+  ...scope.flatMap((glob) => ['--scope', glob]),
+  '--tests',
+];
 
 export interface Extractor extends CachedExtractor {
   readonly claimsAnyOf: (inScope: readonly string[], files: readonly string[]) => boolean;
@@ -69,7 +72,7 @@ export const typescriptExtractor = (tsconfig: string | undefined): Extractor => 
           await runExtractorProcess(process.execPath, [
             assets.typescriptExtractor,
             repo,
-            ...scopeArgumentsOf(scope),
+            ...effectiveScopeArgumentsOf(scope),
             ...(tsconfig === undefined
               ? []
               : ['--tsconfig', isAbsolute(tsconfig) ? tsconfig : join(repo, tsconfig)]),
@@ -190,7 +193,7 @@ export const goExtractor = (): Extractor => {
     extract: async (repo, scope) => {
       const { stdout, stderr } = await runExtractorProcess(
         process.execPath,
-        [assets.goExtractor, repo, ...scopeArgumentsOf(scope)],
+        [assets.goExtractor, repo, ...effectiveScopeArgumentsOf(scope)],
         assets.goExtractorEnv(goVersion() ?? ''),
       );
       for (const note of goNotesIn(stderr)) notes.add(note);

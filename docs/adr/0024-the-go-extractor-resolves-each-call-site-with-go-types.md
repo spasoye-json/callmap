@@ -5,6 +5,10 @@
 > - Decision 2: a call through a repo interface that only a loaded library type implements is a library call.
 > - Decisions 5 and 6: the test variants load only when a test file is in scope.
 > - Decision 7: the extractor loads only the packages in scope. A module that the root `go.work` does not use loads with `GOWORK=off`. The extractor removes `-trimpath` from `GOFLAGS` and reads the go env file of `go env -w`.
+>
+> Changed in part by ADR-0029:
+>
+> - Decision 6: the tests stay out by default. `--tests` brings them back.
 
 The Go extractor emits a graph document. It loads the packages in scope with `golang.org/x/tools/go/packages`, and `go/types` ties each call site to one function, like the TypeScript extractor does with its type checker. It does not use the call graph of `golang.org/x/tools` (SSA with CHA or VTA). A load error does not stop the extractor. A call into code that does not load becomes an open end. The owner made these decisions in a grilling on 2026-10-23 and 2026-10-24.
 

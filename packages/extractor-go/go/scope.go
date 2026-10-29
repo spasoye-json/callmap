@@ -2,6 +2,7 @@ package main
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -54,4 +55,33 @@ func inScope(path string, scope []string) bool {
 		taken = taken || matches(path, glob)
 	}
 	return taken || !anyTaking
+}
+
+// testGlobs is the copy of TEST_GLOBS in packages/scope/src/tests.ts (ADR-0029). The CLI test of
+// the extractor fails when the two copies differ.
+var testGlobs = []string{
+	"**/*_test.go",
+	"**/*.test.*",
+	"**/*.spec.*",
+	"**/*_spec.rb",
+	"**/*_test.rb",
+	"**/__tests__/**",
+	"**/test/**",
+	"**/tests/**",
+	"**/spec/**",
+}
+
+// effectiveScope adds each test glob as a `!` glob after the globs of the user, unless the user
+// asks for the tests. A negated glob that the scope already holds does not repeat.
+func effectiveScope(scope []string, tests bool) []string {
+	if tests {
+		return scope
+	}
+	effective := append([]string{}, scope...)
+	for _, glob := range testGlobs {
+		if !slices.Contains(scope, "!"+glob) {
+			effective = append(effective, "!"+glob)
+		}
+	}
+	return effective
 }

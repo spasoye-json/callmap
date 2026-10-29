@@ -39,6 +39,7 @@ const reviewWithLimit = async (diffLimit: number) => {
       open: false,
       cache: false,
       editor: 'vscode',
+      tests: false,
     },
     { diffLimit },
   );

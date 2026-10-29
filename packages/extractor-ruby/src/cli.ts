@@ -6,9 +6,10 @@
  * with a non-zero exit, so a repo it could not read is never mistaken for a repo with nothing in it.
  */
 
+import { effectiveScope } from '@callmap/scope';
 import { extractRuby } from './extract.ts';
 
-const USAGE = 'usage: callmap-extract-ruby <repo> [--scope <glob>]...';
+const USAGE = 'usage: callmap-extract-ruby <repo> [--scope <glob>]... [--tests]';
 
 class CliError extends Error {
   override readonly name = 'CliError';
@@ -27,10 +28,13 @@ interface Invocation {
 const readArguments = (args: readonly string[]): Invocation => {
   const scope: string[] = [];
   let repo: string | undefined;
+  let tests = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index] ?? '';
-    if (argument === '--scope') {
+    if (argument === '--tests') {
+      tests = true;
+    } else if (argument === '--scope') {
       const value = args[index + 1];
       if (value === undefined || value.startsWith('--')) {
         throw new CliError(`${argument} needs a value after it`);
@@ -47,7 +51,7 @@ const readArguments = (args: readonly string[]): Invocation => {
   }
 
   if (repo === undefined) throw new CliError(USAGE);
-  return { repo, scope };
+  return { repo, scope: effectiveScope(scope, tests) };
 };
 
 try {

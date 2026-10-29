@@ -83,8 +83,12 @@ What the extractors emit before spec 15: the files in scope and the import edges
 _Avoid_: graph document (that holds functions and calls)
 
 **Scope**:
-The globs an extractor is run under, which limit which files enter its document, so a monorepo is read one subtree at a time. A glob that starts with `!` leaves out the files that it matches.
+The globs an extractor is run under, which limit which files enter its document, so a monorepo is read one subtree at a time. A glob that starts with `!` leaves out the files that it matches. The effective scope is the scope of the user with the test globs as `!` globs, unless `--tests` asks for the tests.
 _Avoid_: filter, include path, root
+
+**Test file**:
+A file that a test glob of `@callmap/scope` matches. A test glob is a file-name rule, such as `*_test.go`, or a folder, such as `test/`. No walk reads a test file unless `--tests` asks for it.
+_Avoid_: spec file, test code
 
 **Reader page**:
 The one self-contained HTML file that the CLI writes. It holds the whole call graph in scope as data, so the reader can open more of it with no server.

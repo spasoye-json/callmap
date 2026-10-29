@@ -114,7 +114,7 @@ describe('a monorepo whose packages import each other by name', () => {
     expect(document().calls).toContainEqual({
       caller: 'packages/extractor-go/src/launch.ts#extractGo',
       callee: 'packages/graph-document/src/document.ts#readGraphDocument',
-      line: 157,
+      line: 160,
     });
   });
 

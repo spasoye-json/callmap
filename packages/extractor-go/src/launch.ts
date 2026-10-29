@@ -145,10 +145,13 @@ export const goExtractorBinary = (): string => {
   return built;
 };
 
-/** Read a repo with the Go extractor and return the graph document it emitted. */
+/**
+ * Read a repo with the Go extractor and return the graph document it emitted. The scope is read as
+ * it is given, so a caller that wants the tests left out puts the test globs in it.
+ */
 export const extractGo = (options: GoExtractOptions): GraphDocument => {
   const scope = options.scope ?? [];
-  const args = [options.repo, ...scope.flatMap((glob) => ['--scope', glob])];
+  const args = [options.repo, ...scope.flatMap((glob) => ['--scope', glob]), '--tests'];
   const finished = spawnSync(goExtractorBinary(), args, {
     encoding: 'utf8',
     maxBuffer: 1024 * 1024 * 1024,

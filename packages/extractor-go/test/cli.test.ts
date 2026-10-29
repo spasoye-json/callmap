@@ -4,6 +4,7 @@ import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { readGraphDocument } from '@callmap/graph-document';
+import { effectiveScope } from '@callmap/scope';
 import { goExtractorBinary, removeGoExtractorBinary } from '../src/index.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
 
@@ -23,6 +24,20 @@ const REPO = tempDir('callmap-go-cli-');
 for (const [path, text] of Object.entries(FILES)) {
   mkdirSync(dirname(join(REPO, path)), { recursive: true });
   writeFileSync(join(REPO, path), text);
+}
+const SIZE_FILES: Readonly<Record<string, string>> = {
+  'go.mod': 'module example.com/size\n\ngo 1.22\n',
+  'size/size.go':
+    'package size\n\ntype Sizer interface{ Size() int64 }\n\nfunc Measure(sizer Sizer) int64 { return sizer.Size() }\n',
+  'size/size_test.go':
+    'package size\n\nimport "strings"\n\nfunc TestMeasure() { Measure(strings.NewReader("")) }\n',
+  'test/e2e/e2e.go': 'package e2e\n\nfunc Run() {}\n',
+};
+
+const SIZE = tempDir('callmap-go-cli-tests-');
+for (const [path, text] of Object.entries(SIZE_FILES)) {
+  mkdirSync(dirname(join(SIZE, path)), { recursive: true });
+  writeFileSync(join(SIZE, path), text);
 }
 const LAUNCH = new URL('../src/launch.ts', import.meta.url).href;
 
@@ -73,8 +88,35 @@ describe('the Go extractor as a separate process', () => {
     }).not.toThrow();
   });
 
-  it('records the scope it was given', () => {
-    expect(documentOf(REPO, '--scope', 'internal/**').scope).toEqual(['internal/**']);
+  it('records the scope it was given, with the same test globs as @callmap/scope after it', () => {
+    expect(documentOf(REPO, '--scope', 'internal/**').scope).toEqual(
+      effectiveScope(['internal/**'], false),
+    );
+    expect(documentOf(REPO, '--scope', 'internal/**', '--tests').scope).toEqual(['internal/**']);
+  });
+
+  it('records each test glob once when the review command already put it in the scope', () => {
+    const scope = effectiveScope([], false);
+    expect(documentOf(REPO, ...scope.flatMap((glob) => ['--scope', glob])).scope).toEqual(scope);
+  });
+
+  it('reads no test file and loads no test variant by default', () => {
+    const document = documentOf(SIZE);
+    expect(document.files).toEqual(['size/size.go']);
+    expect(document.openEnds).toEqual([
+      {
+        caller: 'size/size.go#Measure',
+        line: 5,
+        expression: 'sizer.Size',
+        reason: 'no-implementation',
+      },
+    ]);
+  });
+
+  it('reads the test files and loads the test variants when it is asked for the tests', () => {
+    const document = documentOf(SIZE, '--tests');
+    expect(document.files).toEqual(['size/size.go', 'size/size_test.go', 'test/e2e/e2e.go']);
+    expect(document.openEnds).toEqual([]);
   });
 
   it('narrows the document to the scope it was given', () => {
@@ -90,6 +132,7 @@ describe('the Go extractor as a separate process', () => {
     const finished = run();
     expect(finished.status).not.toBe(0);
     expect(finished.stderr).toMatch(/usage/i);
+    expect(finished.stderr).toContain('[--tests]');
   });
 
   it('refuses a flag it does not know, rather than reading a repo it was not asked for', () => {

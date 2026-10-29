@@ -307,6 +307,7 @@ describe('the reads of the Go extractor', () => {
         open: false,
         cache: false,
         editor: 'vscode',
+        tests: false,
       },
       { diffLimit: 2000, extractors: [watched] },
     );

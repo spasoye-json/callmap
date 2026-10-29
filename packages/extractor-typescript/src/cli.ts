@@ -6,9 +6,11 @@
  * non-zero exit, so a repo it could not read is never mistaken for a repo with nothing in it.
  */
 
+import { effectiveScope } from '@callmap/scope';
 import { extractGraphDocument } from './graph.ts';
 
-const USAGE = 'usage: callmap-extract-typescript <repo> [--scope <glob>]... [--tsconfig <path>]';
+const USAGE =
+  'usage: callmap-extract-typescript <repo> [--scope <glob>]... [--tsconfig <path>] [--tests]';
 
 class CliError extends Error {
   override readonly name = 'CliError';
@@ -29,10 +31,13 @@ const readArguments = (args: readonly string[]): Invocation => {
   const scope: string[] = [];
   let repo: string | undefined;
   let tsconfig: string | undefined;
+  let tests = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index] ?? '';
-    if (argument === '--scope' || argument === '--tsconfig') {
+    if (argument === '--tests') {
+      tests = true;
+    } else if (argument === '--scope' || argument === '--tsconfig') {
       const value = args[index + 1];
       if (value === undefined || value.startsWith('--')) {
         throw new CliError(`${argument} needs a value after it`);
@@ -50,7 +55,7 @@ const readArguments = (args: readonly string[]): Invocation => {
   }
 
   if (repo === undefined) throw new CliError(USAGE);
-  return { repo, scope, tsconfig };
+  return { repo, scope: effectiveScope(scope, tests), tsconfig };
 };
 
 const main = (args: readonly string[]): void => {
