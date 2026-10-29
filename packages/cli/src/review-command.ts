@@ -5,12 +5,14 @@ import type { GraphDocument } from '@callmap/graph-document';
 import { reviewGraphsOf, reviewOf } from '@callmap/review';
 import { inScope, isSkippedDirectory } from '@callmap/scope';
 import { DIFF_LIMIT } from '../page/views/diff.ts';
+import type { Checkout } from '../page/data.ts';
 import type { ReviewInvocation } from './arguments.ts';
 import { throughBaseCache } from './base-cache.ts';
 import { openInBrowser } from './browser.ts';
 import { extractorsFor } from './extractors.ts';
 import type { Extractor } from './extractors.ts';
 import {
+  branchNameOf,
   commitOf,
   commonDirOf,
   defaultBranchOf,
@@ -19,6 +21,7 @@ import {
   mergeBaseOf,
   repoRootOf,
   shortCommitOf,
+  uncommittedFilesOf,
   workingTreeFilesOf,
 } from './git.ts';
 import { readerPageOf } from './reader-page.ts';
@@ -63,14 +66,36 @@ const settled = <T>(result: PromiseSettledResult<T>): T => {
 const inSkippedDirectory = (path: string): boolean =>
   path.split('/').slice(0, -1).some(isSkippedDirectory);
 
+const isInReviewScope = (path: string, scope: readonly string[]): boolean =>
+  !inSkippedDirectory(path) && inScope(path, scope);
+
 const extractorsInScope = (
   extractors: readonly Extractor[],
   files: readonly string[],
   scope: readonly string[],
 ): readonly Extractor[] => {
-  const inScopeFiles = files.filter((path) => !inSkippedDirectory(path) && inScope(path, scope));
+  const inScopeFiles = files.filter((path) => isInReviewScope(path, scope));
   return extractors.filter((extractor) => extractor.claimsAnyOf(inScopeFiles, files));
 };
+
+interface Base {
+  readonly name: string;
+  readonly commit: string;
+}
+
+const baseOf = (root: string, typed: string | undefined): Base => {
+  if (typed !== undefined) return { name: typed, commit: commitOf(root, typed) };
+  const name = defaultBranchOf(root);
+  return { name, commit: mergeBaseOf(root, name) };
+};
+
+const checkoutOf = (root: string, base: Base, scope: readonly string[]): Checkout => ({
+  branch: branchNameOf(root),
+  baseName: base.name,
+  baseCommit: shortCommitOf(root, base.commit),
+  headCommit: shortCommitOf(root, 'HEAD'),
+  uncommitted: uncommittedFilesOf(root).some((path) => isInReviewScope(path, scope)),
+});
 
 interface LanguageDocuments {
   readonly branch: GraphDocument;
@@ -92,10 +117,8 @@ export const runReview = async (
   { diffLimit, extractors }: ReviewSettings = { diffLimit: DIFF_LIMIT },
 ): Promise<FinishedReview> => {
   const root = repoRootOf(resolve(invocation.repo));
-  const base =
-    invocation.base === undefined
-      ? mergeBaseOf(root, defaultBranchOf(root))
-      : commitOf(root, invocation.base);
+  const reviewBase = baseOf(root, invocation.base);
+  const base = reviewBase.commit;
   const { scope } = invocation;
   const documentsOf = async (extractor: Extractor): Promise<LanguageDocuments> => {
     const readBranch = (): Promise<GraphDocument> =>
@@ -140,6 +163,7 @@ export const runReview = async (
     sources: sourcesOf(root, base, review, graphs.branch),
     basePlaces: basePlacesOf(review, graphs.base),
     editor: { name: invocation.editor, repoRoot: root },
+    checkout: checkoutOf(root, reviewBase, scope),
     diffLimit,
   });
 

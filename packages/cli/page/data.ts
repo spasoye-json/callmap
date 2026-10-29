@@ -22,12 +22,21 @@ export interface LineSpan {
   readonly lastLine: number;
 }
 
+export interface Checkout {
+  readonly branch: string | undefined;
+  readonly baseName: string;
+  readonly baseCommit: string;
+  readonly headCommit: string;
+  readonly uncommitted: boolean;
+}
+
 export interface ReaderPageData {
   readonly review: Review;
   readonly branchGraph: CallGraph;
   readonly packedSources: string;
   readonly basePlaces: Readonly<Record<FunctionId, LineSpan>>;
   readonly editor: EditorChoice;
+  readonly checkout: Checkout;
   readonly placements: Readonly<Partial<Record<string, Placement>>>;
   readonly diffLimit: number;
 }
