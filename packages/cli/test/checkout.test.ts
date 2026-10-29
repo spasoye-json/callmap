@@ -14,7 +14,7 @@ const topBarOf = async (repo: string, ...flags: readonly string[]) => {
 };
 
 const shortOf = (repo: string, revision: string): string =>
-  git(repo, 'rev-parse', '--short', revision);
+  git(repo, 'rev-parse', '--short=7', revision);
 
 const cleanRangeOf = (repo: string): string =>
   `${shortOf(repo, 'feature~1')}…${shortOf(repo, 'HEAD')}`;
