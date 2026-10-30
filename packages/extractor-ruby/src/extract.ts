@@ -1,22 +1,26 @@
 /**
- * The Ruby extractor: it reads a repo of Rails apps in scope and emits the reference graph document
- * the core owns the contract for (ADR-0009).
- *
- * Rails code names a class and never the file it lives in, so a reference here is a constant
- * reference resolved the way Zeitwerk would load it, one set of autoload roots per app. Code
- * outside those roots is loaded by a `require` this extractor does not read, so it is claimed and
- * left without edges rather than given edges its loader may never make.
+ * The Ruby extractor: it reads a repo and emits the graph document the core owns the contract for
+ * (ADR-0009). Ruby has no type checker, so Callmap's own rules tie each call, and a call that they
+ * do not prove is an open end (ADR-0027).
  */
 
 import { resolve } from 'node:path';
-import type { ReferenceGraphDocument } from '@callmap/reference-graph';
-import { constantReferencesOf } from './references.ts';
+import { readGraphDocument } from '@callmap/graph-document';
+import type { Call, GraphDocument, GraphFunction, OpenEnd } from '@callmap/graph-document';
 import { inScope } from '@callmap/scope';
+import { readRubyFiles } from './ripper.ts';
+import type { RubyMethod } from './ripper.ts';
+import { resolverOf } from './resolution.ts';
+import type { IndexedMethod } from './resolution.ts';
 import { rubyFilesOf } from './walk.ts';
-import { zeitwerkOf } from './zeitwerk.ts';
 
 /** The tag this extractor stamps on every file it claims. */
 export const RUBY = 'ruby';
+
+const RUBY_CHECKER = 'Callmap Ruby rules';
+
+/** Raise it when a rule changes, so the checker on the page names the rules that ran. */
+const RUBY_RULES_VERSION = '1';
 
 export interface ExtractOptions {
   /** The root of the repo to read. Every path in the document is relative to it. */
@@ -25,35 +29,98 @@ export interface ExtractOptions {
   readonly scope?: readonly string[];
 }
 
+export interface RubyRead {
+  readonly document: GraphDocument;
+  /** The files in scope that Ripper could not parse, which the document claims with no function. */
+  readonly unparsed: readonly string[];
+}
+
+const nameOf = ({ owner, singleton, name }: RubyMethod): string => {
+  if (owner === '') return name;
+  return `${owner}${singleton ? '.' : '#'}${name}`;
+};
+
 /**
- * Read a repo and emit its reference graph document.
- *
- * Constants are resolved against every file of the app, in scope or not, so a reference whose file
- * the scope leaves out is dropped rather than resolved to the next name Ruby would have tried,
- * which is a file it would never have reached. An edge is emitted only when both ends are claimed.
+ * Every Ruby file of the repo is read, in scope or not, because a call on a constant ties through
+ * every body of its class. A callee outside the scope is then a library call.
  */
-export const extractRuby = (options: ExtractOptions): ReferenceGraphDocument => {
+export const readRuby = (options: ExtractOptions): RubyRead => {
   const repo = resolve(options.repo);
   const scope = options.scope ?? [];
   const everyFile = rubyFilesOf(repo);
   const files = everyFile.filter((path) => inScope(path, scope));
+  const report = readRubyFiles(repo, everyFile);
+
+  const bodies: string[] = [];
+  const methods: IndexedMethod[] = [];
+  const methodsOfFile = new Map<string, readonly IndexedMethod[]>();
+  for (const path of everyFile) {
+    const read = report.files[path];
+    if (read?.parsed !== true) continue;
+    bodies.push(...read.bodies);
+    const seen = new Map<string, number>();
+    const indexed = read.methods.map((method) => {
+      const name = nameOf(method);
+      const count = (seen.get(name) ?? 0) + 1;
+      seen.set(name, count);
+      return {
+        ...method,
+        file: path,
+        id: count === 1 ? `${path}#${name}` : `${path}#${name}~${count}`,
+      };
+    });
+    methods.push(...indexed);
+    methodsOfFile.set(path, indexed);
+  }
+
   const claimed = new Set(files);
-  const zeitwerk = zeitwerkOf(everyFile);
-  const references = constantReferencesOf(
-    repo,
-    files.filter((path) => zeitwerk.autoloaded(path) !== undefined),
-  );
+  const resolutionOf = resolverOf(bodies, methods, claimed);
+  const functions: GraphFunction[] = [];
+  const calls: Call[] = [];
+  const openEnds: OpenEnd[] = [];
+  for (const path of files) {
+    const read = report.files[path];
+    const indexed = methodsOfFile.get(path) ?? [];
+    for (const method of indexed) {
+      functions.push({
+        id: method.id,
+        name: nameOf(method),
+        file: path,
+        firstLine: method.firstLine,
+        lastLine: method.lastLine,
+        sourceHash: method.sourceHash,
+      });
+    }
+    if (read?.parsed !== true) continue;
+    for (const site of read.calls) {
+      const caller = indexed[site.method];
+      if (caller === undefined) continue;
+      const resolution = resolutionOf(site, caller);
+      if (resolution.kind === 'call')
+        calls.push({ caller: caller.id, callee: resolution.callee, line: site.line });
+      if (resolution.kind === 'open-end')
+        openEnds.push({
+          caller: caller.id,
+          line: site.line,
+          expression: site.expression,
+          reason: resolution.reason,
+        });
+    }
+  }
 
-  const edges = [...references].flatMap(([from, found]) => {
-    const app = zeitwerk.autoloaded(from)?.app;
-    if (app === undefined) return [];
-    const targets = new Set(
-      found
-        .map((reference) => zeitwerk.resolve(app, reference))
-        .filter((to): to is string => to !== undefined && to !== from && claimed.has(to)),
-    );
-    return [...targets].sort().map((to) => ({ from, to }));
+  const document = readGraphDocument({
+    language: RUBY,
+    checker: { name: RUBY_CHECKER, version: `${RUBY_RULES_VERSION}, ${report.ruby}` },
+    scope,
+    files,
+    functions,
+    calls,
+    openEnds,
   });
-
-  return { language: RUBY, scope, files, edges };
+  return {
+    document,
+    unparsed: files.filter((path) => report.files[path]?.parsed === false),
+  };
 };
+
+export const extractRuby = (options: ExtractOptions): GraphDocument => readRuby(options).document;

@@ -40,4 +40,6 @@ export const assets: Assets = {
       'callmap-extract-go',
     ),
   }),
+  rubyExtractor: fileURLToPath(new URL('extract-ruby.js', import.meta.url)),
+  rubyExtractorVersion: (rubyVersion) => [packageNameAndVersion(), rubyVersion].join('\0'),
 };

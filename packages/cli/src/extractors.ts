@@ -202,7 +202,44 @@ export const goExtractor = (): Extractor => {
   };
 };
 
+const rubyVersionOnPath = (): string | undefined => {
+  const finished = spawnSync('ruby', ['--version'], { encoding: 'utf8' });
+  return finished.error === undefined && finished.status === 0 ? finished.stdout.trim() : undefined;
+};
+
+/** The lines that packages/extractor-ruby/src/cli.ts writes to stderr about a file it could not parse. */
+const rubyNotesIn = (stderr: string): readonly string[] =>
+  stderr.split('\n').filter((line) => line.startsWith('callmap '));
+
+export const rubyExtractor = (): Extractor => {
+  const rubyVersion = once(rubyVersionOnPath);
+  const notes = new Set<string>();
+  return {
+    language: 'ruby',
+    dependencyFiles: [],
+    options: [],
+    version: () => assets.rubyExtractorVersion(rubyVersion() ?? ''),
+    claimsAnyOf: (inScope) => inScope.some((path) => path.endsWith('.rb')),
+    readsInParallel: false,
+    skipNote: () =>
+      rubyVersion() === undefined
+        ? 'callmap skipped the Ruby files, because ruby is not on the PATH.'
+        : undefined,
+    notes: () => [...notes],
+    extract: async (repo, scope) => {
+      const { stdout, stderr } = await runExtractorProcess(process.execPath, [
+        assets.rubyExtractor,
+        repo,
+        ...effectiveScopeArgumentsOf(scope),
+      ]);
+      for (const note of rubyNotesIn(stderr)) notes.add(note);
+      return readGraphDocument(JSON.parse(stdout));
+    },
+  };
+};
+
 export const extractorsFor = (tsconfig: string | undefined): readonly Extractor[] => [
   typescriptExtractor(tsconfig),
   goExtractor(),
+  rubyExtractor(),
 ];

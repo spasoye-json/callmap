@@ -1,12 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { getByRole, within } from '@testing-library/dom';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -14,6 +7,7 @@ import { goExtractor } from '../src/extractors.ts';
 import type { Extractor } from '../src/extractors.ts';
 import { runReview } from '../src/review-command.ts';
 import { commitFile, featureBranchRepo, goRepo } from './fixture-repo.ts';
+import { pathWithout } from './path-without.ts';
 import { loadReaderPage, pageDataOf, runCallmap } from './reader-page.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
 
@@ -41,23 +35,6 @@ const cacheEntriesOf = (cacheHome: string): readonly string[] =>
   readdirSync(join(cacheHome, 'callmap'), { recursive: true, encoding: 'utf8' }).filter((entry) =>
     entry.endsWith('.json'),
   );
-
-const holdsGo = (folder: string): boolean => existsSync(join(folder, 'go'));
-
-// A CI runner can hold go in /usr/bin next to git and sh, so the other commands of that folder stay.
-const pathWithoutGo = (): string => {
-  const folders = (process.env['PATH'] ?? '').split(delimiter);
-  const otherCommands = tempDir('callmap-path-without-go-');
-  const linked = new Set<string>();
-  for (const folder of folders.filter(holdsGo)) {
-    for (const command of readdirSync(folder)) {
-      if (command === 'go' || linked.has(command)) continue;
-      symlinkSync(join(folder, command), join(otherCommands, command));
-      linked.add(command);
-    }
-  }
-  return [...folders.filter((folder) => !holdsGo(folder)), otherCommands].join(delimiter);
-};
 
 let repo = '';
 let cacheHome = '';
@@ -221,7 +198,7 @@ describe('callmap review of a Go module that the go tool refuses', () => {
 
 describe('callmap review with no go on the PATH', () => {
   it('writes the TypeScript page, and prints one line that it skipped Go', () => {
-    const skipped = reviewOf(goRepo(), tempDir('callmap-cache-'), pathWithoutGo());
+    const skipped = reviewOf(goRepo(), tempDir('callmap-cache-'), pathWithout('go'));
     expect(skipped.stderr).toBe('callmap skipped the Go files, because go is not on the PATH.\n');
     const { review } = pageDataOf(skipped.html);
     expect(review.functions.map(({ id }) => id).every((id) => id.startsWith('web/'))).toBe(true);
@@ -240,7 +217,7 @@ describe('callmap review of a repo whose Go files the Go extractor never reads',
     expect(pageDataOf(withGo.html).review.resolutionRates.map(({ language }) => language)).toEqual([
       'typescript',
     ]);
-    expect(reviewOf(repo, tempDir('callmap-cache-'), pathWithoutGo()).stderr).toBe('');
+    expect(reviewOf(repo, tempDir('callmap-cache-'), pathWithout('go')).stderr).toBe('');
   }, 60_000);
 });
 

@@ -7,6 +7,8 @@ export interface Assets {
   readonly goExtractor: string;
   readonly goExtractorVersion: (goVersion: string) => string;
   readonly goExtractorEnv: (goVersion: string) => Readonly<Record<string, string>>;
+  readonly rubyExtractor: string;
+  readonly rubyExtractorVersion: (rubyVersion: string) => string;
 }
 
 export { assets } from './clone-assets.ts';

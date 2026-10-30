@@ -32,6 +32,7 @@
   "devDependencies": {
     "@callmap/editor-link": "*",
     "@callmap/extractor-go": "*",
+    "@callmap/extractor-ruby": "*",
     "@callmap/extractor-typescript": "*",
     "@callmap/graph-document": "*",
     "@callmap/review": "*",

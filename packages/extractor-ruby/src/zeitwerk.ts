@@ -5,7 +5,7 @@
  * loader, and a name one app defines means nothing to another.
  */
 
-import type { ConstantReference } from './references.ts';
+import type { ConstantReference } from './ripper.ts';
 
 /** A Rails app is a directory that holds the file that boots one. */
 const APP_MARKER = 'config/application.rb';

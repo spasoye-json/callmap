@@ -1,5 +1,5 @@
 class Report
   def rows
-    Order.all
+    Order.recent
   end
 end

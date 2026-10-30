@@ -2,39 +2,22 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@callmap/reference-graph';
-import type { ReferenceGraphDocument } from '@callmap/reference-graph';
-import { ExtractionError, extractRuby } from '../src/index.ts';
+import { readGraphDocument } from '@callmap/graph-document';
+import type { GraphDocument } from '@callmap/graph-document';
+import { extractRuby } from '../src/index.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
 
-/** The tiny two-app Rails repo this package commits, read the way an extractor reads a repo. */
 const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
 
 const ORDER = 'shop/app/models/order.rb';
-const LINE_ITEM = 'shop/app/models/line_item.rb';
-const APPLICATION_RECORD = 'shop/app/models/application_record.rb';
 const REPORT = 'shop/app/models/report.rb';
-const ADMIN_REPORT = 'shop/app/models/admin/report.rb';
-const DISCOUNTABLE = 'shop/app/models/concerns/discountable.rb';
-const BASE_CONTROLLER = 'shop/app/controllers/admin/base_controller.rb';
-const ORDERS_CONTROLLER = 'shop/app/controllers/admin/orders_controller.rb';
-const REFUNDS_CONTROLLER = 'shop/app/controllers/admin/refunds_controller.rb';
-const RECEIPT_JOB = 'shop/app/jobs/receipt_job.rb';
 const LABEL = 'shop/app/services/shipping/label.rb';
-const SHOP_APPLICATION = 'shop/config/application.rb';
-const RECONCILE = 'shop/lib/reconcile.rb';
-const INVOICES_CONTROLLER = 'billing/app/controllers/invoices_controller.rb';
-const INVOICE = 'billing/app/models/invoice.rb';
-const BILLING_ORDER = 'billing/app/models/order.rb';
+const RECEIPT_JOB = 'shop/app/jobs/receipt_job.rb';
 const RELEASE = 'tools/release.rb';
 
-/**
- * Every run starts a Ruby process, so a run is remembered by its scope and two cases that ask the
- * same thing pay for one.
- */
-const runs = new Map<string, ReferenceGraphDocument>();
+const runs = new Map<string, GraphDocument>();
 
-const extract = (...scope: readonly string[]): ReferenceGraphDocument => {
+const extract = (...scope: readonly string[]): GraphDocument => {
   const key = JSON.stringify(scope);
   const known = runs.get(key);
   if (known !== undefined) return known;
@@ -43,14 +26,6 @@ const extract = (...scope: readonly string[]): ReferenceGraphDocument => {
   return document;
 };
 
-const targetsOf = (from: string, ...scope: readonly string[]): readonly string[] =>
-  extract(...scope)
-    .edges.filter((edge) => edge.from === from)
-    .map((edge) => edge.to);
-
-const appOf = (path: string): string => path.split('/')[0] ?? '';
-
-/** A throwaway repo holding exactly the given files. */
 const repoOf = (files: Readonly<Record<string, string>>): string => {
   const repo = tempDir('callmap-ruby-');
   for (const [path, text] of Object.entries(files)) {
@@ -60,107 +35,165 @@ const repoOf = (files: Readonly<Record<string, string>>): string => {
   return repo;
 };
 
+const namesIn = (document: GraphDocument, file: string): readonly string[] =>
+  document.functions.filter((graphFunction) => graphFunction.file === file).map(({ name }) => name);
+
+const callsOf = (document: GraphDocument): readonly string[] =>
+  document.calls.map(({ caller, callee, line }) => `${caller} ${callee} ${line}`);
+
+const openEndsOf = (document: GraphDocument): readonly string[] =>
+  document.openEnds.map(
+    ({ caller, line, expression, reason }) => `${caller} ${line} ${expression} ${reason}`,
+  );
+
 describe('extractRuby', () => {
-  it('emits a document the core validates', () => {
-    const document = readReferenceGraphDocument(extract());
+  it('emits a graph document that the core accepts, in the Ruby language', () => {
+    const document = readGraphDocument(extract());
     expect(document.language).toBe('ruby');
-    expect(() => referenceGraphFromDocuments(document)).not.toThrow();
   });
 
-  it('records the scope the document was built under', () => {
-    expect(extract('shop/**').scope).toEqual(['shop/**']);
+  it('names an instance method with # and a singleton method with a dot', () => {
+    expect(namesIn(extract(), ORDER)).toEqual([
+      'Order.find_open',
+      'Order.recent',
+      'Order#total',
+      'Order#subtotal',
+      'Order#discount_of',
+      'Order#count',
+    ]);
   });
 
-  it('claims every Ruby file in scope, inside the autoload roots or not', () => {
-    expect(extract('shop/config/**', 'shop/lib/**', 'tools/**').files).toEqual([
-      SHOP_APPLICATION,
-      RECONCILE,
+  it('names a method of a nested class with its full name', () => {
+    expect(namesIn(extract(), LABEL)).toEqual([
+      'Shipping::Label#initialize',
+      'Shipping::Label#print',
+    ]);
+  });
+
+  it('gives each function the file and the name as its id, and its first and last line', () => {
+    expect(extract().functions.find(({ name }) => name === 'Order.recent')).toMatchObject({
+      id: `${ORDER}#Order.recent`,
+      file: ORDER,
+      firstLine: 11,
+      lastLine: 13,
+    });
+  });
+
+  it('adds the ~n suffix in source order to a repeated name of one file', () => {
+    const repo = repoOf({
+      'lib/cart.rb': 'class Cart\n  def add; end\nend\n\nclass Cart\n  def add; end\nend\n',
+    });
+    expect(extractRuby({ repo }).functions.map(({ id }) => id)).toEqual([
+      'lib/cart.rb#Cart#add',
+      'lib/cart.rb#Cart#add~2',
+    ]);
+  });
+
+  it('names a method at the top level of a file by its name alone', () => {
+    const repo = repoOf({ 'bin/setup.rb': 'def run\n  prepare\nend\n\ndef prepare; end\n' });
+    const document = extractRuby({ repo });
+    expect(document.functions.map(({ name }) => name)).toEqual(['run', 'prepare']);
+    expect(callsOf(document)).toEqual(['bin/setup.rb#run bin/setup.rb#prepare 2']);
+  });
+
+  it('changes the source hash of a method when its text changes, and of no other method', () => {
+    const before = repoOf({
+      'lib/cart.rb': 'class Cart\n  def add\n    1\n  end\n\n  def drop; end\nend\n',
+    });
+    const after = repoOf({
+      'lib/cart.rb': 'class Cart\n  def add\n    2\n  end\n\n  def drop; end\nend\n',
+    });
+    const hashes = (repo: string) =>
+      extractRuby({ repo }).functions.map(({ sourceHash }) => sourceHash);
+    const [addBefore, dropBefore] = hashes(before);
+    const [addAfter, dropAfter] = hashes(after);
+    expect(addAfter).not.toBe(addBefore);
+    expect(dropAfter).toBe(dropBefore);
+  });
+});
+
+describe('the calls of extractRuby', () => {
+  it('ties a call with no receiver and a call on self to a def of the same class', () => {
+    expect(callsOf(extract())).toEqual(
+      expect.arrayContaining([
+        `${ORDER}#Order#total ${ORDER}#Order#subtotal 18`,
+        `${ORDER}#Order#total ${ORDER}#Order#discount_of 18`,
+        `${ORDER}#Order.recent ${ORDER}#Order.find_open 12`,
+      ]),
+    );
+  });
+
+  it('gives a call in a block to the def around it', () => {
+    expect(callsOf(extract())).toContain(`${ORDER}#Order#total ${ORDER}#Order#count 17`);
+  });
+
+  it('ties a call on a constant to a singleton method of that class', () => {
+    expect(callsOf(extract())).toContain(`${REPORT}#Report#rows ${ORDER}#Order.recent 3`);
+  });
+
+  it('ties Foo.new to Foo#initialize', () => {
+    expect(callsOf(extract())).toContain(
+      `${RECEIPT_JOB}#ReceiptJob#perform ${LABEL}#Shipping::Label#initialize 4`,
+    );
+  });
+
+  it('gives an untyped open end for a call that does not tie, when a def of the repo has its name', () => {
+    expect(openEndsOf(extract())).toEqual(
+      expect.arrayContaining([
+        `${RECEIPT_JOB}#ReceiptJob#perform 4 Shipping::Label.new(order).print untyped`,
+        `${ORDER}#Order#discount_of 26 discount untyped`,
+      ]),
+    );
+  });
+
+  it('draws nothing for a library call, whose name no def of the repo has', () => {
+    const document = extract();
+    const lines = [...document.calls, ...document.openEnds]
+      .filter(({ caller }) => caller === `${ORDER}#Order#subtotal`)
+      .map(({ line }) => line);
+    expect(lines).toEqual([]);
+  });
+
+  it('draws nothing for a call outside any def', () => {
+    const document = extract();
+    const fromRelease = [...document.calls, ...document.openEnds].filter(({ caller }) =>
+      caller.startsWith(RELEASE),
+    );
+    expect(fromRelease.map(({ line }) => line)).toEqual([3]);
+  });
+
+  it('gives a library call for a callee whose file the scope leaves out', () => {
+    const document = extract('shop/app/models/report.rb');
+    expect(document.calls).toEqual([]);
+    expect(document.openEnds).toEqual([]);
+  });
+});
+
+describe('the checker and the files of extractRuby', () => {
+  it('names Callmap Ruby rules with the extractor version and the version of the ruby that ran', () => {
+    const { checker } = extract();
+    expect(checker.name).toBe('Callmap Ruby rules');
+    expect(checker.version).toMatch(/^\d+, ruby \d+\.\d+\.\d+/);
+  });
+
+  it('records the scope the document was built under, and claims every Ruby file in it', () => {
+    const document = extract('shop/config/**', 'shop/lib/**', 'tools/**');
+    expect(document.scope).toEqual(['shop/config/**', 'shop/lib/**', 'tools/**']);
+    expect(document.files).toEqual([
+      'shop/config/application.rb',
+      'shop/lib/reconcile.rb',
       RELEASE,
     ]);
   });
 
-  it('resolves a constant reference to the file Zeitwerk names for it', () => {
-    expect(extract().edges).toContainEqual({ from: ORDER, to: LINE_ITEM });
-  });
-
-  it('reads a superclass as a reference', () => {
-    expect(targetsOf(LINE_ITEM)).toEqual([APPLICATION_RECORD]);
-  });
-
-  it('names a file in a subdirectory of a root under the namespace of that directory', () => {
-    expect(targetsOf(RECEIPT_JOB)).toContain(LABEL);
-  });
-
-  it('resolves a name through the namespaces it was written inside', () => {
-    expect(targetsOf(ORDERS_CONTROLLER)).toContain(BASE_CONTROLLER);
-    expect(targetsOf(ORDERS_CONTROLLER)).toContain(ADMIN_REPORT);
-  });
-
-  it('does not search a namespace a compact class name only passes through, as Ruby does not', () => {
-    expect(targetsOf(REFUNDS_CONTROLLER)).toContain(REPORT);
-    expect(targetsOf(REFUNDS_CONTROLLER)).not.toContain(ADMIN_REPORT);
-  });
-
-  it('resolves an absolute reference at the top level only', () => {
-    expect(targetsOf(RECEIPT_JOB)).toContain(ORDER);
-  });
-
-  it('treats a concern directory as an autoload root of its own', () => {
-    expect(targetsOf(ORDER)).toContain(DISCOUNTABLE);
-  });
-
-  it('resolves a name inside its own app when another app defines the same name', () => {
-    expect(targetsOf(INVOICES_CONTROLLER)).toEqual([INVOICE, BILLING_ORDER]);
-  });
-
-  it('emits no edge for a name only another app defines, because that is a boundary', () => {
-    expect(targetsOf(ORDERS_CONTROLLER)).not.toContain(INVOICE);
-    expect(extract().edges.filter((edge) => appOf(edge.from) !== appOf(edge.to))).toEqual([]);
-  });
-
-  it('emits no edge for a name no file of the app defines, such as a gem constant', () => {
-    expect(targetsOf(ORDERS_CONTROLLER)).toEqual([BASE_CONTROLLER, ADMIN_REPORT, ORDER]);
-  });
-
-  it('invents no edge for code outside the autoload roots, in either direction', () => {
-    const outside = [SHOP_APPLICATION, RECONCILE, RELEASE];
-    const touching = extract().edges.filter(
-      (edge) => outside.includes(edge.from) || outside.includes(edge.to),
-    );
-    expect(touching).toEqual([]);
-  });
-
-  it('drops a reference whose file the scope leaves out, rather than naming one Ruby would skip', () => {
-    const scope = ['shop/app/controllers/**', REPORT];
-    expect(targetsOf(ORDERS_CONTROLLER, ...scope)).toEqual([BASE_CONTROLLER]);
-  });
-
-  it('emits no edge from a file to itself', () => {
+  it('claims a file that Ripper cannot parse with no functions, and keeps reading the others', () => {
     const repo = repoOf({
-      'config/application.rb': 'module App; class Application; end; end\n',
-      'app/models/node.rb': 'class Node\n  def parent = Node.new\nend\n',
-    });
-    expect(extractRuby({ repo }).edges).toEqual([]);
-  });
-
-  it('reads a repo whose root is itself the Rails app', () => {
-    const repo = repoOf({
-      'config/application.rb': 'module App; class Application; end; end\n',
-      'app/models/cart.rb': 'class Cart\n  def items = Item.all\nend\n',
-      'app/models/item.rb': 'class Item; end\n',
-    });
-    expect(extractRuby({ repo }).edges).toEqual([
-      { from: 'app/models/cart.rb', to: 'app/models/item.rb' },
-    ]);
-  });
-
-  it('reports a file Ruby cannot parse rather than reading it as one with no references', () => {
-    const repo = repoOf({
-      'config/application.rb': 'module App; class Application; end; end\n',
       'app/models/broken.rb': 'class Broken\n  def oops(\nend\n',
+      'app/models/cart.rb': 'class Cart\n  def add; end\nend\n',
     });
-    expect(() => extractRuby({ repo })).toThrow(ExtractionError);
-    expect(() => extractRuby({ repo })).toThrow(/app\/models\/broken\.rb/);
+    const document = extractRuby({ repo });
+    expect(document.files).toEqual(['app/models/broken.rb', 'app/models/cart.rb']);
+    expect(document.functions.map(({ id }) => id)).toEqual(['app/models/cart.rb#Cart#add']);
   });
 
   it('reports a repo it cannot read rather than emitting an empty document', () => {

@@ -3,3 +3,5 @@ class Release
     Order.count
   end
 end
+
+Release.new.run
