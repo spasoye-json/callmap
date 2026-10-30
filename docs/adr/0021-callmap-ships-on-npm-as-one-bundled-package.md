@@ -2,7 +2,7 @@
 
 > Superseded in part by ADR-0025 and ADR-0026. The review runs every extractor with files in scope, and the package carries the Go and Ruby extractors.
 
-A user runs `npx @callmap/cli review` in a TypeScript repo and gets the reader page, with no clone of Callmap. `@callmap/cli` is the one package on npm. `rolldown` builds it into `packages/cli/dist/`, and the build bundles every other `@callmap/*` package and `elkjs` into it. Only `typescript` stays a run-time dependency. The owner made decisions 1 to 14 below in the triage of issue 45 on 2026-10-22. The implementation changed decision 10, and the decision gives the reason.
+A user runs `npx @callmap/cli review` in a TypeScript repo and gets the reader page, with no clone of Callmap. `@callmap/cli` is the one package on npm. `rolldown` builds it into `packages/cli/dist/`, and the build bundles every other `@callmap/*` package and `elkjs` into it. Only `typescript` stays a run-time dependency. The owner made decisions 1 to 14 below in the triage of issue #1 on 2026-10-22. The implementation changed decision 10, and the decision gives the reason.
 
 Before this change, every package was private at version `0.0.0`, and every `bin` pointed at a `.ts` file. Node runs a `.ts` file from a clone, but it refuses one under `node_modules` with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`. So a copy from npm could not start.
 
@@ -29,7 +29,7 @@ The command reads 4 things from disk: the extractor, the layout worker, the page
 
 ## Why the package carries third-party notices
 
-The package holds `dist/THIRD-PARTY-NOTICES.txt`, so this ADR changes 2 records. Issue 52 put "a third-party license report" out of scope, and Seam 1 of spec 70 lets the tarball hold no doc other than the README and the LICENSE.
+The package holds `dist/THIRD-PARTY-NOTICES.txt`, so this ADR changes 2 records. Issue 52 put "a third-party license report" out of scope, and Seam 1 of spec #4 lets the tarball hold no doc other than the README and the LICENSE.
 
 - Issue 52 added the license of the repo, when no copy of Callmap went to npm. A user who installs the package gets a copy of the bundled code of `elkjs` under `EPL-2.0 OR GPL-3.0-or-later` and of the CodeMirror packages under MIT.
 - Each of these licenses asks that a copy of the code keeps its copyright and license notice. The bundles drop the license files of the packages, so the notices file carries them.

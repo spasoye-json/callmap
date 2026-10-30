@@ -38,7 +38,7 @@ The check of `docs/research/2026-10-23-diff-limit-on-echarts/` ran on 2026-10-23
 ## Consequences
 
 - A review over the Diff limit no longer stops the command. On ECharts, the review of 50 commits ends in 8.73 s.
-- The reader of a large review starts on the Whole project view, and reads the changes level by level. Levels for the Diff view are issue 66.
+- The reader of a large review starts on the Whole project view, and reads the changes level by level. Levels for the Diff view are issue #2.
 - A Diff view just under the limit still lays out in the page after a next hop. On the short review, this froze the page for 2.8 s to 6.9 s. A layout in a web worker would keep the page responsive.
 - The Diff view draws looser than before, as the levels do after issue 44. The same commits still give a byte-identical page.
 - The Diff limit counts lines, not boxes. A Diff view with many functions and few calls lays out even when it holds more than 2,000 boxes.
