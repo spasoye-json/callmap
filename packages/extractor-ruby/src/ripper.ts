@@ -25,8 +25,34 @@ export interface ConstantReference {
 
 export type Receiver =
   | { readonly kind: 'self' }
+  | { readonly kind: 'super' }
   | { readonly kind: 'value' }
   | ({ readonly kind: 'constant' } & ConstantReference);
+
+/** A module that a body mixes in, by `include`, `prepend` or `extend`. */
+export interface Mixin extends ConstantReference {
+  readonly kind: 'include' | 'prepend' | 'extend';
+}
+
+/** A macro such as `attr_reader` or `has_many` in a class body, with its literal arguments. */
+export interface Macro {
+  readonly name: string;
+  /** Written in `class << self`, so it makes methods of the class itself. */
+  readonly singleton: boolean;
+  readonly symbols: readonly string[];
+  readonly options: Readonly<Record<string, string | true>>;
+}
+
+/**
+ * One `class` or `module` keyword, by the full name it opened. A class can have many bodies. The
+ * superclass is read in the nesting outside the body, and each mixin in the nesting inside it.
+ */
+export interface RubyBody {
+  readonly name: string;
+  readonly superclass: ConstantReference | null;
+  readonly mixins: readonly Mixin[];
+  readonly macros: readonly Macro[];
+}
 
 /** A `def`. The owner is the full name of the class or module body around it, or '' at the top. */
 export interface RubyMethod {
@@ -51,7 +77,7 @@ export type RubyFile =
   | { readonly parsed: false }
   | {
       readonly parsed: true;
-      readonly bodies: readonly string[];
+      readonly bodies: readonly RubyBody[];
       readonly methods: readonly RubyMethod[];
       readonly calls: readonly CallSite[];
     };
