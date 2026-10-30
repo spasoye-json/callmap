@@ -322,6 +322,186 @@ describe('the calls of extractRuby', () => {
   });
 });
 
+describe('the metaprogramming of extractRuby', () => {
+  it('names a method of module_function Mod.x, and ties a call through self in the module to it', () => {
+    const repo = repoOf({
+      'lib/units.rb': [
+        'module Units',
+        '  def to_cm; end',
+        '  module_function :to_cm',
+        '  module_function def to_in; end',
+        '',
+        '  module_function',
+        '',
+        '  def to_mm',
+        '    to_cm',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+      'lib/ruler.rb': 'class Ruler\n  def mark\n    Units.to_mm\n  end\nend\n',
+    });
+    const document = extractRuby({ repo });
+    expect(namesIn(document, 'lib/units.rb')).toEqual([
+      'Units.to_cm',
+      'Units.to_in',
+      'Units.to_mm',
+    ]);
+    expect(callsOf(document)).toEqual([
+      'lib/ruler.rb#Ruler#mark lib/units.rb#Units.to_mm 3',
+      'lib/units.rb#Units.to_mm lib/units.rb#Units.to_cm 9',
+    ]);
+  });
+
+  it('names a method of define_method with a literal name at the line of that call', () => {
+    const repo = repoOf({
+      'lib/flags.rb': [
+        'class Flags',
+        '  define_method(:on) do',
+        '    reset',
+        '  end',
+        '',
+        '  class << self',
+        '    define_method "load" do',
+        '      new',
+        '    end',
+        '  end',
+        '',
+        '  %i[a b].each { |flag| define_method(flag) { reset } }',
+        '',
+        '  def reset; end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    const document = extractRuby({ repo });
+    expect(
+      document.functions.map(({ name, firstLine, lastLine }) => `${name} ${firstLine}-${lastLine}`),
+    ).toEqual(['Flags#on 2-4', 'Flags.load 7-9', 'Flags#reset 14-14']);
+    expect(callsOf(document)).toEqual(['lib/flags.rb#Flags#on lib/flags.rb#Flags#reset 3']);
+  });
+
+  it('names a def in the block of a constant from Struct.new, Data.define or Class.new as a method of that constant', () => {
+    const repo = repoOf({
+      'lib/shapes.rb': [
+        'module Shapes',
+        '  Point = Struct.new(:x, :y) do',
+        '    def norm; end',
+        '  end',
+        '',
+        '  Size = Data.define(:width) do',
+        '    def area',
+        '      norm',
+        '    end',
+        '  end',
+        '',
+        '  Square = Class.new(Base) do',
+        '    def draw',
+        '      outline',
+        '      Point.new.norm',
+        '      Size.area',
+        '    end',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+      'lib/shapes/base.rb': 'module Shapes\n  class Base\n    def outline; end\n  end\nend\n',
+    });
+    const document = extractRuby({ repo });
+    expect(namesIn(document, 'lib/shapes.rb')).toEqual([
+      'Shapes::Point#norm',
+      'Shapes::Size#area',
+      'Shapes::Square#draw',
+    ]);
+    expect(callsOf(document)).toEqual([
+      'lib/shapes.rb#Shapes::Square#draw lib/shapes/base.rb#Shapes::Base#outline 14',
+    ]);
+    expect(openEndsOf(document)).toEqual([
+      'lib/shapes.rb#Shapes::Square#draw 15 Point.new.norm untyped',
+    ]);
+  });
+
+  it('ties send, public_send and try with a literal name like a direct call, and gives dynamic-key for a computed name', () => {
+    const repo = repoOf({
+      'lib/robot.rb': [
+        'class Robot',
+        '  def self.build; end',
+        '',
+        '  def step(name, arm)',
+        '    send(:turn, 90)',
+        '    Robot.public_send "build"',
+        '    arm.try(:turn)',
+        '    send(name)',
+        '    arm.public_send(name, 1)',
+        '  end',
+        '',
+        '  def turn(degrees = 0); end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual([
+      'lib/robot.rb#Robot#step lib/robot.rb#Robot#turn 5',
+      'lib/robot.rb#Robot#step lib/robot.rb#Robot.build 6',
+    ]);
+    expect(openEndsOf(document)).toEqual([
+      'lib/robot.rb#Robot#step 7 arm.try untyped',
+      'lib/robot.rb#Robot#step 8 send dynamic-key',
+      'lib/robot.rb#Robot#step 9 arm.public_send dynamic-key',
+    ]);
+  });
+
+  it('gives function-value for yield and for a call of a block, a callable or a method object', () => {
+    const repo = repoOf({
+      'lib/hooks.rb': [
+        'class Hooks',
+        '  def run(callable, service, &block)',
+        '    yield',
+        '    yield(1)',
+        '    block.call(2)',
+        '    callable.()',
+        '    method(:run).call',
+        '    service.call',
+        '  end',
+        '',
+        '  def call; end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    expect(openEndsOf(extractRuby({ repo }))).toEqual([
+      'lib/hooks.rb#Hooks#run 3 yield function-value',
+      'lib/hooks.rb#Hooks#run 4 yield function-value',
+      'lib/hooks.rb#Hooks#run 5 block.call function-value',
+      'lib/hooks.rb#Hooks#run 6 callable.() function-value',
+      'lib/hooks.rb#Hooks#run 7 method(:run).call function-value',
+      'lib/hooks.rb#Hooks#run 8 service.call untyped',
+    ]);
+  });
+
+  it('gives other for a call on self that only method_missing could answer', () => {
+    const repo = repoOf({
+      'lib/ghost.rb': [
+        'class Ghost',
+        '  def method_missing(name, *args)',
+        '    super',
+        '  end',
+        '',
+        '  def haunt',
+        '    vanish',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+      'lib/magician.rb': 'class Magician\n  def vanish; end\nend\n',
+    });
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual([]);
+    expect(openEndsOf(document)).toEqual(['lib/ghost.rb#Ghost#haunt 7 vanish other']);
+  });
+});
+
 const APPLICATION = 'module Store\n  class Application < Rails::Application\n  end\nend\n';
 
 describe('the Zeitwerk names of a Rails app', () => {
@@ -342,7 +522,7 @@ describe('the Zeitwerk names of a Rails app', () => {
 
   it('names the constants of lib when the app autoloads it', () => {
     const files = {
-      'lib/payments/gateway.rb': 'Payments::Gateway = Class.new\n',
+      'lib/payments/gateway.rb': 'Payments::Gateway = ActiveMerchant::Gateway\n',
       'app/models/order.rb':
         'class Order\n  def pay\n    Payments::Gateway.connect\n  end\n\n  def connect; end\nend\n',
     };
