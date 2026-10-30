@@ -32,7 +32,7 @@ The rules of each variant:
 | 2       | 2,078 | 8,400     | 8,491          | 10,157    | 45.5% |
 | 3       | 2,078 | 8,400     | 8,596          | 9,821     | 46.7% |
 
-The rate is the rate that `callmap review` shows. It comes from `resolutionRateOf` in `packages/review/src/rate.ts`, so a one-of group counts as one call and a library call does not count. Two runs gave the same documents byte for byte.
+The rate is the rate that `callmap review` shows. It comes from `resolutionRateOf` in `packages/review/src/rate.ts`, so a one-of group counts as one call and a library call does not count. 2 runs gave the same documents byte for byte.
 
 The open ends by reason:
 

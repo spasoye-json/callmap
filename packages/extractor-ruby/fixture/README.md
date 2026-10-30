@@ -1,8 +1,8 @@
 # The Ruby fixture repo
 
-A repo of two Rails apps and a gem the extractor reads, not code this repo ships. Every file is
+A repo of 2 Rails apps and a gem the extractor reads, not code this repo ships. Every file is
 here to make one rule of the extraction observable, so a reader can tell from the tree what the
-tests are asserting.
+tests assert.
 
 | File                                               | What it holds for the extraction                                                                                                                     |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
