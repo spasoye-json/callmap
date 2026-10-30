@@ -103,15 +103,15 @@ The link on a function that opens its file and line in the reader's editor. A re
 _Avoid_: deep link, jump link
 
 **View**:
-One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data and the choice of the reader, such as the open level, to boxes, frames and lines. A view also gives the model order of the ELK layout. The Diff view opens first, unless the review is over the Diff limit. The marks, the open ends, the one-of groups, the selection and the code panel work in every view.
+One drawing of the reader page, chosen with a tab: Diff, Whole project, Folder or Route. A view is a pure function from the page data and the choice of the reader, such as the open level, to boxes, frames and lines. A view also gives the model order of the ELK layout. The Diff view opens first. The marks, the open ends, the one-of groups, the selection and the code panel work in every view.
 _Avoid_: mode, screen, perspective
 
 **Diff limit**:
-The most lines that the Diff view draws: 2,000. Each line of the Diff view is one call. A review over the Diff limit opens on the Whole project view, and the Diff tab says what it left out. A next hop or a search that takes the Diff view over the limit also gets the message in place of a drawing.
+The most lines that the Diff view draws in one drawing: 2,000. Each line of the Diff view is one call. Over the Diff limit, the Diff view shows one level at a time, and the level bar says why. At the limit or under it, the Diff view is one drawing again. A next hop or a search can take the Diff view over the limit or back under it.
 _Avoid_: cap, threshold, max size
 
 **Level**:
-One folder of the scope, or one file, that the Whole project view shows at a time. The level of a folder shows its child folders and its files as boxes. The level of a file shows its functions as boxes. The top level is the deepest folder that holds every file in scope. A chain of folders with one child each shows as one box. A folder with only one file shows as the box of that file. So a level never holds a single box. A box counts the changed, added and removed functions inside it. A click on a box opens its level, and the breadcrumb leads back up.
+One folder of the scope, or one file, that the Whole project view shows at a time. The Diff view also shows levels over the Diff limit, and its levels hold only the changed functions and their neighbours. The level of a folder shows its child folders and its files as boxes. The level of a file shows its functions as boxes. The top level is the deepest folder that holds every file of the view. A chain of folders with one child each shows as one box. A folder with only one file shows as the box of that file. So a level never holds a single box. A box counts the changed, added and removed functions inside it. A click on a box opens its level, and the breadcrumb leads back up.
 _Avoid_: zoom level, depth, layer
 
 **Outside box**:
@@ -143,7 +143,7 @@ The number of calls on a bundled line, in a rounded box on the line. It shows on
 _Avoid_: call count label, edge label
 
 **Level bar**:
-The bar at the top of the graph on a level of the Whole project view. It holds the breadcrumb, the "Up one level" button and the count of the boxes and the lines of the open level.
+The bar at the top of the graph on a level of the Whole project view or of the Diff view. It holds the breadcrumb, the "Up one level" button and the count of the boxes and the lines of the open level. On a level of the Diff view, it also says that the review is over the Diff limit.
 _Avoid_: toolbar, header
 
 **Overview map**:
