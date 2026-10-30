@@ -1,0 +1,10 @@
+{
+  "name": "callmap",
+  "description": "Review a branch with Callmap, the call graph reader.",
+  "author": {
+    "name": "Andrej Kovacic"
+  },
+  "homepage": "https://github.com/spasoye-json/callmap",
+  "repository": "https://github.com/spasoye-json/callmap",
+  "license": "MIT"
+}

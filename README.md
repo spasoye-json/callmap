@@ -194,11 +194,10 @@ The command lays out the top level. The page lays out each other level the first
 
 ## Ask Claude for a review
 
-`skills/callmap-review` is a Claude Code skill that runs `callmap review` and opens the page. Install it for your user from the root of this repo:
+`skills/callmap-review` is a Claude Code skill that runs `callmap review` and opens the page. This repo is also a Claude Code plugin marketplace, and its plugin `callmap` holds the skill. Install the plugin once in Claude Code, and the skill works in every repo:
 
 ```sh
-mkdir -p ~/.claude/skills
-ln -s "$PWD/skills/callmap-review" ~/.claude/skills/callmap-review
+/plugin install callmap --marketplace spasoye-json/callmap
 ```
 
 Then ask Claude for a Callmap review of the branch. The skill needs the `callmap` command from the install step.

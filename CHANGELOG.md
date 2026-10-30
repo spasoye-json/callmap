@@ -4,6 +4,8 @@ Each version of Callmap gets a section here. The changes that no version holds y
 
 ## Unreleased
 
+- The repo is a Claude Code plugin marketplace. Its plugin `callmap` holds the skill `callmap-review`, so `/plugin install callmap --marketplace spasoye-json/callmap` installs the skill with no clone.
+
 ## 0.1.1
 
 - The `bin` field of the package names `dist/cli.js` with no `./`, so `npm publish` changes no field of the manifest.

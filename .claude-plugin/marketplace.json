@@ -1,0 +1,13 @@
+{
+  "name": "callmap",
+  "owner": {
+    "name": "Andrej Kovacic"
+  },
+  "plugins": [
+    {
+      "name": "callmap",
+      "source": "./",
+      "description": "Review a branch with Callmap, the call graph reader."
+    }
+  ]
+}
