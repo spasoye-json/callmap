@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { getByRole, within } from '@testing-library/dom';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -7,6 +7,7 @@ import { goExtractor } from '../src/extractors.ts';
 import type { Extractor } from '../src/extractors.ts';
 import { runReview } from '../src/review-command.ts';
 import { commitFile, featureBranchRepo, goRepo } from './fixture-repo.ts';
+import { cacheEntriesOf, reviewOf } from './cached-review.ts';
 import { pathWithout } from './path-without.ts';
 import { loadReaderPage, pageDataOf, runCallmap } from './reader-page.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
@@ -18,23 +19,6 @@ const GREET = 'web/greet.ts';
 
 const goVersion = (): string =>
   /go version go(\S+)/.exec(execFileSync('go', ['version'], { encoding: 'utf8' }))?.[1] ?? '';
-
-const reviewOf = (repo: string, cacheHome: string, path?: string) => {
-  const out = join(tempDir('callmap-out-'), 'review.html');
-  const finished = runCallmap(
-    ['review', repo, '--no-open', '--out', out],
-    undefined,
-    cacheHome,
-    path === undefined ? {} : { PATH: path },
-  );
-  expect(finished.status, finished.stderr).toBe(0);
-  return { html: readFileSync(out, 'utf8'), stderr: finished.stderr };
-};
-
-const cacheEntriesOf = (cacheHome: string): readonly string[] =>
-  readdirSync(join(cacheHome, 'callmap'), { recursive: true, encoding: 'utf8' }).filter((entry) =>
-    entry.endsWith('.json'),
-  );
 
 let repo = '';
 let cacheHome = '';

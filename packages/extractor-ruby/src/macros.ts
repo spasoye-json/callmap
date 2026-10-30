@@ -3,10 +3,10 @@
  * so a call to one is a library call (ADR-0027), even when a `def` elsewhere has its name.
  */
 
-import type { Macro } from './ripper.ts';
+import type { Macro, Side } from './ripper.ts';
 
 export interface MadeNames {
-  readonly side: 'instance' | 'singleton';
+  readonly side: Side;
   readonly names: readonly string[];
 }
 

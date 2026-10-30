@@ -11,7 +11,7 @@ import { inScope } from '@callmap/scope';
 import { readRubyFiles } from './ripper.ts';
 import type { RubyBody, RubyMethod } from './ripper.ts';
 import { resolverOf } from './resolution.ts';
-import type { IndexedMethod } from './resolution.ts';
+import type { IndexedMethod, Resolver } from './resolution.ts';
 import { loadUnitsOf } from './units.ts';
 import type { LoadUnit } from './units.ts';
 import { rubyTreeOf } from './walk.ts';
@@ -77,7 +77,7 @@ export const readRuby = (options: ExtractOptions): RubyRead => {
   const claimed = new Set(files);
   const definedNames = new Set([...methodsOfFile.values()].flat().map(({ name }) => name));
   const unitOf = loadUnitsOf(repo, tree);
-  const resolvers = new Map<LoadUnit, ReturnType<typeof resolverOf>>();
+  const resolvers = new Map<LoadUnit, Resolver>();
   const resolverIn = (unit: LoadUnit) => {
     const known =
       resolvers.get(unit) ??

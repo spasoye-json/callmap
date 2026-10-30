@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { getByRole, within } from '@testing-library/dom';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -7,8 +7,9 @@ import { rubyExtractor } from '../src/extractors.ts';
 import type { Extractor } from '../src/extractors.ts';
 import { runReview } from '../src/review-command.ts';
 import { commitFile, rubyRepo } from './fixture-repo.ts';
+import { cacheEntriesOf, reviewOf } from './cached-review.ts';
 import { pathWithout } from './path-without.ts';
-import { loadReaderPage, pageDataOf, runCallmap } from './reader-page.ts';
+import { loadReaderPage, pageDataOf } from './reader-page.ts';
 import { tempDir } from '../../../test/temp-dir.ts';
 
 const ORDER = 'app/models/order.rb';
@@ -16,23 +17,6 @@ const CHECKOUT = 'app/services/checkout.rb';
 const GREET = 'web/greet.ts';
 
 const rubyVersion = (): string => execFileSync('ruby', ['--version'], { encoding: 'utf8' }).trim();
-
-const reviewOf = (repo: string, cacheHome: string, path?: string) => {
-  const out = join(tempDir('callmap-out-'), 'review.html');
-  const finished = runCallmap(
-    ['review', repo, '--no-open', '--out', out],
-    undefined,
-    cacheHome,
-    path === undefined ? {} : { PATH: path },
-  );
-  expect(finished.status, finished.stderr).toBe(0);
-  return { html: readFileSync(out, 'utf8'), stderr: finished.stderr };
-};
-
-const cacheEntriesOf = (cacheHome: string): readonly string[] =>
-  readdirSync(join(cacheHome, 'callmap'), { recursive: true, encoding: 'utf8' }).filter((entry) =>
-    entry.endsWith('.json'),
-  );
 
 const pathWithAnotherRuby = (): string => {
   const bin = tempDir('callmap-other-ruby-');

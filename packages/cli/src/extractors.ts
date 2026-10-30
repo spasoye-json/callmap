@@ -49,6 +49,34 @@ export interface Extractor extends CachedExtractor {
   readonly extract: (repo: string, scope: readonly string[]) => Promise<GraphDocument>;
 }
 
+/**
+ * The lines that an extractor writes to stderr for the reader: a module that
+ * packages/extractor-go/go/load.go skipped, or a file that packages/extractor-ruby/src/cli.ts
+ * could not parse.
+ */
+const notesIn = (stderr: string): readonly string[] =>
+  stderr.split('\n').filter((line) => line.startsWith('callmap '));
+
+/** An extractor process that prints its document, and the notes of every run so far. */
+const notingExtractionOf = (
+  extractor: string,
+  envOf: () => Readonly<Record<string, string>>,
+): Pick<Extractor, 'extract' | 'notes'> => {
+  const notes = new Set<string>();
+  return {
+    notes: () => [...notes],
+    extract: async (repo, scope) => {
+      const { stdout, stderr } = await runExtractorProcess(
+        process.execPath,
+        [extractor, repo, ...effectiveScopeArgumentsOf(scope)],
+        envOf(),
+      );
+      for (const note of notesIn(stderr)) notes.add(note);
+      return readGraphDocument(JSON.parse(stdout));
+    },
+  };
+};
+
 const TYPESCRIPT_FILE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 
 export const typescriptExtractor = (tsconfig: string | undefined): Extractor => ({
@@ -141,10 +169,6 @@ const goBuildSettings = (): readonly string[] => {
   });
 };
 
-/** The lines that packages/extractor-go/go/load.go writes to stderr about a module it skipped. */
-const goNotesIn = (stderr: string): readonly string[] =>
-  stderr.split('\n').filter((line) => line.startsWith('callmap '));
-
 const directoryOf = (path: string): string => path.split('/').slice(0, -1).join('/');
 
 const isGoMod = (path: string): boolean => path === 'go.mod' || path.endsWith('/go.mod');
@@ -175,7 +199,6 @@ const once = <T>(read: () => T): (() => T) => {
 export const goExtractor = (): Extractor => {
   const goVersion = once(goVersionOnPath);
   const buildSettings = once(goBuildSettings);
-  const notes = new Set<string>();
   return {
     language: 'go',
     dependencyFiles: ['go.work', '**/go.sum', '**/go.work.sum'],
@@ -189,16 +212,7 @@ export const goExtractor = (): Extractor => {
     },
     readsInParallel: false,
     skipNote: () => goSkipNoteOf(goVersion()),
-    notes: () => [...notes],
-    extract: async (repo, scope) => {
-      const { stdout, stderr } = await runExtractorProcess(
-        process.execPath,
-        [assets.goExtractor, repo, ...effectiveScopeArgumentsOf(scope)],
-        assets.goExtractorEnv(goVersion() ?? ''),
-      );
-      for (const note of goNotesIn(stderr)) notes.add(note);
-      return readGraphDocument(JSON.parse(stdout));
-    },
+    ...notingExtractionOf(assets.goExtractor, () => assets.goExtractorEnv(goVersion() ?? '')),
   };
 };
 
@@ -207,13 +221,8 @@ const rubyVersionOnPath = (): string | undefined => {
   return finished.error === undefined && finished.status === 0 ? finished.stdout.trim() : undefined;
 };
 
-/** The lines that packages/extractor-ruby/src/cli.ts writes to stderr about a file it could not parse. */
-const rubyNotesIn = (stderr: string): readonly string[] =>
-  stderr.split('\n').filter((line) => line.startsWith('callmap '));
-
 export const rubyExtractor = (): Extractor => {
   const rubyVersion = once(rubyVersionOnPath);
-  const notes = new Set<string>();
   return {
     language: 'ruby',
     dependencyFiles: [],
@@ -225,16 +234,7 @@ export const rubyExtractor = (): Extractor => {
       rubyVersion() === undefined
         ? 'callmap skipped the Ruby files, because ruby is not on the PATH.'
         : undefined,
-    notes: () => [...notes],
-    extract: async (repo, scope) => {
-      const { stdout, stderr } = await runExtractorProcess(
-        process.execPath,
-        [assets.rubyExtractor, repo, ...effectiveScopeArgumentsOf(scope)],
-        assets.rubyExtractorEnv(),
-      );
-      for (const note of rubyNotesIn(stderr)) notes.add(note);
-      return readGraphDocument(JSON.parse(stdout));
-    },
+    ...notingExtractionOf(assets.rubyExtractor, assets.rubyExtractorEnv),
   };
 };
 

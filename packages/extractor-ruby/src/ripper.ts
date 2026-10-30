@@ -6,6 +6,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
+import type { OpenEndReason } from '@callmap/graph-document';
 
 /** Thrown when the extractor cannot read what it was pointed at. */
 export class ExtractionError extends Error {
@@ -70,6 +71,12 @@ export interface RubyBody {
   readonly macros: readonly Macro[];
 }
 
+/** The side of a class that a method or a macro belongs to: its instances, or the class itself. */
+export type Side = 'instance' | 'singleton';
+
+export const sideOf = ({ singleton }: { readonly singleton: boolean }): Side =>
+  singleton ? 'singleton' : 'instance';
+
 /** A `def`. The owner is the full name of the class or module body around it, or '' at the top. */
 export interface RubyMethod {
   readonly owner: string;
@@ -92,7 +99,7 @@ export interface CallSite {
   readonly receiver: Receiver;
   readonly expression: string;
   /** Set when the call has no name that the rules can follow, such as `send(name)` or `yield`. */
-  readonly open?: 'dynamic-key' | 'function-value';
+  readonly open?: Extract<OpenEndReason, 'dynamic-key' | 'function-value'>;
 }
 
 export type RubyFile =

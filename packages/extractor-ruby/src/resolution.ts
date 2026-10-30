@@ -1,6 +1,8 @@
 import type { FunctionId, OpenEndReason } from '@callmap/graph-document';
 import { madeNamesOf } from './macros.ts';
-import type { CallSite, ConstantReference, MadeValue, RubyBody, RubyMethod } from './ripper.ts';
+import { sideOf } from './ripper.ts';
+import type { CallSite, ConstantReference, RubyBody, RubyMethod, Side } from './ripper.ts';
+import { typeFlowOf } from './type-flow.ts';
 
 export interface IndexedMethod extends RubyMethod {
   readonly id: FunctionId;
@@ -13,6 +15,9 @@ export type Resolution =
   | { readonly kind: 'open-end'; readonly reason: OpenEndReason }
   | { readonly kind: 'library' };
 
+/** Ties one call site of a method of the load unit. */
+export type Resolver = (site: CallSite, caller: RubyMethod) => Resolution;
+
 /** What one load unit holds: every body and every `def` of its files, under one set of names. */
 export interface LoadUnitIndex {
   readonly bodies: readonly RubyBody[];
@@ -21,25 +26,23 @@ export interface LoadUnitIndex {
   readonly names: readonly string[];
 }
 
-type Side = 'instance' | 'singleton';
-
 /** Every body of one full name in a load unit, merged, as Ruby merges them. */
-interface RubyClass {
+export interface RubyClass {
   readonly name: string;
   readonly bodies: RubyBody[];
   readonly instance: Map<string, IndexedMethod>;
   readonly singleton: Map<string, IndexedMethod>;
   /** The names that a macro of a body makes, on each side. */
-  readonly made: Record<Side, Set<string>>;
+  readonly macroNames: Record<Side, Set<string>>;
 }
 
 /** One step of a class chain: the methods of one side of a class, or a class outside the repo. */
-type Ancestor = { readonly owner: RubyClass; readonly side: Side } | 'library';
+export type Ancestor = { readonly owner: RubyClass; readonly side: Side } | 'library';
 
-type Found = IndexedMethod | 'library' | 'none';
+export type Found = IndexedMethod | 'library' | 'none';
 
 /** Why a call that ties to no method of the repo is an open end, if its name has a def. */
-type Unproved = 'missing-module' | 'untyped' | 'other';
+type Unproved = Extract<OpenEndReason, 'missing-module' | 'untyped' | 'other'>;
 
 /** What each class below a module or an abstract method finds for the name, one of which runs. */
 interface OneOf {
@@ -48,36 +51,16 @@ interface OneOf {
 
 const LIBRARY: Resolution = { kind: 'library' };
 
-const ACTIVE_RECORD = 'ActiveRecord::Base';
-
-/** The class methods of a model that return one record, as a stub of ActiveRecord. */
-const FINDERS = new Set([
-  'find',
-  'find_by',
-  'find_by!',
-  'find_sole_by',
-  'sole',
-  'create',
-  'create!',
-  'find_or_create_by',
-  'find_or_create_by!',
-  'find_or_initialize_by',
-  'create_or_find_by',
-  'create_or_find_by!',
-]);
-
 const namespacesOf = (name: string): readonly string[] => {
   const segments = name.split('::');
   return segments.map((_, index) => segments.slice(0, index + 1).join('::'));
 };
 
-type Written = MadeValue | null;
-
 export const resolverOf = (
   unit: LoadUnitIndex,
   definedNames: ReadonlySet<string>,
   claimed: ReadonlySet<string>,
-) => {
+): Resolver => {
   const classes = new Map<string, RubyClass>();
   const classOf = (name: string): RubyClass => {
     const known = classes.get(name) ?? {
@@ -85,7 +68,7 @@ export const resolverOf = (
       bodies: [],
       instance: new Map(),
       singleton: new Map(),
-      made: { instance: new Set(), singleton: new Set() },
+      macroNames: { instance: new Set(), singleton: new Set() },
     };
     classes.set(name, known);
     return known;
@@ -95,12 +78,11 @@ export const resolverOf = (
     owner.bodies.push(body);
     for (const macro of body.macros) {
       const { side, names } = madeNamesOf(macro);
-      for (const name of names) owner.made[side].add(name);
+      for (const name of names) owner.macroNames[side].add(name);
     }
   }
   for (const method of unit.methods) {
-    const { instance, singleton } = classOf(method.owner);
-    (method.singleton ? singleton : instance).set(method.name, method);
+    classOf(method.owner)[sideOf(method)].set(method.name, method);
   }
   const constants = new Set(
     [...unit.bodies.map(({ name }) => name), ...unit.names].flatMap(namespacesOf),
@@ -210,7 +192,7 @@ export const resolverOf = (
       if (ancestor === 'library') return 'library';
       const method = ancestor.owner[ancestor.side].get(name);
       if (method !== undefined) return method;
-      if (ancestor.owner.made[ancestor.side].has(name)) return 'library';
+      if (ancestor.owner.macroNames[ancestor.side].has(name)) return 'library';
     }
     return 'none';
   };
@@ -222,81 +204,14 @@ export const resolverOf = (
   const overridesOf = (found: Found, owner: string, side: Side, name: string): Found | OneOf =>
     typeof found !== 'string' && found.abstract ? oneOfBelow(owner, side, name) : found;
 
-  const isModel = (name: string, seen: Set<string>): boolean => {
-    if (name === ACTIVE_RECORD) return true;
-    const owner = classes.get(name);
-    if (owner === undefined || seen.has(name)) return false;
-    seen.add(name);
-    const superclass = superclassOf(owner);
-    if (superclass === null) return false;
-    const parent = constantOf(superclass);
-    return parent === undefined
-      ? superclass.path.join('::') === ACTIVE_RECORD
-      : isModel(parent, seen);
-  };
-
-  const classOfMade = (value: MadeValue): string | undefined => {
-    if (value.by === null) return value.path.join('::');
-    const made = constantOf(value);
-    if (made === undefined) return undefined;
-    const finder = FINDERS.has(value.by) && isModel(made, new Set());
-    if (value.by !== 'new' && !finder) return undefined;
-    return typeof findIn(chainFor(made, 'singleton'), value.by) === 'string' ? made : undefined;
-  };
-
-  const instanceWrites = new Map<string, { readonly writer: string; readonly value: Written }[]>();
-  for (const method of unit.methods) {
-    for (const { name, value } of method.writes) {
-      if (!name.startsWith('@')) continue;
-      const key = `${method.singleton ? 'singleton' : 'instance'} ${method.owner} ${name}`;
-      instanceWrites.set(key, [...(instanceWrites.get(key) ?? []), { writer: method.id, value }]);
-    }
-  }
-
-  /** Every step of every chain that holds this step, so every method that one object can run. */
-  const sharers = new Map<string, readonly Ancestor[]>();
-  const sharersOf = (owner: string, side: Side): readonly Ancestor[] => {
-    const key = `${side} ${owner}`;
-    const known = sharers.get(key) ?? [
-      ...new Set([
-        ...chainFor(owner, side),
-        ...classesBelow(owner, side).flatMap((each) => chainFor(each.name, each.side)),
-      ]),
-    ];
-    sharers.set(key, known);
-    return known;
-  };
-
-  /**
-   * An instance variable has a known class when one method alone writes it, among every method
-   * that an object of the caller's class can run.
-   */
-  const writesOf = (variable: string, caller: RubyMethod): readonly Written[] => {
-    if (!variable.startsWith('@'))
-      return caller.writes.flatMap(({ name, value }) => (name === variable ? [value] : []));
-    const side: Side = caller.singleton ? 'singleton' : 'instance';
-    const steps = sharersOf(caller.owner, side).filter((step) => step !== 'library');
-    const setter = `${variable.slice(1)}=`;
-    if (steps.some((step) => step.owner.made[step.side].has(setter))) return [];
-    const writes = steps.flatMap(
-      (step) => instanceWrites.get(`${step.side} ${step.owner.name} ${variable}`) ?? [],
-    );
-    return new Set(writes.map(({ writer: method }) => method)).size === 1
-      ? writes.map(({ value }) => value)
-      : [];
-  };
-
-  /** The value that each write of the variable sets, when every one makes the same class. */
-  const madeValueOf = (variable: string, caller: RubyMethod): MadeValue | undefined => {
-    const [first, ...rest] = writesOf(variable, caller);
-    if (first === undefined || first === null) return undefined;
-    const made = classOfMade(first);
-    return rest.every((value) => value !== null && classOfMade(value) === made) ? first : undefined;
-  };
+  const typeFlow = typeFlowOf(
+    { classes, constantOf, superclassOf, chainFor, classesBelow, findIn },
+    unit.methods,
+  );
 
   const calleeOf = (site: CallSite, caller: RubyMethod): Found | Unproved | OneOf => {
     const { receiver, name } = site;
-    const callerSide: Side = caller.singleton ? 'singleton' : 'instance';
+    const callerSide = sideOf(caller);
     if (receiver.kind === 'self') {
       const found = findIn(chainFor(caller.owner, callerSide), name);
       if (found === 'none' && callerSide === 'instance' && isModule(caller.owner))
@@ -313,12 +228,11 @@ export const resolverOf = (
     }
     if (receiver.kind === 'value') return 'untyped';
     if (receiver.kind === 'made' || receiver.kind === 'variable') {
-      const made = receiver.kind === 'made' ? receiver : madeValueOf(receiver.name, caller);
-      const madeClass = made === undefined ? undefined : classOfMade(made);
-      if (made === undefined || madeClass === undefined) return 'untyped';
-      const found = findIn(chainFor(madeClass, 'instance'), name);
-      if (found === 'none' && made.by === null) return 'library';
-      return overridesOf(found, madeClass, 'instance', name);
+      const known = typeFlow(receiver, caller);
+      if (known === undefined) return 'untyped';
+      const found = findIn(chainFor(known.className, 'instance'), name);
+      if (found === 'none' && known.value.by === null) return 'library';
+      return overridesOf(found, known.className, 'instance', name);
     }
     const constant = constantOf(receiver);
     if (constant === undefined) return 'missing-module';
@@ -329,8 +243,8 @@ export const resolverOf = (
         'singleton',
         name,
       );
-    const made = findIn(chainFor(constant, 'singleton'), 'new');
-    if (made !== 'none' && made !== 'library') return made;
+    const ownNew = findIn(chainFor(constant, 'singleton'), 'new');
+    if (ownNew !== 'none' && ownNew !== 'library') return ownNew;
     const initialize = findIn(chainFor(constant, 'instance'), 'initialize');
     return initialize === 'none' ? 'library' : initialize;
   };
