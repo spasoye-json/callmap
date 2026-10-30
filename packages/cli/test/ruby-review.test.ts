@@ -103,7 +103,7 @@ describe('callmap review of a branch with Ruby and TypeScript', () => {
   it('shows the rate of Ruby next to the rules and the ruby that proved its calls', async () => {
     const { window } = await loadReaderPage(html);
     const rate = within(getByRole(window.document.body, 'region', { name: 'Resolution rate' }));
-    const checker = `Callmap Ruby rules 1, ${rubyVersion()}`;
+    const checker = `Callmap Ruby rules 2, ${rubyVersion()}`;
     expect(rate.getByRole('group', { name: checker }).textContent).toContain(`${checker} · 100.0%`);
   });
 
@@ -115,6 +115,22 @@ describe('callmap review of a branch with Ruby and TypeScript', () => {
     expect(cacheEntriesOf(cacheHome)).toHaveLength(2);
     expect(reviewOf(repo, cacheHome).html).toBe(html);
     expect(cacheEntriesOf(cacheHome)).toHaveLength(2);
+  }, 60_000);
+});
+
+describe('callmap review of a Ruby constant that does not resolve', () => {
+  it('shows the open end with the words code not found', async () => {
+    const root = rubyRepo();
+    commitFile(
+      root,
+      'app/services/refund.rb',
+      'class Refund\n  def run\n    Ledger.total\n  end\nend\n',
+    );
+    const page = await loadReaderPage(reviewOf(root, tempDir('callmap-cache-')).html);
+    const region = within(getByRole(page.window.document.body, 'region', { name: 'Open ends' }));
+    expect(
+      region.getByRole('button', { name: 'Ledger.total line 3 · code not found' }),
+    ).toBeDefined();
   }, 60_000);
 });
 

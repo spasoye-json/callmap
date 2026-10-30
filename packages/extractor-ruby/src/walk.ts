@@ -6,15 +6,22 @@
 import { readdirSync } from 'node:fs';
 import { isSkippedDirectory } from '@callmap/scope';
 
+export interface RubyTree {
+  readonly files: readonly string[];
+  /** Each `.gemspec`, whose folder is a load unit of its own. */
+  readonly gemspecs: readonly string[];
+}
+
 /**
- * Every Ruby file of the repo by repo-relative path, in path order, whatever the scope. Zeitwerk
- * names a constant by where its file sits, so which constants an app defines is a question about
- * the whole app, and the scope only decides which of them the document claims. A symbolic link is
- * not followed, so a link out of the repo cannot pull a foreign file in and a link back into it
- * cannot walk forever.
+ * Every Ruby file of the repo by repo-relative path, in path order, whatever the scope. A class
+ * takes its methods from every body in its load unit, so which methods a class has is a question
+ * about the whole unit, and the scope only decides which of them the document claims. A symbolic
+ * link is not followed, so a link out of the repo cannot pull a foreign file in and a link back
+ * into it cannot walk forever.
  */
-export const rubyFilesOf = (repo: string): readonly string[] => {
+export const rubyTreeOf = (repo: string): RubyTree => {
   const found: string[] = [];
+  const gemspecs: string[] = [];
 
   const walk = (directory: string): void => {
     for (const entry of readdirSync(`${repo}/${directory}`, { withFileTypes: true })) {
@@ -22,9 +29,10 @@ export const rubyFilesOf = (repo: string): readonly string[] => {
       const path = directory === '' ? entry.name : `${directory}/${entry.name}`;
       if (entry.isDirectory()) walk(path);
       else if (entry.isFile() && entry.name.endsWith('.rb')) found.push(path);
+      else if (entry.isFile() && entry.name.endsWith('.gemspec')) gemspecs.push(path);
     }
   };
 
   walk('');
-  return found.sort();
+  return { files: found.sort(), gemspecs: gemspecs.sort() };
 };

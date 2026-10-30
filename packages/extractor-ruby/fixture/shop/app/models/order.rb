@@ -29,4 +29,8 @@ class Order < ApplicationRecord
   def count(item)
     item.quantity
   end
+
+  def self.from_payload(payload)
+    new(payload)
+  end
 end

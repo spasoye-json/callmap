@@ -84,7 +84,11 @@ describe('the Ruby extractor as a separate process', () => {
   it('takes every glob it is given and records them', () => {
     const document = documentOf(FIXTURE, '--scope', 'shop/lib/**', '--scope', 'tools/**');
     expect(document.scope).toEqual(effectiveScope(['shop/lib/**', 'tools/**'], false));
-    expect(document.files).toEqual(['shop/lib/reconcile.rb', 'tools/release.rb']);
+    expect(document.files).toEqual([
+      'shop/lib/core_ext/string.rb',
+      'shop/lib/reconcile.rb',
+      'tools/release.rb',
+    ]);
   });
 
   it('reads no test file by default, also under a glob of the user', () => {

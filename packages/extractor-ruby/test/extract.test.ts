@@ -14,6 +14,11 @@ const REPORT = 'shop/app/models/report.rb';
 const LABEL = 'shop/app/services/shipping/label.rb';
 const RECEIPT_JOB = 'shop/app/jobs/receipt_job.rb';
 const RELEASE = 'tools/release.rb';
+const DISCOUNTABLE = 'shop/app/models/concerns/discountable.rb';
+const ORDERS_CONTROLLER = 'shop/app/controllers/admin/orders_controller.rb';
+const BILLING_ORDER = 'billing/app/models/order.rb';
+const INVOICES_CONTROLLER = 'billing/app/controllers/invoices_controller.rb';
+const PRICING = 'gems/pricing/lib/pricing.rb';
 
 const runs = new Map<string, GraphDocument>();
 
@@ -60,6 +65,7 @@ describe('extractRuby', () => {
       'Order#subtotal',
       'Order#discount_of',
       'Order#count',
+      'Order.from_payload',
     ]);
   });
 
@@ -127,6 +133,95 @@ describe('the calls of extractRuby', () => {
     expect(callsOf(extract())).toContain(`${ORDER}#Order#total ${ORDER}#Order#count 17`);
   });
 
+  it('ties a call on self to a method that a concern of the class defines', () => {
+    expect(callsOf(extract())).toContain(
+      `${ORDER}#Order#discount_of ${DISCOUNTABLE}#Discountable#discount 26`,
+    );
+  });
+
+  it('ties a call on self to a method of a second body of a reopened library class', () => {
+    expect(callsOf(extract())).toContain(
+      'shop/config/initializers/slug.rb#String#slugify shop/lib/core_ext/string.rb#String#squish_dashes 3',
+    );
+  });
+
+  it('ties a call on self through the superclasses of the class', () => {
+    expect(callsOf(extract())).toContain(
+      `${ORDERS_CONTROLLER}#Admin::OrdersController#index shop/app/controllers/application_controller.rb#ApplicationController#authorize 4`,
+    );
+  });
+
+  it('gives a library call for a call on self that reaches ActionController::Base first', () => {
+    const document = extract();
+    const lines = [...document.calls, ...document.openEnds]
+      .filter(({ caller }) => caller === `${ORDERS_CONTROLLER}#Admin::OrdersController#show`)
+      .map(({ line }) => line);
+    expect(lines).toEqual([10]);
+  });
+
+  it('ties super to the method of the same name in the next ancestor of the repo', () => {
+    expect(callsOf(extract())).toContain(
+      `${RECEIPT_JOB}#ReceiptJob#perform shop/app/jobs/application_job.rb#ApplicationJob#perform 5`,
+    );
+  });
+
+  it('gives a library call for super when a framework module comes before the method of the repo', () => {
+    const document = extract();
+    expect(
+      [...document.calls, ...document.openEnds].filter(({ caller }) =>
+        caller.startsWith('shop/app/jobs/refund_job.rb'),
+      ),
+    ).toEqual([]);
+  });
+
+  it('ties a call on self to a prepended module before the class, and to an extended module on the class', () => {
+    const repo = repoOf({
+      'lib/loud.rb': 'module Loud\n  def greet; end\nend\n',
+      'lib/finders.rb': 'module Finders\n  def find_all; end\nend\n',
+      'lib/person.rb': [
+        'class Person',
+        '  prepend Loud',
+        '  extend Finders',
+        '',
+        '  def greet; end',
+        '',
+        '  def hello',
+        '    greet',
+        '  end',
+        '',
+        '  def self.load',
+        '    find_all',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    expect(callsOf(extractRuby({ repo }))).toEqual([
+      'lib/person.rb#Person#hello lib/loud.rb#Loud#greet 8',
+      'lib/person.rb#Person.load lib/finders.rb#Finders#find_all 12',
+    ]);
+  });
+
+  it('ties a call on the class of a Rails concern to a method of its class_methods block', () => {
+    const repo = repoOf({
+      'app/models/concerns/searchable.rb': [
+        'module Searchable',
+        '  extend ActiveSupport::Concern',
+        '',
+        '  class_methods do',
+        '    def search; end',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+      'app/models/post.rb':
+        'class Post\n  include Searchable\n\n  def self.top\n    search\n  end\nend\n',
+    });
+    expect(callsOf(extractRuby({ repo }))).toEqual([
+      'app/models/post.rb#Post.top app/models/concerns/searchable.rb#Searchable::ClassMethods#search 5',
+    ]);
+  });
+
   it('ties a call on a constant to a singleton method of that class', () => {
     expect(callsOf(extract())).toContain(`${REPORT}#Report#rows ${ORDER}#Order.recent 3`);
   });
@@ -141,9 +236,44 @@ describe('the calls of extractRuby', () => {
     expect(openEndsOf(extract())).toEqual(
       expect.arrayContaining([
         `${RECEIPT_JOB}#ReceiptJob#perform 4 Shipping::Label.new(order).print untyped`,
-        `${ORDER}#Order#discount_of 26 discount untyped`,
       ]),
     );
+  });
+
+  it('gives an open end with other for a call on self that finds no def in a class chain of the repo', () => {
+    const repo = repoOf({
+      'lib/cart.rb': 'class Cart\n  def add\n    total\n  end\nend\n',
+      'lib/order.rb': 'class Order\n  def total; end\nend\n',
+    });
+    expect(openEndsOf(extractRuby({ repo }))).toEqual(['lib/cart.rb#Cart#add 3 total other']);
+  });
+
+  it('gives a library call for a method that has_many makes, even when a def of the repo has its name', () => {
+    const document = extract();
+    expect(
+      [...document.calls, ...document.openEnds].filter(
+        ({ caller }) => caller === `${DISCOUNTABLE}#Discountable#discount`,
+      ),
+    ).toEqual([]);
+  });
+
+  it('gives a library call for a method that attr_reader or delegate makes', () => {
+    const repo = repoOf({
+      'lib/axis.rb': 'class Axis\n  def x; end\n\n  def total; end\nend\n',
+      'lib/point.rb': [
+        'class Point',
+        '  attr_reader :x',
+        '  delegate :total, to: :axis',
+        '',
+        '  def norm',
+        '    x + total',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    const document = extractRuby({ repo });
+    expect([...document.calls, ...document.openEnds]).toEqual([]);
   });
 
   it('draws nothing for a library call, whose name no def of the repo has', () => {
@@ -162,10 +292,94 @@ describe('the calls of extractRuby', () => {
     expect(fromRelease.map(({ line }) => line)).toEqual([3]);
   });
 
+  it('ties a constant of a gem outside Rails through the index of its load unit', () => {
+    expect(callsOf(extract())).toContain(
+      `${PRICING}#Pricing.quote gems/pricing/lib/pricing/tax.rb#Pricing::Tax.rate 3`,
+    );
+  });
+
+  it('keeps the constants of 2 Rails apps and a gem apart', () => {
+    const document = extract();
+    expect(callsOf(document)).toContain(
+      `${INVOICES_CONTROLLER}#InvoicesController#create ${BILLING_ORDER}#Order.from_payload 3`,
+    );
+    expect(callsOf(document)).not.toContain(
+      `${INVOICES_CONTROLLER}#InvoicesController#create ${ORDER}#Order.from_payload 3`,
+    );
+    expect(openEndsOf(document)).toEqual(
+      expect.arrayContaining([
+        `${ORDERS_CONTROLLER}#Admin::OrdersController#show 10 Invoice.for missing-module`,
+        `${PRICING}#Pricing.recent 7 Order.recent missing-module`,
+        `${RELEASE}#Release#run 3 Order.count missing-module`,
+      ]),
+    );
+  });
+
   it('gives a library call for a callee whose file the scope leaves out', () => {
     const document = extract('shop/app/models/report.rb');
-    expect(document.calls).toEqual([]);
+    expect(callsOf(document)).toEqual([`${REPORT}#Report#render ${REPORT}#Report#rows 7`]);
     expect(document.openEnds).toEqual([]);
+  });
+});
+
+const APPLICATION = 'module Store\n  class Application < Rails::Application\n  end\nend\n';
+
+describe('the Zeitwerk names of a Rails app', () => {
+  it('names a constant with no body after its file, with the inflections of the app', () => {
+    const repo = repoOf({
+      'config/application.rb': APPLICATION,
+      'config/initializers/inflections.rb':
+        'ActiveSupport::Inflector.inflections(:en) do |inflect|\n  inflect.acronym "API"\nend\n',
+      'app/models/api_client.rb': 'APIClient = Struct.new(:key)\n',
+      'app/models/socket.rb': 'class Socket\n  def connect; end\nend\n',
+      'app/models/sync.rb':
+        'class Sync\n  def run\n    APIClient.connect\n    ApiClient.connect\n  end\nend\n',
+    });
+    expect(openEndsOf(extractRuby({ repo }))).toEqual([
+      'app/models/sync.rb#Sync#run 4 ApiClient.connect missing-module',
+    ]);
+  });
+
+  it('names the constants of lib when the app autoloads it', () => {
+    const files = {
+      'lib/payments/gateway.rb': 'Payments::Gateway = Class.new\n',
+      'app/models/order.rb':
+        'class Order\n  def pay\n    Payments::Gateway.connect\n  end\n\n  def connect; end\nend\n',
+    };
+    const autoloaded = repoOf({
+      ...files,
+      'config/application.rb': APPLICATION.replace(
+        'Rails::Application\n',
+        'Rails::Application\n    config.autoload_lib(ignore: %w[assets tasks])\n',
+      ),
+    });
+    const required = repoOf({ ...files, 'config/application.rb': APPLICATION });
+    expect(openEndsOf(extractRuby({ repo: autoloaded }))).toEqual([]);
+    expect(openEndsOf(extractRuby({ repo: required }))).toEqual([
+      'app/models/order.rb#Order#pay 3 Payments::Gateway.connect missing-module',
+    ]);
+  });
+
+  it('ties a constant of an engine that the Gemfile of the app names by its path, and keeps the app out of the engine', () => {
+    const repo = repoOf({
+      Gemfile: 'source "https://rubygems.org"\n\ngem "payments", path: "engines/payments"\n',
+      'config/application.rb': APPLICATION,
+      'engines/payments/payments.gemspec':
+        'Gem::Specification.new { |spec| spec.name = "payments" }\n',
+      'engines/payments/app/models/payments/charge.rb':
+        'module Payments\n  class Charge\n    def self.create; end\n  end\nend\n',
+      'engines/payments/app/models/payments/refund.rb':
+        'module Payments\n  class Refund\n    def self.issue\n      Order.find_open\n    end\n  end\nend\n',
+      'app/models/order.rb':
+        'class Order\n  def self.find_open; end\n\n  def pay\n    Payments::Charge.create\n  end\nend\n',
+    });
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual([
+      'app/models/order.rb#Order#pay engines/payments/app/models/payments/charge.rb#Payments::Charge.create 5',
+    ]);
+    expect(openEndsOf(document)).toEqual([
+      'engines/payments/app/models/payments/refund.rb#Payments::Refund.issue 4 Order.find_open missing-module',
+    ]);
   });
 });
 
@@ -181,6 +395,8 @@ describe('the checker and the files of extractRuby', () => {
     expect(document.scope).toEqual(['shop/config/**', 'shop/lib/**', 'tools/**']);
     expect(document.files).toEqual([
       'shop/config/application.rb',
+      'shop/config/initializers/slug.rb',
+      'shop/lib/core_ext/string.rb',
       'shop/lib/reconcile.rb',
       RELEASE,
     ]);

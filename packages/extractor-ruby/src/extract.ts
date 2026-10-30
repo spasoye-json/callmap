@@ -9,10 +9,12 @@ import { readGraphDocument } from '@callmap/graph-document';
 import type { Call, GraphDocument, GraphFunction, OpenEnd } from '@callmap/graph-document';
 import { inScope } from '@callmap/scope';
 import { readRubyFiles } from './ripper.ts';
-import type { RubyMethod } from './ripper.ts';
+import type { RubyBody, RubyMethod } from './ripper.ts';
 import { resolverOf } from './resolution.ts';
 import type { IndexedMethod } from './resolution.ts';
-import { rubyFilesOf } from './walk.ts';
+import { loadUnitsOf } from './units.ts';
+import type { LoadUnit } from './units.ts';
+import { rubyTreeOf } from './walk.ts';
 
 /** The tag this extractor stamps on every file it claims. */
 export const RUBY = 'ruby';
@@ -20,7 +22,7 @@ export const RUBY = 'ruby';
 const RUBY_CHECKER = 'Callmap Ruby rules';
 
 /** Raise it when a rule changes, so the checker on the page names the rules that ran. */
-const RUBY_RULES_VERSION = '1';
+const RUBY_RULES_VERSION = '2';
 
 export interface ExtractOptions {
   /** The root of the repo to read. Every path in the document is relative to it. */
@@ -47,17 +49,17 @@ const nameOf = ({ owner, singleton, name }: RubyMethod): string => {
 export const readRuby = (options: ExtractOptions): RubyRead => {
   const repo = resolve(options.repo);
   const scope = options.scope ?? [];
-  const everyFile = rubyFilesOf(repo);
+  const tree = rubyTreeOf(repo);
+  const everyFile = tree.files;
   const files = everyFile.filter((path) => inScope(path, scope));
   const report = readRubyFiles(repo, everyFile);
 
-  const bodies: string[] = [];
-  const methods: IndexedMethod[] = [];
+  const bodiesOfFile = new Map<string, readonly RubyBody[]>();
   const methodsOfFile = new Map<string, readonly IndexedMethod[]>();
   for (const path of everyFile) {
     const read = report.files[path];
     if (read?.parsed !== true) continue;
-    bodies.push(...read.bodies);
+    bodiesOfFile.set(path, read.bodies);
     const seen = new Map<string, number>();
     const indexed = read.methods.map((method) => {
       const name = nameOf(method);
@@ -69,12 +71,28 @@ export const readRuby = (options: ExtractOptions): RubyRead => {
         id: count === 1 ? `${path}#${name}` : `${path}#${name}~${count}`,
       };
     });
-    methods.push(...indexed);
     methodsOfFile.set(path, indexed);
   }
 
   const claimed = new Set(files);
-  const resolutionOf = resolverOf(bodies, methods, claimed);
+  const definedNames = new Set([...methodsOfFile.values()].flat().map(({ name }) => name));
+  const unitOf = loadUnitsOf(repo, tree);
+  const resolvers = new Map<LoadUnit, ReturnType<typeof resolverOf>>();
+  const resolverIn = (unit: LoadUnit) => {
+    const known =
+      resolvers.get(unit) ??
+      resolverOf(
+        {
+          bodies: unit.files.flatMap((path) => bodiesOfFile.get(path) ?? []),
+          methods: unit.files.flatMap((path) => methodsOfFile.get(path) ?? []),
+          names: unit.names,
+        },
+        definedNames,
+        claimed,
+      );
+    resolvers.set(unit, known);
+    return known;
+  };
   const functions: GraphFunction[] = [];
   const calls: Call[] = [];
   const openEnds: OpenEnd[] = [];
@@ -92,6 +110,7 @@ export const readRuby = (options: ExtractOptions): RubyRead => {
       });
     }
     if (read?.parsed !== true) continue;
+    const resolutionOf = resolverIn(unitOf(path));
     for (const site of read.calls) {
       const caller = indexed[site.method];
       if (caller === undefined) continue;
