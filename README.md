@@ -58,9 +58,14 @@ A review of a repo with Ruby files needs `ruby` on the `PATH`. The Ruby extracto
 
 Ruby has no type checker, so the Callmap Ruby rules tie each Ruby call. A function is a `def`. An instance method is named like `Order#total`. A `def self.total`, or a `def` inside `class << self`, is named `Order.total`. The rules are:
 
-- **No receiver or `self`:** the call ties to the method of that name in the class of the caller.
+- **Load units:** a Rails app, the folder of a `.gemspec`, or else the rest of the repo is one load unit. A class takes the methods of every body of its full name in the unit. A constant resolves inside its own unit only. In a Rails app, Zeitwerk naming adds the constants of its files.
+- **No receiver or `self`:** the call ties to the first method of that name in the class chain: the prepends, the class, the includes, then the superclass. A singleton call also reads the extends and the `ClassMethods` of a concern. `super` starts after the class of the caller. If the chain reaches a library class or a Rails macro first, it is a library call.
 - **A constant receiver:** `Order.find` ties to the singleton method `Order.find`. `Order.new` ties to `Order.new`, else to `Order#initialize`, else it is a library call.
-- **Any other call:** the call is an open end with the reason "untyped value" when a `def` of the repo has its name. Else it is a library call.
+- **One-of groups:** a call to an abstract method, a `def` that only raises `NotImplementedError`, gives a one-of group over the overrides of the subclasses. A call on `self` in a module with no `def` of its name gives a one-of group over each class that includes the module.
+- **`send` with a literal name:** `send`, `public_send` and `try` tie like a direct call.
+- **A literal receiver:** `"x"`, `[]` and `{}` are values of their core class. So `"x".slugify` ties to a `String#slugify` of the repo.
+- **The type flow:** `Order.new` gives a value of `Order`. A local variable has a known class when each write in the `def` sets the same class. An instance variable has a known class when 1 method alone writes it, and no `attr_writer` makes it. A finder of a model, such as `find` or `create`, gives a value of the model.
+- **Open ends:** a computed name of `send` gives "dynamic key". `yield`, `block.call` and `method(:x).call` give "function value". A constant that does not resolve gives "code not found". A one-of group with no member in scope gives "no implementation". A call on `self` that finds no `def` gives "other". A call on any other value gives "untyped value". The last 4 reasons need a `def` of the repo with the name of the call. Else the call is a library call.
 
 A call to a method outside the scope is a library call too. The page shows no library call.
 
