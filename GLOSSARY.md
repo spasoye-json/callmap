@@ -33,7 +33,7 @@ A call whose callee is code outside the repo, such as the standard library, a mo
 _Avoid_: external call, vendor call, leaf
 
 **One-of call**:
-One of several calls from one call site through an interface or a map of strategies, one to each implementation. Only one of them runs.
+One of several calls from one call site through an interface or a map of strategies, one to each implementation. In Ruby, a call on `self` in a module and a call to an abstract method give one-of calls too. Only one of them runs.
 _Avoid_: maybe call, possible call
 
 **One-of group**:
@@ -85,6 +85,10 @@ _Avoid_: graph document (that holds functions and calls)
 **Scope**:
 The globs an extractor is run under, which limit which files enter its document, so a monorepo is read one subtree at a time. A glob that starts with `!` leaves out the files that it matches. The effective scope is the scope of the user with the test globs as `!` globs, unless `--tests` asks for the tests.
 _Avoid_: filter, include path, root
+
+**Load unit**:
+The Ruby code that loads together, so that its constants share one set of names: one Rails app, the folder of one `.gemspec`, or else the rest of the repo. A constant ties only to a class or a module of its own load unit. A class takes its methods from every body of that class in its load unit.
+_Avoid_: app, package, project
 
 **Test file**:
 A file that a test glob of `@callmap/scope` matches. A test glob is a file-name rule, such as `*_test.go`, or a folder, such as `test/`. No walk reads a test file unless `--tests` asks for it.
@@ -169,7 +173,7 @@ The commit that a review compares the branch against: the merge base with the de
 _Avoid_: target, parent, main
 
 **Dependency file**:
-A file of the checkout that decides which code from outside the repo a language loads. The cache keeps one entry of the base for each language. A change of a dependency file reads the base of its language again. The dependency files of TypeScript are the lock files of npm, Yarn, pnpm and Bun. The dependency files of Go are every `go.sum` and every `go.work.sum`, and the `go.work` at the repo root.
+A file of the checkout that decides which code from outside the repo a language loads. The cache keeps one entry of the base for each language. A change of a dependency file reads the base of its language again. The dependency files of TypeScript are the lock files of npm, Yarn, pnpm and Bun. The dependency files of Go are every `go.sum` and every `go.work.sum`, and the `go.work` at the repo root. Ruby has no dependency file, because its rules read only the source of the repo and load no gem.
 _Avoid_: lock file, for a file of Go
 
 **Changed function**:

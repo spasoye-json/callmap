@@ -1,5 +1,7 @@
 # Ruby ties only the calls that its rules prove
 
+> Changed in part by ADR-0030. A class takes its methods from every body of that class in its load unit, and a constant outside a Rails app ties through the same index.
+
 The Ruby extractor emits a graph document. Ruby has no type checker, so Callmap's own static rules tie the calls: Zeitwerk naming for constants, the class chain for methods, and a local type flow that the first ticket of the Ruby spec chooses. A call that the rules do not prove is an open end, even when only one `def` in the repo has its name. The owner made these decisions in a grilling on 2026-10-23 and 2026-10-24.
 
 This supersedes the plan of ADR-0012 and `docs/product.md` to measure Sorbet-based `scip-ruby` first. It also changes the rule of `docs/product.md` that every call comes from the language's own tools. The rule is now that static rules prove every call, with no guess. For TypeScript and Go, those rules are the type checker.
