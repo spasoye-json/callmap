@@ -28,7 +28,7 @@ The owner chose the rule, the bands and the order of strength in spec 53 on 2026
 
 - **Names before the whole level.** A reader reads names first. A level that fits only below the reading floor opens at 100% on the part with the most changes. The overview map and the edge hints show where the rest is.
 - **The box names set the reading floor.** The review of PR 61 found that the support texts show at about 10.1 px at 92%. The owner chose on 2026-10-21 to define the floor by the box names, not by the smallest text. This follows the rule above: a reader reads names first.
-- **A frame label shrinks below about 80%.** Spec 56 asks that a frame label keep its screen size at every zoom. The label needs 24 px on the screen, and the header of a frame is 30 px at 100%. Below 80%, the header is less than 24 px on the screen. A label that kept its size then ran over the boxes of its frame. So the label keeps its screen size only while it fits the header. Commit `963769d` made this change, and the owner kept it on 2026-10-21.
+- **A frame label shrinks below about 80%.** Spec 56 asks that a frame label keep its screen size at every zoom. The label needs 24 px on the screen, and the header of a frame is 30 px at 100%. Below 80%, the header is less than 24 px on the screen. A label that kept its size then ran over the boxes of its frame. So the label keeps its screen size only while it fits the header. Commit `5bc521e` made this change, and the owner kept it on 2026-10-21.
 - **The chips keep their screen size in Map.** The review of PR 61 found that the glyphs of the chips were about 2 px to 6 px on the screen below 60%. So only colour told the marks apart. Spec 53 says that Map draws the chips only, so the chips take the room of the hidden names. The box borders in Map stay 1 px on the screen. Before, they shrank with the zoom. In dark mode, they also take `--edge`, because `--rule-strong` has a contrast of about 1.9 to 1 on the box fill.
 - **125% at most.** A small level does not open larger than its text needs. The first design opened a small level at up to 150%.
 - **The selected path is the strongest thing on the screen.** The selected box is the only filled box. The path has blue borders, 2 px blue lines and blue badges. A mark is a chip with a glyph on a neutral box. So a mark does not depend on colour, and a screen full of marks stays calm. Off the path, the boxes and the lines fade to the opacity `--fade`. It is 0.28 in light mode and 0.26 in dark mode.
@@ -36,7 +36,7 @@ The owner chose the rule, the bands and the order of strength in spec 53 on 2026
 
 ## Numbers
 
-The check of `docs/research/2026-10-20-reader-redesign-on-a-private-app/` ran on 2026-10-20. It ran on a review of a private app with 55 changed files in scope. "Old" is `master` at commit `affadd0`. "New" is the branch `spec/53-reader-redesign` at commit `4e1352e`. The repo is private, so the check records numbers only.
+The check of `docs/research/2026-10-20-reader-redesign-on-a-private-app/` ran on 2026-10-20. It ran on a review of a private app with 55 changed files in scope. "Old" is `master` at commit `f52999a`. "New" is the branch `spec/53-reader-redesign` at commit `b6f9544`. The repo is private, so the check records numbers only.
 
 | Measure                                   | Old         | New         |
 | ----------------------------------------- | ----------- | ----------- |
@@ -62,7 +62,7 @@ The DOM tests of ADR-0013 run in jsdom. jsdom does not lay out text, so those te
 - `playwright-core` is a dev dependency, and it downloads no browser. The suite finds Chromium from `CALLMAP_CHROMIUM`, then the Playwright cache, then the PATH. If it finds none, it fails and names these 3 ways.
 - `npm test` does not run the suite.
 
-Commit `1aad5b7` added the suite. No source records other tools that the owner compared.
+Commit `1fa44c0` added the suite. No source records other tools that the owner compared.
 
 ## Consequences
 

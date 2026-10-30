@@ -6,7 +6,7 @@ The app is private, so this record holds numbers only. It names no file, folder 
 
 ## The method
 
-- **The versions:** "old" is `master` of callmap at commit `affadd0`, the merge of spec 37. "New" is the branch `spec/53-reader-redesign` at commit `4e1352e`, with tickets 54 to 58. Both versions ran on the same commits of the repo.
+- **The versions:** "old" is `master` of callmap at commit `f52999a`, the merge of spec 37. "New" is the branch `spec/53-reader-redesign` at commit `b6f9544`, with tickets 54 to 58. Both versions ran on the same commits of the repo.
 - **The review:** `callmap review --base <a commit 8 commits back> --tsconfig <the backend config> --scope '<the backend sources>' --scope '!**/*.spec.ts' --no-open --no-cache --out <file>`, on a copy of the checkout. The branch changes 72 files in the backend sources, and 55 of them are in the scope.
 - **The machine:** an Intel Core Ultra 9 185H with 22 threads and Node 22.23.1. The browser was headless Chromium 145 at 1600 by 1000 pixels. Other work ran on the machine. The 1-minute load average was 5.6 to 6.1 during the page runs.
 - **The open zoom:** a script reads the scale of the `g.viewport` transform of `#graph`. It reads it after the view or the level draws. The old page opens each view at the fit zoom, up to 150%. The new page opens at the zoom rule of ADR-0018.

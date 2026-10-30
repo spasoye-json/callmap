@@ -4,7 +4,7 @@ This check is for issue 44. It opens every level of the Whole project view of Ap
 
 ## The method
 
-- **The versions:** "before" is `master` at `4d45490`. "After" is the same commit with the change of issue 44. A worktree of `master` and the branch wrote the 2 pages on the same day, one after the other.
+- **The versions:** "before" is `master` at `cb26753`. "After" is the same commit with the change of issue 44. A worktree of `master` and the branch wrote the 2 pages on the same day, one after the other.
 - **The review:** the same as `docs/research/2026-10-19-levels-on-a-large-codebase/`. The review compares the branch `master` of `apache/echarts` at commit `34f4d927` with the base `b014e953`. The command ran with `--scope 'src/**'`, `--tsconfig tsconfig.json` and `--no-cache`, after `npm ci --ignore-scripts`.
 - **The machine:** an Intel Core Ultra 9 185H with 22 threads and Node 22.23.1. The browser is headless Chrome for Testing 154 at 1600 by 1000 pixels.
 - **The repeats:** 3 page loads of each page, each in a fresh browser context. The loads of "before" and "after" ran in turn. Each number is the median of the 3 loads.

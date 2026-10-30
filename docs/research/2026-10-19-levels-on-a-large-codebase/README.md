@@ -4,7 +4,7 @@ This check closes ticket 42. It ran `callmap review` on a private app and on Apa
 
 ## The method
 
-- **The versions:** "before" is commit `ee2e994` of callmap, the end of issue 35. "After" is the branch `spec/37-large-codebase` at commit `b565342`, with tickets 38 to 41. Both versions ran on the same commits of each repo.
+- **The versions:** "before" is commit `7fbe065` of callmap, the end of issue 35. "After" is the branch `spec/37-large-codebase` at commit `bc19a20`, with tickets 38 to 41. Both versions ran on the same commits of each repo.
 - **The machine:** an Intel Core Ultra 9 185H with 22 threads, Node 22.23.1 and headless Chrome for Testing 154 at 1600 by 1000 pixels. Other work ran on the machine, so each section gives the 1-minute load average.
 - **The repeats:** each number is the median of 3 runs. Each page number comes from 3 fresh browser contexts.
 - **The command time:** the wall time from the start of the command to the written page, with `--no-open`. The CPU time is the user time and the system time of the command and its extractor processes.

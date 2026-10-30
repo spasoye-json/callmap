@@ -51,14 +51,14 @@ The 3 reads of each scope, byte for byte. Each scope gives one hash for its 3 do
 sha256sum with-tests-*.json without-tests-*.json
 ```
 
-The extractor at `ae9f1d8`, before the second round of fixes, gives the same 2 documents when `cmp` prints no line. The extractor of the tree `6f9bf03`, after the fifth round of fixes, does too:
+The extractor at `b198910`, before the second round of fixes, gives the same 2 documents when `cmp` prints no line. The extractor of the tree `6f9bf03`, after the fifth round of fixes, does too:
 
 ```sh
-mkdir <old source> && git -C <callmap> archive ae9f1d8:packages/extractor-go/go | tar -x -C <old source>
+mkdir <old source> && git -C <callmap> archive b198910:packages/extractor-go/go | tar -x -C <old source>
 cd <old source>
-GOFLAGS= GOTOOLCHAIN=local GOPROXY=off GOWORK=off go build -o /tmp/callmap-extract-go-ae9f1d8 .
-GOPROXY=off /tmp/callmap-extract-go-ae9f1d8 <gitea> | cmp - <source>/with-tests.json
-GOPROXY=off /tmp/callmap-extract-go-ae9f1d8 <gitea> --scope '!**/*_test.go' | cmp - <source>/without-tests.json
+GOFLAGS= GOTOOLCHAIN=local GOPROXY=off GOWORK=off go build -o /tmp/callmap-extract-go-b198910 .
+GOPROXY=off /tmp/callmap-extract-go-b198910 <gitea> | cmp - <source>/with-tests.json
+GOPROXY=off /tmp/callmap-extract-go-b198910 <gitea> --scope '!**/*_test.go' | cmp - <source>/without-tests.json
 
 mkdir <new source> && git -C <callmap> archive 6f9bf03 | tar -x -C <new source>
 cd <new source>
@@ -92,7 +92,7 @@ jq -r '.openEnds[] | "\(.reason) \(.expression | gsub("\\s+"; ""))"' with-tests.
 | With tests    | 3,144 | 16,079    | 81,787         | 3,635                 | 5,353     | 93.9% |
 | Without tests | 2,076 | 12,645    | 50,924         | 2,893                 | 1,232     | 97.6% |
 
-The rate does not count a library call. `readGraphDocument` accepts both documents. 3 reads of each scope gave the same document byte for byte. The extractor at `ae9f1d8`, before the second round of fixes, gives the same 2 documents byte for byte. The extractor of the tree `6f9bf03`, after the fifth round of fixes, gives them too. So the second to the fifth round changed no number on gitea. The first round changed some numbers, as the findings below say.
+The rate does not count a library call. `readGraphDocument` accepts both documents. 3 reads of each scope gave the same document byte for byte. The extractor at `b198910`, before the second round of fixes, gives the same 2 documents byte for byte. The extractor of the tree `6f9bf03`, after the fifth round of fixes, gives them too. So the second to the fifth round changed no number on gitea. The first round changed some numbers, as the findings below say.
 
 The open ends by reason:
 

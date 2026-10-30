@@ -28,13 +28,13 @@ The owner confirmed 2 rules of the levels on 2026-10-20, for spec 37.
 
 Each level of the Whole project view lays out with `elk.layered.considerModelOrder.strategy: NONE`, after issue 44. This holds for the top level that the CLI lays out and for each level that the page lays out. The Diff view, the Folder view and the Route view keep `NODES_AND_EDGES`. The model order sits on the root of the ELK graph only. ELK fails on the Diff view when its frames carry `NODES_AND_EDGES`. A frame with no model order takes the ELK default, `NONE`, and not the model order of the root. A layout of random graphs in elkjs 0.12.0 with `INCLUDE_CHILDREN` shows this. `docs/research/2026-10-22-model-order-on-echarts/` describes that layout.
 
-The reason is the layout time. On ECharts, the ELK phase "Sort By Input Model NODES_AND_EDGES" took 83% of the layout of `src/chart`. With `NONE`, its layout goes from 714 ms to 163 ms in the browser. The cost is a looser drawing. On `src/chart`, the lines are 16% longer and the drawing is 11% wider. The crossings are 3% more. No commit, ADR or note gave a reason for `NODES_AND_EDGES`. It came with the first ELK drawing in `aa80287`.
+The reason is the layout time. On ECharts, the ELK phase "Sort By Input Model NODES_AND_EDGES" took 83% of the layout of `src/chart`. With `NONE`, its layout goes from 714 ms to 163 ms in the browser. The cost is a looser drawing. On `src/chart`, the lines are 16% longer and the drawing is 11% wider. The crossings are 3% more. No commit, ADR or note gave a reason for `NODES_AND_EDGES`. It came with the first ELK drawing in `b56f160`.
 
 The model order is a field of the `Scene`, not a flag of the `View` like `laidOutByCommand`. The reason is that the scene is the one object that `placementOf` gets. The CLI sends only the scene to its layout worker. A flag on the `View` would need a second argument on `placementOf` and on the layout worker. This changes ADR-0013. ADR-0013 says that a view is a pure function from the page data to frames, boxes and lines. A view now also gives the model order of its layout.
 
 ## Numbers
 
-The check of `docs/research/2026-10-19-levels-on-a-large-codebase/` ran on 2026-10-19. "Before" is commit `ee2e994`, the end of issue 35. "After" is spec 37 with tickets 38 to 41. These numbers are from before issue 44. Each number is the median of 3 runs, but the level numbers come from one page load. The review of the private app holds 375 functions in scope. The Apache ECharts review holds 3,933 functions in scope.
+The check of `docs/research/2026-10-19-levels-on-a-large-codebase/` ran on 2026-10-19. "Before" is commit `7fbe065`, the end of issue 35. "After" is spec 37 with tickets 38 to 41. These numbers are from before issue 44. Each number is the median of 3 runs, but the level numbers come from one page load. The review of the private app holds 375 functions in scope. The Apache ECharts review holds 3,933 functions in scope.
 
 | Measure                        | Private app before  | Private app after  | ECharts before | ECharts after |
 | ------------------------------ | ------------------- | ------------------ | -------------- | ------------- |

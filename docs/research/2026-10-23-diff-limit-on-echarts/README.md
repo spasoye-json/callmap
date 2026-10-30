@@ -4,7 +4,7 @@ This check is for issue 48. It times the command on 2 reviews of ECharts, with t
 
 ## The method
 
-- **The version:** the branch `issue/48-diff-limit` with the change of issue 48, built with `npm run build`. The command ran from `packages/cli/dist/cli.js`. "Before" is `master` at `5205162`, built the same way in a worktree.
+- **The version:** the branch `issue/48-diff-limit` with the change of issue 48, built with `npm run build`. The command ran from `packages/cli/dist/cli.js`. "Before" is `master` at `802a798`, built the same way in a worktree.
 - **The repo:** the branch `master` of `apache/echarts` at commit `34f4d927`, after `npm ci --ignore-scripts`. Each review compares it with the base `34f4d927~50`, which is `7985f205`. This base is the review of 50 commits that ADR-0017 names.
 - **The long review:** `--scope 'src/**'`. Its Diff view holds 2,021 functions and 6,356 lines. Of these lines, 5,793 are resolved calls and 563 go to open ends.
 - **The short review:** `--scope 'src/chart/**' --scope 'src/coord/**' --scope 'src/data/**'`. Its Diff view holds 887 functions and 1,814 lines. A probe of 10 scopes found this one in the range of 1,800 to 2,000 lines that the issue asks for. No base on the first-parent line of `34f4d927` gives that range with `src/**`. The base `34f4d927~10` gives 51 lines, and `34f4d927~20` gives 5,647 lines.
