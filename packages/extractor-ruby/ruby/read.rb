@@ -64,7 +64,7 @@ class FileReader
 
     case node.first
     when :module
-      visit_body(node[1], nil, node[2], context)
+      visit_body(node[1], nil, node[2], context, module_body: true)
     when :class
       visit(node[2], context)
       visit_body(node[1], node[2], node[3], context)
@@ -103,16 +103,18 @@ class FileReader
     end
   end
 
-  def visit_body(name, superclass, body, context)
+  def visit_body(name, superclass, body, context, module_body: false)
     nesting = nested(context.nesting, name)
     return visit(body, Context.new(nesting, false, nil, context.body)) if nesting.equal?(context.nesting)
 
-    opened = open_body(nesting.first, superclass && reference_of(superclass, context.nesting))
+    opened = open_body(nesting.first, superclass && reference_of(superclass, context.nesting), module_body:)
     visit(body, Context.new(nesting, false, nil, opened))
   end
 
-  def open_body(name, superclass)
-    @bodies << { "name" => name.join("::"), "superclass" => superclass, "mixins" => [], "macros" => [] }
+  def open_body(name, superclass, module_body: false)
+    @bodies << {
+      "name" => name.join("::"), "module" => module_body, "superclass" => superclass, "mixins" => [], "macros" => []
+    }
     @bodies.length - 1
   end
 
@@ -125,7 +127,7 @@ class FileReader
 
   def visit_class_methods(block, context)
     opened = context.nesting.first + ["ClassMethods"]
-    visit(block, Context.new([opened] + context.nesting, false, nil, open_body(opened, nil)))
+    visit(block, Context.new([opened] + context.nesting, false, nil, open_body(opened, nil, module_body: true)))
   end
 
   # A call in a class body, or in a block there such as `included do`, declares something of the
@@ -188,11 +190,35 @@ class FileReader
       "name" => name[1],
       "firstLine" => first_line,
       "lastLine" => last_line,
-      "sourceHash" => Digest::SHA256.hexdigest(@lines[(first_line - 1)...last_line].join)
+      "sourceHash" => Digest::SHA256.hexdigest(@lines[(first_line - 1)...last_line].join),
+      "abstract" => abstract?(body)
     }
     inner = Context.new(context.nesting, singleton, @methods.length - 1, context.body)
     visit(params, inner)
     visit(body, inner)
+  end
+
+  # An endless def holds its one expression in place of the list of statements.
+  def abstract?(body)
+    return false unless body.first == :bodystmt && body.drop(2).all?(&:nil?)
+
+    statements = body[1].first.is_a?(Symbol) ? [body[1]] : body[1].reject { |node| node.first == :void_stmt }
+    statements.length == 1 && raises_not_implemented?(statements.first)
+  end
+
+  def raises_not_implemented?(statement)
+    call, arguments =
+      case statement.first
+      when :command then [statement[1], statement[2]]
+      when :method_add_arg then [statement[1][1], statement[2]] if statement[1].first == :fcall
+      end
+    return false unless call && call[1] == "raise"
+
+    raised = arguments_of(arguments).first
+    raised = raised[1] if raised&.first == :method_add_arg
+    raised = raised[1] if raised&.first == :call
+    path, = raised && constant_path(raised)
+    path&.last == "NotImplementedError"
   end
 
   def record(context, receiver, name)
@@ -201,18 +227,20 @@ class FileReader
     @calls << {
       "method" => context.method,
       "line" => name[2][0],
+      "column" => name[2][1] + 1,
       "name" => name[1],
       "receiver" => receiver_of(receiver, context),
       "expression" => expression_of(receiver, name)
     }
   end
 
-  def record_super(context, (line, _column))
+  def record_super(context, (line, column))
     return if context.method.nil?
 
     @calls << {
       "method" => context.method,
       "line" => line,
+      "column" => column + 1,
       "name" => @methods[context.method]["name"],
       "receiver" => { "kind" => "super" },
       "expression" => "super"

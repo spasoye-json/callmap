@@ -322,6 +322,95 @@ describe('the calls of extractRuby', () => {
   });
 });
 
+const oneOfCallsOf = (document: GraphDocument): readonly string[] =>
+  document.calls.map(
+    ({ caller, callee, line, group }) => `${caller} ${callee} ${line} ${group ?? 'no group'}`,
+  );
+
+describe('the one-of groups of extractRuby', () => {
+  it('gives a one-of group over each including class for a call on self in a concern with no def of its name', () => {
+    const repo = repoOf({
+      'app/models/concerns/billable.rb': [
+        'module Billable',
+        '  def invoice',
+        '    total',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+      'app/models/order.rb': 'class Order\n  include Billable\n\n  def total; end\nend\n',
+      'app/models/refund.rb': 'class Refund\n  include Billable\n\n  def total; end\nend\n',
+      'app/models/cart.rb': 'class Cart\n  def total; end\nend\n',
+    });
+    const group = 'app/models/concerns/billable.rb:3:5';
+    expect(oneOfCallsOf(extractRuby({ repo }))).toEqual([
+      `app/models/concerns/billable.rb#Billable#invoice app/models/order.rb#Order#total 3 ${group}`,
+      `app/models/concerns/billable.rb#Billable#invoice app/models/refund.rb#Refund#total 3 ${group}`,
+    ]);
+  });
+
+  it('gives a one-of group over the overrides of the subclasses for a call to an abstract method', () => {
+    const repo = repoOf({
+      'lib/exporter.rb': [
+        'class Exporter',
+        '  def run',
+        '    write',
+        '  end',
+        '',
+        '  def write',
+        '    raise NotImplementedError, "a subclass writes"',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+      'lib/csv_exporter.rb': 'class CsvExporter < Exporter\n  def write; end\nend\n',
+      'lib/json_exporter.rb': 'class JsonExporter < Exporter\n  def write = nil\nend\n',
+      'lib/null_exporter.rb': 'class NullExporter < Exporter\nend\n',
+    });
+    const group = 'lib/exporter.rb:3:5';
+    expect(oneOfCallsOf(extractRuby({ repo }))).toEqual([
+      `lib/exporter.rb#Exporter#run lib/csv_exporter.rb#CsvExporter#write 3 ${group}`,
+      `lib/exporter.rb#Exporter#run lib/json_exporter.rb#JsonExporter#write 3 ${group}`,
+    ]);
+  });
+
+  it('ties a call to a concrete method that a subclass overrides to the one method', () => {
+    const repo = repoOf({
+      'lib/exporter.rb': 'class Exporter\n  def run\n    write\n  end\n\n  def write; end\nend\n',
+      'lib/csv_exporter.rb': 'class CsvExporter < Exporter\n  def write; end\nend\n',
+    });
+    expect(oneOfCallsOf(extractRuby({ repo }))).toEqual([
+      'lib/exporter.rb#Exporter#run lib/exporter.rb#Exporter#write 3 no group',
+    ]);
+  });
+
+  it('gives no-implementation for a one-of group with no member in scope', () => {
+    const repo = repoOf({
+      'lib/billable.rb': 'module Billable\n  def invoice\n    total\n  end\nend\n',
+      'lib/cart.rb': 'class Cart\n  def total; end\nend\n',
+      'lib/exporter.rb': [
+        'class Exporter',
+        '  def run',
+        '    write',
+        '  end',
+        '',
+        '  def write',
+        '    raise(NotImplementedError)',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+      'lib/csv_exporter.rb': 'class CsvExporter < Exporter\n  def write; end\nend\n',
+    });
+    const document = extractRuby({ repo, scope: ['lib/billable.rb', 'lib/exporter.rb'] });
+    expect(document.calls).toEqual([]);
+    expect(openEndsOf(document)).toEqual([
+      'lib/billable.rb#Billable#invoice 3 total no-implementation',
+      'lib/exporter.rb#Exporter#run 3 write no-implementation',
+    ]);
+  });
+});
+
 const APPLICATION = 'module Store\n  class Application < Rails::Application\n  end\nend\n';
 
 describe('the Zeitwerk names of a Rails app', () => {

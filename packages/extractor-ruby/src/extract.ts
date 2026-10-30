@@ -22,7 +22,7 @@ export const RUBY = 'ruby';
 const RUBY_CHECKER = 'Callmap Ruby rules';
 
 /** Raise it when a rule changes, so the checker on the page names the rules that ran. */
-const RUBY_RULES_VERSION = '2';
+const RUBY_RULES_VERSION = '3';
 
 export interface ExtractOptions {
   /** The root of the repo to read. Every path in the document is relative to it. */
@@ -117,6 +117,11 @@ export const readRuby = (options: ExtractOptions): RubyRead => {
       const resolution = resolutionOf(site, caller);
       if (resolution.kind === 'call')
         calls.push({ caller: caller.id, callee: resolution.callee, line: site.line });
+      if (resolution.kind === 'one-of') {
+        const group = `${path}:${site.line}:${site.column}`;
+        for (const callee of resolution.callees)
+          calls.push({ caller: caller.id, callee, line: site.line, group });
+      }
       if (resolution.kind === 'open-end')
         openEnds.push({
           caller: caller.id,

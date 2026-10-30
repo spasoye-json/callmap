@@ -9,6 +9,7 @@ export interface IndexedMethod extends RubyMethod {
 
 export type Resolution =
   | { readonly kind: 'call'; readonly callee: FunctionId }
+  | { readonly kind: 'one-of'; readonly callees: readonly FunctionId[] }
   | { readonly kind: 'open-end'; readonly reason: OpenEndReason }
   | { readonly kind: 'library' };
 
@@ -39,6 +40,11 @@ type Found = IndexedMethod | 'library' | 'none';
 
 /** Why a call that ties to no method of the repo is an open end, if its name has a def. */
 type Unproved = 'missing-module' | 'untyped' | 'other';
+
+/** What each class below a module or an abstract method finds for the name, one of which runs. */
+interface OneOf {
+  readonly oneOf: readonly Found[];
+}
 
 const LIBRARY: Resolution = { kind: 'library' };
 
@@ -155,6 +161,30 @@ export const resolverOf = (
     return known;
   };
 
+  const isModule = (name: string): boolean =>
+    classes.get(name)?.bodies.some((body) => body.module) ?? false;
+
+  /** The classes, each with the side of its chain, that have this step in their chain. */
+  const below = new Map<string, readonly { readonly name: string; readonly side: Side }[]>();
+  const classesBelow = (owner: string, side: Side) => {
+    const key = `${side} ${owner}`;
+    const known =
+      below.get(key) ??
+      [...classes.keys()]
+        .filter((name) => !isModule(name))
+        .flatMap((name) =>
+          (['instance', 'singleton'] as const).map((chainSide) => ({ name, side: chainSide })),
+        )
+        .filter(({ name, side: chainSide }) =>
+          chainFor(name, chainSide).some(
+            (ancestor) =>
+              ancestor !== 'library' && ancestor.owner.name === owner && ancestor.side === side,
+          ),
+        );
+    below.set(key, known);
+    return known;
+  };
+
   const findIn = (chain: readonly Ancestor[], name: string): Found => {
     for (const ancestor of chain) {
       if (ancestor === 'library') return 'library';
@@ -165,10 +195,22 @@ export const resolverOf = (
     return 'none';
   };
 
-  const calleeOf = (site: CallSite, caller: RubyMethod): Found | Unproved => {
+  const oneOfBelow = (owner: string, side: Side, name: string): OneOf => ({
+    oneOf: classesBelow(owner, side).map((each) => findIn(chainFor(each.name, each.side), name)),
+  });
+
+  const overridesOf = (found: Found, owner: string, side: Side, name: string): Found | OneOf =>
+    typeof found !== 'string' && found.abstract ? oneOfBelow(owner, side, name) : found;
+
+  const calleeOf = (site: CallSite, caller: RubyMethod): Found | Unproved | OneOf => {
     const { receiver, name } = site;
     const callerSide: Side = caller.singleton ? 'singleton' : 'instance';
-    if (receiver.kind === 'self') return findIn(chainFor(caller.owner, callerSide), name);
+    if (receiver.kind === 'self') {
+      const found = findIn(chainFor(caller.owner, callerSide), name);
+      if (found === 'none' && callerSide === 'instance' && isModule(caller.owner))
+        return oneOfBelow(caller.owner, callerSide, name);
+      return overridesOf(found, caller.owner, callerSide, name);
+    }
     if (receiver.kind === 'super') {
       const chain = chainFor(caller.owner, callerSide);
       const own = chain.findIndex(
@@ -180,16 +222,36 @@ export const resolverOf = (
     if (receiver.kind === 'value') return 'untyped';
     const constant = constantOf(receiver);
     if (constant === undefined) return 'missing-module';
-    if (name !== 'new') return findIn(chainFor(constant, 'singleton'), name);
+    if (name !== 'new')
+      return overridesOf(
+        findIn(chainFor(constant, 'singleton'), name),
+        constant,
+        'singleton',
+        name,
+      );
     const made = findIn(chainFor(constant, 'singleton'), 'new');
     if (made !== 'none' && made !== 'library') return made;
     const initialize = findIn(chainFor(constant, 'instance'), 'initialize');
     return initialize === 'none' ? 'library' : initialize;
   };
 
+  const oneOfAmong = (found: readonly Found[], name: string): Resolution => {
+    const callees = new Set(
+      found.flatMap((method) =>
+        typeof method !== 'string' && !method.abstract && claimed.has(method.file)
+          ? [method.id]
+          : [],
+      ),
+    );
+    if (callees.size > 0) return { kind: 'one-of', callees: [...callees] };
+    if (found.includes('library') || !definedNames.has(name)) return LIBRARY;
+    return { kind: 'open-end', reason: 'no-implementation' };
+  };
+
   return (site: CallSite, caller: RubyMethod): Resolution => {
     const callee = calleeOf(site, caller);
     if (callee === 'library') return LIBRARY;
+    if (typeof callee !== 'string' && 'oneOf' in callee) return oneOfAmong(callee.oneOf, site.name);
     if (typeof callee !== 'string')
       return claimed.has(callee.file) ? { kind: 'call', callee: callee.id } : LIBRARY;
     if (site.name === 'new' && site.receiver.kind === 'constant') return LIBRARY;

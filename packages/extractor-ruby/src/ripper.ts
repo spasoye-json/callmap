@@ -49,6 +49,7 @@ export interface Macro {
  */
 export interface RubyBody {
   readonly name: string;
+  readonly module: boolean;
   readonly superclass: ConstantReference | null;
   readonly mixins: readonly Mixin[];
   readonly macros: readonly Macro[];
@@ -62,12 +63,15 @@ export interface RubyMethod {
   readonly firstLine: number;
   readonly lastLine: number;
   readonly sourceHash: string;
+  /** Its only statement is `raise NotImplementedError`, so a subclass gives the method. */
+  readonly abstract: boolean;
 }
 
 /** A call site inside a `def`, which `method` names by its index in the methods of the file. */
 export interface CallSite {
   readonly method: number;
   readonly line: number;
+  readonly column: number;
   readonly name: string;
   readonly receiver: Receiver;
   readonly expression: string;
