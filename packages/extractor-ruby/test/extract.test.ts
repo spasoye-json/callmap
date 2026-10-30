@@ -820,6 +820,55 @@ describe('the local type flow of extractRuby', () => {
     ]);
   });
 
+  it('keeps an instance variable untyped when a subclass, a superclass or a module of the object writes it too', () => {
+    const repo = repoOf({
+      ...TYPE_FLOW_REPO,
+      'lib/base.rb': [
+        'class Base',
+        '  def setup',
+        '    @x = Invoice.new',
+        '  end',
+        '',
+        '  def run',
+        '    @x.total',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+      'lib/child.rb': 'class Child < Base\n  def setup\n    @x = Refund.new\n  end\nend\n',
+      'lib/parent.rb': 'class Parent\n  def prepare\n    @y = Refund.new\n  end\nend\n',
+      'lib/settable.rb': 'module Settable\n  def assign\n    @z = Refund.new\n  end\nend\n',
+      'lib/writable.rb': 'module Writable\n  attr_writer :w\nend\n',
+      'lib/heir.rb': [
+        'class Heir < Parent',
+        '  include Settable',
+        '  include Writable',
+        '',
+        '  def initialize',
+        '    @y = Invoice.new',
+        '    @z = Invoice.new',
+        '    @w = Invoice.new',
+        '  end',
+        '',
+        '  def run',
+        '    @y.total',
+        '    @z.total',
+        '    @w.total',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual([]);
+    expect(openEndsOf(document)).toEqual([
+      'lib/base.rb#Base#run 7 @x.total untyped',
+      'lib/heir.rb#Heir#run 12 @y.total untyped',
+      'lib/heir.rb#Heir#run 13 @z.total untyped',
+      'lib/heir.rb#Heir#run 14 @w.total untyped',
+    ]);
+  });
+
   it('ties a call on a value that a finder of the library makes, when the class is a model', () => {
     const repo = repoOf({
       'lib/application_record.rb': 'class ApplicationRecord < ActiveRecord::Base\nend\n',

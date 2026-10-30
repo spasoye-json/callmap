@@ -253,14 +253,34 @@ export const resolverOf = (
     }
   }
 
-  /** An instance variable has a known class when one method of the class alone writes it. */
+  /** Every step of every chain that holds this step, so every method that one object can run. */
+  const sharers = new Map<string, readonly Ancestor[]>();
+  const sharersOf = (owner: string, side: Side): readonly Ancestor[] => {
+    const key = `${side} ${owner}`;
+    const known = sharers.get(key) ?? [
+      ...new Set([
+        ...chainFor(owner, side),
+        ...classesBelow(owner, side).flatMap((each) => chainFor(each.name, each.side)),
+      ]),
+    ];
+    sharers.set(key, known);
+    return known;
+  };
+
+  /**
+   * An instance variable has a known class when one method alone writes it, among every method
+   * that an object of the caller's class can run.
+   */
   const writesOf = (variable: string, caller: RubyMethod): readonly Written[] => {
     if (!variable.startsWith('@'))
       return caller.writes.flatMap(({ name, value }) => (name === variable ? [value] : []));
     const side: Side = caller.singleton ? 'singleton' : 'instance';
-    const writer = classes.get(caller.owner)?.made[side].has(`${variable.slice(1)}=`) ?? false;
-    if (writer) return [];
-    const writes = instanceWrites.get(`${side} ${caller.owner} ${variable}`) ?? [];
+    const steps = sharersOf(caller.owner, side).filter((step) => step !== 'library');
+    const setter = `${variable.slice(1)}=`;
+    if (steps.some((step) => step.owner.made[step.side].has(setter))) return [];
+    const writes = steps.flatMap(
+      (step) => instanceWrites.get(`${step.side} ${step.owner.name} ${variable}`) ?? [],
+    );
     return new Set(writes.map(({ writer: method }) => method)).size === 1
       ? writes.map(({ value }) => value)
       : [];

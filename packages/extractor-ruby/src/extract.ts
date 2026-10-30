@@ -22,7 +22,7 @@ export const RUBY = 'ruby';
 const RUBY_CHECKER = 'Callmap Ruby rules';
 
 /** Raise it when a rule changes, so the checker on the page names the rules that ran. */
-const RUBY_RULES_VERSION = '6';
+const RUBY_RULES_VERSION = '7';
 
 export interface ExtractOptions {
   /** The root of the repo to read. Every path in the document is relative to it. */
