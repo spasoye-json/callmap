@@ -49,7 +49,7 @@ export const goSourceFiles = (): readonly NamedFile[] => [
 
 const RUBY_EXTRACTOR = fileURLToPath(import.meta.resolve('@callmap/extractor-ruby/cli'));
 
-const RUBY_SCRIPTS = join(dirname(RUBY_EXTRACTOR), '..', 'ruby');
+export const RUBY_SCRIPTS = join(dirname(RUBY_EXTRACTOR), '..', 'ruby');
 
 export const rubySourceFiles = (): readonly NamedFile[] => {
   const scope = dirname(createRequire(RUBY_EXTRACTOR).resolve('@callmap/scope'));
@@ -82,4 +82,5 @@ export const assets: Assets = {
   goExtractorEnv: () => ({}),
   rubyExtractor: RUBY_EXTRACTOR,
   rubyExtractorVersion: (rubyVersion) => sha256OfFiles(rubySourceFiles(), `${rubyVersion}\0`),
+  rubyExtractorEnv: () => ({}),
 };
