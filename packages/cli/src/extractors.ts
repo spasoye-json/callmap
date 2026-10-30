@@ -227,11 +227,11 @@ export const rubyExtractor = (): Extractor => {
         : undefined,
     notes: () => [...notes],
     extract: async (repo, scope) => {
-      const { stdout, stderr } = await runExtractorProcess(process.execPath, [
-        assets.rubyExtractor,
-        repo,
-        ...effectiveScopeArgumentsOf(scope),
-      ]);
+      const { stdout, stderr } = await runExtractorProcess(
+        process.execPath,
+        [assets.rubyExtractor, repo, ...effectiveScopeArgumentsOf(scope)],
+        assets.rubyExtractorEnv(),
+      );
       for (const note of rubyNotesIn(stderr)) notes.add(note);
       return readGraphDocument(JSON.parse(stdout));
     },

@@ -42,4 +42,7 @@ export const assets: Assets = {
   }),
   rubyExtractor: fileURLToPath(new URL('extract-ruby.js', import.meta.url)),
   rubyExtractorVersion: (rubyVersion) => [packageNameAndVersion(), rubyVersion].join('\0'),
+  rubyExtractorEnv: () => ({
+    CALLMAP_RUBY_EXTRACTOR_SCRIPT: fileURLToPath(new URL('ruby/read.rb', import.meta.url)),
+  }),
 };

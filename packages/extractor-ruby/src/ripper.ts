@@ -62,7 +62,12 @@ export interface RubyReport {
   readonly files: Readonly<Record<string, RubyFile>>;
 }
 
-const SCRIPT = join(import.meta.dirname, '../ruby/read.rb');
+/**
+ * A host that carries the script elsewhere, such as the npm package with the script in its dist
+ * folder, names it in CALLMAP_RUBY_EXTRACTOR_SCRIPT.
+ */
+const SCRIPT =
+  process.env['CALLMAP_RUBY_EXTRACTOR_SCRIPT'] ?? join(import.meta.dirname, '../ruby/read.rb');
 
 /** A large app's report runs to tens of megabytes, far past the default pipe buffer. */
 const MAX_OUTPUT = 1024 * 1024 * 1024;
