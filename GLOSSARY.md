@@ -79,8 +79,8 @@ The tool of a language that proves the calls of a graph document, with its name 
 _Avoid_: compiler, type checker version, toolchain
 
 **Reference graph document**:
-What the extractors emit before spec 15: the files in scope and the import edges between them. The graph document replaces it for the review, and the Ruby extractor keeps it until it emits functions and calls.
-_Avoid_: graph document (that holds functions and calls)
+A retired term. It named what the extractors emitted before spec 15: the files in scope and the import edges between them. No extractor emits it now. Every extractor emits a graph document. A settled record, such as ADR-0011, still uses the term.
+_Avoid_: reference graph document, for any document that an extractor emits today
 
 **Scope**:
 The globs an extractor is run under, which limit which files enter its document, so a monorepo is read one subtree at a time. A glob that starts with `!` leaves out the files that it matches. The effective scope is the scope of the user with the test globs as `!` globs, unless `--tests` asks for the tests.
