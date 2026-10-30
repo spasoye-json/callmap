@@ -71,20 +71,12 @@ const namespacesOf = (name: string): readonly string[] => {
   return segments.map((_, index) => segments.slice(0, index + 1).join('::'));
 };
 
-/**
- * The variant of the local type flow that the probe measures (ADR-0027). Each one ties a call on a
- * literal, on `Foo.new` and on a local variable. Variant 2 adds an instance variable, and variant 3
- * adds the finders of a model.
- */
-export type TypeFlow = 1 | 2 | 3;
-
 type Written = MadeValue | null;
 
 export const resolverOf = (
   unit: LoadUnitIndex,
   definedNames: ReadonlySet<string>,
   claimed: ReadonlySet<string>,
-  typeFlow: TypeFlow,
 ) => {
   const classes = new Map<string, RubyClass>();
   const classOf = (name: string): RubyClass => {
@@ -247,7 +239,7 @@ export const resolverOf = (
     if (value.by === null) return value.path.join('::');
     const made = constantOf(value);
     if (made === undefined) return undefined;
-    const finder = typeFlow === 3 && FINDERS.has(value.by) && isModel(made, new Set());
+    const finder = FINDERS.has(value.by) && isModel(made, new Set());
     if (value.by !== 'new' && !finder) return undefined;
     return typeof findIn(chainFor(made, 'singleton'), value.by) === 'string' ? made : undefined;
   };
@@ -261,13 +253,13 @@ export const resolverOf = (
     }
   }
 
-  /** An instance variable counts in variant 2 when one method of the class alone writes it. */
+  /** An instance variable has a known class when one method of the class alone writes it. */
   const writesOf = (variable: string, caller: RubyMethod): readonly Written[] => {
     if (!variable.startsWith('@'))
       return caller.writes.flatMap(({ name, value }) => (name === variable ? [value] : []));
     const side: Side = caller.singleton ? 'singleton' : 'instance';
     const writer = classes.get(caller.owner)?.made[side].has(`${variable.slice(1)}=`) ?? false;
-    if (typeFlow < 2 || writer) return [];
+    if (writer) return [];
     const writes = instanceWrites.get(`${side} ${caller.owner} ${variable}`) ?? [];
     return new Set(writes.map(({ writer: method }) => method)).size === 1
       ? writes.map(({ value }) => value)

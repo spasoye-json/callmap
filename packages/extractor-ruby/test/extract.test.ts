@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
 import { extractRuby } from '../src/index.ts';
@@ -780,141 +780,91 @@ describe('the local type flow of extractRuby', () => {
     ]);
   });
 
-  describe('with an instance variable', () => {
-    afterEach(() => {
-      vi.unstubAllEnvs();
+  it('ties a call on an instance variable that one method of the class alone sets from Foo.new', () => {
+    const repo = repoOf({
+      ...TYPE_FLOW_REPO,
+      'lib/checkout.rb': [
+        'class Checkout',
+        '  attr_accessor :note',
+        '',
+        '  def initialize',
+        '    @invoice = Invoice.new',
+        '    @note = Invoice.new',
+        '  end',
+        '',
+        '  def refund',
+        '    @refund ||= Refund.new',
+        '  end',
+        '',
+        '  def run',
+        '    @invoice.total',
+        '    @refund.total',
+        '    @note.total',
+        '    @other.total',
+        '  end',
+        '',
+        '  def first = @other = Invoice.new',
+        '  def second = @other = Invoice.new',
+        'end',
+        '',
+      ].join('\n'),
     });
-
-    const repo = () =>
-      repoOf({
-        ...TYPE_FLOW_REPO,
-        'lib/checkout.rb': [
-          'class Checkout',
-          '  attr_accessor :note',
-          '',
-          '  def initialize',
-          '    @invoice = Invoice.new',
-          '    @note = Invoice.new',
-          '  end',
-          '',
-          '  def refund',
-          '    @refund ||= Refund.new',
-          '  end',
-          '',
-          '  def run',
-          '    @invoice.total',
-          '    @refund.total',
-          '    @note.total',
-          '    @other.total',
-          '  end',
-          '',
-          '  def first = @other = Invoice.new',
-          '  def second = @other = Invoice.new',
-          'end',
-          '',
-        ].join('\n'),
-      });
-
-    const untyped = [
-      'lib/checkout.rb#Checkout#run 14 @invoice.total untyped',
-      'lib/checkout.rb#Checkout#run 15 @refund.total untyped',
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual([
+      'lib/checkout.rb#Checkout#run lib/invoice.rb#Invoice#total 14',
+      'lib/checkout.rb#Checkout#run lib/refund.rb#Refund#total 15',
+    ]);
+    expect(openEndsOf(document)).toEqual([
       'lib/checkout.rb#Checkout#run 16 @note.total untyped',
       'lib/checkout.rb#Checkout#run 17 @other.total untyped',
-    ];
-
-    it('keeps it untyped in variant 1, which the probe runs when CALLMAP_RUBY_TYPE_FLOW is not set', () => {
-      expect(openEndsOf(extractRuby({ repo: repo() }))).toEqual(untyped);
-      vi.stubEnv('CALLMAP_RUBY_TYPE_FLOW', '1');
-      expect(openEndsOf(extractRuby({ repo: repo() }))).toEqual(untyped);
-    });
-
-    it('ties a call on it in variant 2 when one method of the class alone sets it from Foo.new', () => {
-      vi.stubEnv('CALLMAP_RUBY_TYPE_FLOW', '2');
-      const document = extractRuby({ repo: repo() });
-      expect(callsOf(document)).toEqual([
-        'lib/checkout.rb#Checkout#run lib/invoice.rb#Invoice#total 14',
-        'lib/checkout.rb#Checkout#run lib/refund.rb#Refund#total 15',
-      ]);
-      expect(openEndsOf(document)).toEqual([
-        'lib/checkout.rb#Checkout#run 16 @note.total untyped',
-        'lib/checkout.rb#Checkout#run 17 @other.total untyped',
-      ]);
-    });
+    ]);
   });
 
-  describe('with the finders of a model', () => {
-    afterEach(() => {
-      vi.unstubAllEnvs();
+  it('ties a call on a value that a finder of the library makes, when the class is a model', () => {
+    const repo = repoOf({
+      'lib/application_record.rb': 'class ApplicationRecord < ActiveRecord::Base\nend\n',
+      'lib/account.rb': 'class Account < ApplicationRecord\n  def suspend; end\nend\n',
+      'lib/vault.rb': [
+        'class Vault < ApplicationRecord',
+        '  def self.create; end',
+        '',
+        '  def suspend; end',
+        'end',
+        '',
+      ].join('\n'),
+      'lib/ledger.rb': 'class Ledger\n  def self.find(id); end\n\n  def suspend; end\nend\n',
+      'lib/admin.rb': [
+        'class Admin',
+        '  def load(id)',
+        '    @account ||= Account.find(id)',
+        '  end',
+        '',
+        '  def run(id)',
+        '    Account.find(id).suspend',
+        '    account = Account.find_by name: id',
+        '    account.suspend',
+        '    @account.suspend',
+        '    Account.where(id).suspend',
+        '    Vault.create.suspend',
+        '    Ledger.find(id).suspend',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
     });
-
-    const repo = () =>
-      repoOf({
-        'lib/application_record.rb': 'class ApplicationRecord < ActiveRecord::Base\nend\n',
-        'lib/account.rb': 'class Account < ApplicationRecord\n  def suspend; end\nend\n',
-        'lib/vault.rb': [
-          'class Vault < ApplicationRecord',
-          '  def self.create; end',
-          '',
-          '  def suspend; end',
-          'end',
-          '',
-        ].join('\n'),
-        'lib/ledger.rb': 'class Ledger\n  def self.find(id); end\n\n  def suspend; end\nend\n',
-        'lib/admin.rb': [
-          'class Admin',
-          '  def load(id)',
-          '    @account ||= Account.find(id)',
-          '  end',
-          '',
-          '  def run(id)',
-          '    Account.find(id).suspend',
-          '    account = Account.find_by name: id',
-          '    account.suspend',
-          '    @account.suspend',
-          '    Account.where(id).suspend',
-          '    Vault.create.suspend',
-          '    Ledger.find(id).suspend',
-          '  end',
-          'end',
-          '',
-        ].join('\n'),
-      });
-
-    it('keeps a value of a finder untyped in variant 1 and variant 2', () => {
-      for (const variant of ['1', '2']) {
-        vi.stubEnv('CALLMAP_RUBY_TYPE_FLOW', variant);
-        expect(callsOf(extractRuby({ repo: repo() }))).toEqual([
-          'lib/admin.rb#Admin#run lib/vault.rb#Vault.create 12',
-          'lib/admin.rb#Admin#run lib/ledger.rb#Ledger.find 13',
-        ]);
-      }
-    });
-
-    it('ties a call on a value that a finder of the library makes in variant 3, when the class is a model', () => {
-      vi.stubEnv('CALLMAP_RUBY_TYPE_FLOW', '3');
-      const document = extractRuby({ repo: repo() });
-      expect(callsOf(document)).toEqual([
-        'lib/admin.rb#Admin#run lib/account.rb#Account#suspend 7',
-        'lib/admin.rb#Admin#run lib/account.rb#Account#suspend 9',
-        'lib/admin.rb#Admin#run lib/account.rb#Account#suspend 10',
-        'lib/admin.rb#Admin#run lib/vault.rb#Vault.create 12',
-        'lib/admin.rb#Admin#run lib/ledger.rb#Ledger.find 13',
-      ]);
-      expect(openEndsOf(document)).toEqual([
-        'lib/admin.rb#Admin#run 11 Account.where(id).suspend untyped',
-        'lib/admin.rb#Admin#run 12 Vault.create.suspend untyped',
-        'lib/admin.rb#Admin#run 13 Ledger.find(id).suspend untyped',
-      ]);
-    });
-  });
-
-  it('refuses a probe switch that names no variant', () => {
-    vi.stubEnv('CALLMAP_RUBY_TYPE_FLOW', '4');
-    try {
-      expect(() => extractRuby({ repo: repoOf(TYPE_FLOW_REPO) })).toThrow(/CALLMAP_RUBY_TYPE_FLOW/);
-    } finally {
-      vi.unstubAllEnvs();
-    }
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual([
+      'lib/admin.rb#Admin#run lib/account.rb#Account#suspend 7',
+      'lib/admin.rb#Admin#run lib/account.rb#Account#suspend 9',
+      'lib/admin.rb#Admin#run lib/account.rb#Account#suspend 10',
+      'lib/admin.rb#Admin#run lib/vault.rb#Vault.create 12',
+      'lib/admin.rb#Admin#run lib/ledger.rb#Ledger.find 13',
+    ]);
+    expect(openEndsOf(document)).toEqual([
+      'lib/admin.rb#Admin#run 11 Account.where(id).suspend untyped',
+      'lib/admin.rb#Admin#run 12 Vault.create.suspend untyped',
+      'lib/admin.rb#Admin#run 13 Ledger.find(id).suspend untyped',
+    ]);
   });
 });
 

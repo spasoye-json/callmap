@@ -8,10 +8,10 @@ import { resolve } from 'node:path';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { Call, GraphDocument, GraphFunction, OpenEnd } from '@callmap/graph-document';
 import { inScope } from '@callmap/scope';
-import { ExtractionError, readRubyFiles } from './ripper.ts';
+import { readRubyFiles } from './ripper.ts';
 import type { RubyBody, RubyMethod } from './ripper.ts';
 import { resolverOf } from './resolution.ts';
-import type { IndexedMethod, TypeFlow } from './resolution.ts';
+import type { IndexedMethod } from './resolution.ts';
 import { loadUnitsOf } from './units.ts';
 import type { LoadUnit } from './units.ts';
 import { rubyTreeOf } from './walk.ts';
@@ -22,7 +22,7 @@ export const RUBY = 'ruby';
 const RUBY_CHECKER = 'Callmap Ruby rules';
 
 /** Raise it when a rule changes, so the checker on the page names the rules that ran. */
-const RUBY_RULES_VERSION = '5';
+const RUBY_RULES_VERSION = '6';
 
 export interface ExtractOptions {
   /** The root of the repo to read. Every path in the document is relative to it. */
@@ -37,12 +37,6 @@ export interface RubyRead {
   readonly unparsed: readonly string[];
 }
 
-/** The probe switch of the local type flow, which stays until the owner chooses one variant. */
-const typeFlowOf = (setting = process.env['CALLMAP_RUBY_TYPE_FLOW'] ?? '1'): TypeFlow => {
-  if (setting === '1' || setting === '2' || setting === '3') return Number(setting) as TypeFlow;
-  throw new ExtractionError(`CALLMAP_RUBY_TYPE_FLOW is 1, 2 or 3, not '${setting}'`);
-};
-
 const nameOf = ({ owner, singleton, name }: RubyMethod): string => {
   if (owner === '') return name;
   return `${owner}${singleton ? '.' : '#'}${name}`;
@@ -53,7 +47,6 @@ const nameOf = ({ owner, singleton, name }: RubyMethod): string => {
  * every body of its class. A callee outside the scope is then a library call.
  */
 export const readRuby = (options: ExtractOptions): RubyRead => {
-  const typeFlow = typeFlowOf();
   const repo = resolve(options.repo);
   const scope = options.scope ?? [];
   const tree = rubyTreeOf(repo);
@@ -96,7 +89,6 @@ export const readRuby = (options: ExtractOptions): RubyRead => {
         },
         definedNames,
         claimed,
-        typeFlow,
       );
     resolvers.set(unit, known);
     return known;
