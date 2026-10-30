@@ -34,4 +34,5 @@ jobs:
 
       - run: npm run test:pack
 
-      - run: npm publish --workspace @callmap/cli
+      # npm logs why the OIDC token exchange fails only at the verbose level.
+      - run: npm publish --workspace @callmap/cli --loglevel verbose
