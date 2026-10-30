@@ -401,7 +401,14 @@ class FileReader
   end
 
   def method_object?(node)
-    node.first == :method_add_arg && node[1].first == :fcall && node[1][1][1] == "method"
+    return false unless node.first == :method_add_arg
+
+    named = node[1]
+    case named.first
+    when :fcall then named[1][1] == "method"
+    when :call then token?(named[3]) && named[3][1] == "method"
+    else false
+    end
   end
 
   def record_function_value(context, receiver, operator, name)

@@ -470,6 +470,8 @@ describe('the metaprogramming of extractRuby', () => {
         '    callable.()',
         '    method(:run).call',
         '    service.call',
+        '    service.method(:call).call',
+        '    self.method(:run).call',
         '  end',
         '',
         '  def call; end',
@@ -484,6 +486,8 @@ describe('the metaprogramming of extractRuby', () => {
       'lib/hooks.rb#Hooks#run 6 callable.() function-value',
       'lib/hooks.rb#Hooks#run 7 method(:run).call function-value',
       'lib/hooks.rb#Hooks#run 8 service.call untyped',
+      'lib/hooks.rb#Hooks#run 9 service.method(:call).call function-value',
+      'lib/hooks.rb#Hooks#run 10 self.method(:run).call function-value',
     ]);
   });
 
