@@ -1,5 +1,7 @@
 # The Diff view has a Diff limit and lays out with the model order NONE
 
+> Changed in part by ADR-0031. Over the Diff limit, the Diff view shows levels, and the review opens on the Diff view.
+
 The Diff view draws up to 2,000 lines. This is the Diff limit, `DIFF_LIMIT` in `packages/cli/page/views/diff.ts`. Each line of the Diff view is one call, and a line to an open end counts too. A Diff view with more than 2,000 lines is over the limit. A Diff view with exactly 2,000 lines is not. The Diff view also lays out with the ELK model order `NONE`. The levels of the Whole project view use `NONE` after issue 44. The Folder view and the Route view keep `NODES_AND_EDGES`.
 
 This changes ADR-0016 for a large review. The CLI still lays out the Diff view, but only when its first scene is not over the limit.
