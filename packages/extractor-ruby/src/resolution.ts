@@ -1,6 +1,6 @@
 import type { FunctionId, OpenEndReason } from '@callmap/graph-document';
 import { madeNamesOf } from './macros.ts';
-import type { CallSite, ConstantReference, RubyBody, RubyMethod } from './ripper.ts';
+import type { CallSite, ConstantReference, MadeValue, RubyBody, RubyMethod } from './ripper.ts';
 
 export interface IndexedMethod extends RubyMethod {
   readonly id: FunctionId;
@@ -48,15 +48,43 @@ interface OneOf {
 
 const LIBRARY: Resolution = { kind: 'library' };
 
+const ACTIVE_RECORD = 'ActiveRecord::Base';
+
+/** The class methods of a model that return one record, as a stub of ActiveRecord. */
+const FINDERS = new Set([
+  'find',
+  'find_by',
+  'find_by!',
+  'find_sole_by',
+  'sole',
+  'create',
+  'create!',
+  'find_or_create_by',
+  'find_or_create_by!',
+  'find_or_initialize_by',
+  'create_or_find_by',
+  'create_or_find_by!',
+]);
+
 const namespacesOf = (name: string): readonly string[] => {
   const segments = name.split('::');
   return segments.map((_, index) => segments.slice(0, index + 1).join('::'));
 };
 
+/**
+ * The variant of the local type flow that the probe measures (ADR-0027). Each one ties a call on a
+ * literal, on `Foo.new` and on a local variable. Variant 2 adds an instance variable, and variant 3
+ * adds the finders of a model.
+ */
+export type TypeFlow = 1 | 2 | 3;
+
+type Written = MadeValue | null;
+
 export const resolverOf = (
   unit: LoadUnitIndex,
   definedNames: ReadonlySet<string>,
   claimed: ReadonlySet<string>,
+  typeFlow: TypeFlow,
 ) => {
   const classes = new Map<string, RubyClass>();
   const classOf = (name: string): RubyClass => {
@@ -202,6 +230,58 @@ export const resolverOf = (
   const overridesOf = (found: Found, owner: string, side: Side, name: string): Found | OneOf =>
     typeof found !== 'string' && found.abstract ? oneOfBelow(owner, side, name) : found;
 
+  const isModel = (name: string, seen: Set<string>): boolean => {
+    if (name === ACTIVE_RECORD) return true;
+    const owner = classes.get(name);
+    if (owner === undefined || seen.has(name)) return false;
+    seen.add(name);
+    const superclass = superclassOf(owner);
+    if (superclass === null) return false;
+    const parent = constantOf(superclass);
+    return parent === undefined
+      ? superclass.path.join('::') === ACTIVE_RECORD
+      : isModel(parent, seen);
+  };
+
+  const classOfMade = (value: MadeValue): string | undefined => {
+    if (value.by === null) return value.path.join('::');
+    const made = constantOf(value);
+    if (made === undefined) return undefined;
+    const finder = typeFlow === 3 && FINDERS.has(value.by) && isModel(made, new Set());
+    if (value.by !== 'new' && !finder) return undefined;
+    return typeof findIn(chainFor(made, 'singleton'), value.by) === 'string' ? made : undefined;
+  };
+
+  const instanceWrites = new Map<string, { readonly writer: string; readonly value: Written }[]>();
+  for (const method of unit.methods) {
+    for (const { name, value } of method.writes) {
+      if (!name.startsWith('@')) continue;
+      const key = `${method.singleton ? 'singleton' : 'instance'} ${method.owner} ${name}`;
+      instanceWrites.set(key, [...(instanceWrites.get(key) ?? []), { writer: method.id, value }]);
+    }
+  }
+
+  /** An instance variable counts in variant 2 when one method of the class alone writes it. */
+  const writesOf = (variable: string, caller: RubyMethod): readonly Written[] => {
+    if (!variable.startsWith('@'))
+      return caller.writes.flatMap(({ name, value }) => (name === variable ? [value] : []));
+    const side: Side = caller.singleton ? 'singleton' : 'instance';
+    const writer = classes.get(caller.owner)?.made[side].has(`${variable.slice(1)}=`) ?? false;
+    if (typeFlow < 2 || writer) return [];
+    const writes = instanceWrites.get(`${side} ${caller.owner} ${variable}`) ?? [];
+    return new Set(writes.map(({ writer: method }) => method)).size === 1
+      ? writes.map(({ value }) => value)
+      : [];
+  };
+
+  /** The value that each write of the variable sets, when every one makes the same class. */
+  const madeValueOf = (variable: string, caller: RubyMethod): MadeValue | undefined => {
+    const [first, ...rest] = writesOf(variable, caller);
+    if (first === undefined || first === null) return undefined;
+    const made = classOfMade(first);
+    return rest.every((value) => value !== null && classOfMade(value) === made) ? first : undefined;
+  };
+
   const calleeOf = (site: CallSite, caller: RubyMethod): Found | Unproved | OneOf => {
     const { receiver, name } = site;
     const callerSide: Side = caller.singleton ? 'singleton' : 'instance';
@@ -220,6 +300,14 @@ export const resolverOf = (
       return found === 'none' ? 'library' : found;
     }
     if (receiver.kind === 'value') return 'untyped';
+    if (receiver.kind === 'made' || receiver.kind === 'variable') {
+      const made = receiver.kind === 'made' ? receiver : madeValueOf(receiver.name, caller);
+      const madeClass = made === undefined ? undefined : classOfMade(made);
+      if (made === undefined || madeClass === undefined) return 'untyped';
+      const found = findIn(chainFor(madeClass, 'instance'), name);
+      if (found === 'none' && made.by === null) return 'library';
+      return overridesOf(found, madeClass, 'instance', name);
+    }
     const constant = constantOf(receiver);
     if (constant === undefined) return 'missing-module';
     if (name !== 'new')

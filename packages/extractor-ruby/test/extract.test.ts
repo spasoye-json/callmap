@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readGraphDocument } from '@callmap/graph-document';
 import type { GraphDocument } from '@callmap/graph-document';
 import { extractRuby } from '../src/index.ts';
@@ -233,10 +233,18 @@ describe('the calls of extractRuby', () => {
   });
 
   it('gives an untyped open end for a call that does not tie, when a def of the repo has its name', () => {
-    expect(openEndsOf(extract())).toEqual(
-      expect.arrayContaining([
-        `${RECEIPT_JOB}#ReceiptJob#perform 4 Shipping::Label.new(order).print untyped`,
-      ]),
+    const repo = repoOf({
+      'lib/label.rb': 'class Label\n  def print; end\nend\n',
+      'lib/printer.rb': 'class Printer\n  def run(label)\n    label.print\n  end\nend\n',
+    });
+    expect(openEndsOf(extractRuby({ repo }))).toEqual([
+      'lib/printer.rb#Printer#run 3 label.print untyped',
+    ]);
+  });
+
+  it('ties a call on Foo.new with arguments to the instance method of Foo', () => {
+    expect(callsOf(extract())).toContain(
+      `${RECEIPT_JOB}#ReceiptJob#perform ${LABEL}#Shipping::Label#print 4`,
     );
   });
 
@@ -415,10 +423,9 @@ describe('the metaprogramming of extractRuby', () => {
     ]);
     expect(callsOf(document)).toEqual([
       'lib/shapes.rb#Shapes::Square#draw lib/shapes/base.rb#Shapes::Base#outline 14',
+      'lib/shapes.rb#Shapes::Square#draw lib/shapes.rb#Shapes::Point#norm 15',
     ]);
-    expect(openEndsOf(document)).toEqual([
-      'lib/shapes.rb#Shapes::Square#draw 15 Point.new.norm untyped',
-    ]);
+    expect(openEndsOf(document)).toEqual([]);
   });
 
   it('ties send, public_send and try with a literal name like a direct call, and gives dynamic-key for a computed name', () => {
@@ -478,6 +485,28 @@ describe('the metaprogramming of extractRuby', () => {
       'lib/hooks.rb#Hooks#run 7 method(:run).call function-value',
       'lib/hooks.rb#Hooks#run 8 service.call untyped',
     ]);
+  });
+
+  it('gives dynamic-key for send with a splat, and reads a mixin or a macro with a splat', () => {
+    const repo = repoOf({
+      'lib/robot.rb': [
+        'class Robot',
+        '  include(*MODULES)',
+        '  attr_reader :arm, *PARTS',
+        '',
+        '  def step(*args)',
+        '    send(*args)',
+        '    public_send(:turn, *args)',
+        '  end',
+        '',
+        '  def turn; end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual(['lib/robot.rb#Robot#step lib/robot.rb#Robot#turn 7']);
+    expect(openEndsOf(document)).toEqual(['lib/robot.rb#Robot#step 6 send dynamic-key']);
   });
 
   it('gives other for a call on self that only method_missing could answer', () => {
@@ -588,6 +617,304 @@ describe('the one-of groups of extractRuby', () => {
       'lib/billable.rb#Billable#invoice 3 total no-implementation',
       'lib/exporter.rb#Exporter#run 3 write no-implementation',
     ]);
+  });
+});
+
+describe('the receivers of a known class in extractRuby', () => {
+  it('ties a call on a literal to a method that the repo adds to its library class', () => {
+    const repo = repoOf({
+      'lib/core_ext.rb': [
+        'class String',
+        '  def slugify; end',
+        'end',
+        '',
+        'class Array',
+        '  def second; end',
+        'end',
+        '',
+        'class Hash',
+        '  def deep_keys; end',
+        'end',
+        '',
+        'class Symbol',
+        '  def to_label; end',
+        'end',
+        '',
+        'class Integer',
+        '  def minutes; end',
+        'end',
+        '',
+      ].join('\n'),
+      'lib/page.rb': [
+        'class Page',
+        '  def render',
+        '    "Hello world".slugify',
+        "    'x'.slugify",
+        '    [1, 2].second',
+        '    %w[a b].second',
+        '    { a: 1 }.deep_keys',
+        '    :title.to_label',
+        '    5.minutes',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual([
+      'lib/page.rb#Page#render lib/core_ext.rb#String#slugify 3',
+      'lib/page.rb#Page#render lib/core_ext.rb#String#slugify 4',
+      'lib/page.rb#Page#render lib/core_ext.rb#Array#second 5',
+      'lib/page.rb#Page#render lib/core_ext.rb#Array#second 6',
+      'lib/page.rb#Page#render lib/core_ext.rb#Hash#deep_keys 7',
+      'lib/page.rb#Page#render lib/core_ext.rb#Symbol#to_label 8',
+      'lib/page.rb#Page#render lib/core_ext.rb#Integer#minutes 9',
+    ]);
+    expect(openEndsOf(document)).toEqual([]);
+  });
+
+  it('gives a library call for a call on a literal whose class the repo does not reopen, even when a def of the repo has its name', () => {
+    const repo = repoOf({
+      'lib/page.rb': [
+        'class Page',
+        '  def render',
+        '    "x".upcase',
+        '    [].first',
+        '  end',
+        '',
+        '  def upcase; end',
+        '  def first; end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual([]);
+    expect(openEndsOf(document)).toEqual([]);
+  });
+
+  it('ties a call on Foo.new to the instance method of Foo, and keeps a value that its own new makes untyped', () => {
+    const repo = repoOf({
+      'lib/billing/invoice.rb': [
+        'module Billing',
+        '  class Invoice',
+        '    def total; end',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+      'lib/cache.rb': 'class Cache\n  def self.new; end\n\n  def total; end\nend\n',
+      'lib/billing/run.rb': [
+        'module Billing',
+        '  class Run',
+        '    def call',
+        '      Invoice.new.total',
+        '      Invoice.new(1, 2).total',
+        '      Billing::Invoice.new { 1 }.total',
+        '      Cache.new.total',
+        '      Missing.new.total',
+        '    end',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual([
+      'lib/billing/run.rb#Billing::Run#call lib/billing/invoice.rb#Billing::Invoice#total 4',
+      'lib/billing/run.rb#Billing::Run#call lib/billing/invoice.rb#Billing::Invoice#total 5',
+      'lib/billing/run.rb#Billing::Run#call lib/billing/invoice.rb#Billing::Invoice#total 6',
+      'lib/billing/run.rb#Billing::Run#call lib/cache.rb#Cache.new 7',
+    ]);
+    expect(openEndsOf(document)).toEqual([
+      'lib/billing/run.rb#Billing::Run#call 7 Cache.new.total untyped',
+      'lib/billing/run.rb#Billing::Run#call 8 Missing.new.total untyped',
+    ]);
+  });
+});
+
+const TYPE_FLOW_REPO = {
+  'lib/invoice.rb': 'class Invoice\n  def total; end\nend\n',
+  'lib/refund.rb': 'class Refund\n  def total; end\nend\n',
+  'lib/core_ext.rb': 'class String\n  def slugify; end\nend\n',
+};
+
+describe('the local type flow of extractRuby', () => {
+  it('ties a call on a local variable that each write of the def sets from Foo.new or a literal', () => {
+    const repo = repoOf({
+      ...TYPE_FLOW_REPO,
+      'lib/run.rb': [
+        'class Run',
+        '  def call(given, items)',
+        '    invoice = Invoice.new',
+        '    invoice.total',
+        '    items.each { invoice.total }',
+        '    name = "x"',
+        '    name.slugify',
+        '    cached ||= Invoice.new',
+        '    cached.total',
+        '    either = Invoice.new',
+        '    either = Refund.new',
+        '    either.total',
+        '    given.total',
+        '    first, second = Invoice.new, Invoice.new',
+        '    first.total',
+        '    shadowed = Invoice.new; items.each { |shadowed| shadowed.total }',
+        '  end',
+        'end',
+        '',
+      ].join('\n'),
+    });
+    const document = extractRuby({ repo });
+    expect(callsOf(document)).toEqual([
+      'lib/run.rb#Run#call lib/invoice.rb#Invoice#total 4',
+      'lib/run.rb#Run#call lib/invoice.rb#Invoice#total 5',
+      'lib/run.rb#Run#call lib/core_ext.rb#String#slugify 7',
+      'lib/run.rb#Run#call lib/invoice.rb#Invoice#total 9',
+    ]);
+    expect(openEndsOf(document)).toEqual([
+      'lib/run.rb#Run#call 12 either.total untyped',
+      'lib/run.rb#Run#call 13 given.total untyped',
+      'lib/run.rb#Run#call 15 first.total untyped',
+      'lib/run.rb#Run#call 16 shadowed.total untyped',
+    ]);
+  });
+
+  describe('with an instance variable', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    const repo = () =>
+      repoOf({
+        ...TYPE_FLOW_REPO,
+        'lib/checkout.rb': [
+          'class Checkout',
+          '  attr_accessor :note',
+          '',
+          '  def initialize',
+          '    @invoice = Invoice.new',
+          '    @note = Invoice.new',
+          '  end',
+          '',
+          '  def refund',
+          '    @refund ||= Refund.new',
+          '  end',
+          '',
+          '  def run',
+          '    @invoice.total',
+          '    @refund.total',
+          '    @note.total',
+          '    @other.total',
+          '  end',
+          '',
+          '  def first = @other = Invoice.new',
+          '  def second = @other = Invoice.new',
+          'end',
+          '',
+        ].join('\n'),
+      });
+
+    const untyped = [
+      'lib/checkout.rb#Checkout#run 14 @invoice.total untyped',
+      'lib/checkout.rb#Checkout#run 15 @refund.total untyped',
+      'lib/checkout.rb#Checkout#run 16 @note.total untyped',
+      'lib/checkout.rb#Checkout#run 17 @other.total untyped',
+    ];
+
+    it('keeps it untyped in variant 1, which the probe runs when CALLMAP_RUBY_TYPE_FLOW is not set', () => {
+      expect(openEndsOf(extractRuby({ repo: repo() }))).toEqual(untyped);
+      vi.stubEnv('CALLMAP_RUBY_TYPE_FLOW', '1');
+      expect(openEndsOf(extractRuby({ repo: repo() }))).toEqual(untyped);
+    });
+
+    it('ties a call on it in variant 2 when one method of the class alone sets it from Foo.new', () => {
+      vi.stubEnv('CALLMAP_RUBY_TYPE_FLOW', '2');
+      const document = extractRuby({ repo: repo() });
+      expect(callsOf(document)).toEqual([
+        'lib/checkout.rb#Checkout#run lib/invoice.rb#Invoice#total 14',
+        'lib/checkout.rb#Checkout#run lib/refund.rb#Refund#total 15',
+      ]);
+      expect(openEndsOf(document)).toEqual([
+        'lib/checkout.rb#Checkout#run 16 @note.total untyped',
+        'lib/checkout.rb#Checkout#run 17 @other.total untyped',
+      ]);
+    });
+  });
+
+  describe('with the finders of a model', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    const repo = () =>
+      repoOf({
+        'lib/application_record.rb': 'class ApplicationRecord < ActiveRecord::Base\nend\n',
+        'lib/account.rb': 'class Account < ApplicationRecord\n  def suspend; end\nend\n',
+        'lib/vault.rb': [
+          'class Vault < ApplicationRecord',
+          '  def self.create; end',
+          '',
+          '  def suspend; end',
+          'end',
+          '',
+        ].join('\n'),
+        'lib/ledger.rb': 'class Ledger\n  def self.find(id); end\n\n  def suspend; end\nend\n',
+        'lib/admin.rb': [
+          'class Admin',
+          '  def load(id)',
+          '    @account ||= Account.find(id)',
+          '  end',
+          '',
+          '  def run(id)',
+          '    Account.find(id).suspend',
+          '    account = Account.find_by name: id',
+          '    account.suspend',
+          '    @account.suspend',
+          '    Account.where(id).suspend',
+          '    Vault.create.suspend',
+          '    Ledger.find(id).suspend',
+          '  end',
+          'end',
+          '',
+        ].join('\n'),
+      });
+
+    it('keeps a value of a finder untyped in variant 1 and variant 2', () => {
+      for (const variant of ['1', '2']) {
+        vi.stubEnv('CALLMAP_RUBY_TYPE_FLOW', variant);
+        expect(callsOf(extractRuby({ repo: repo() }))).toEqual([
+          'lib/admin.rb#Admin#run lib/vault.rb#Vault.create 12',
+          'lib/admin.rb#Admin#run lib/ledger.rb#Ledger.find 13',
+        ]);
+      }
+    });
+
+    it('ties a call on a value that a finder of the library makes in variant 3, when the class is a model', () => {
+      vi.stubEnv('CALLMAP_RUBY_TYPE_FLOW', '3');
+      const document = extractRuby({ repo: repo() });
+      expect(callsOf(document)).toEqual([
+        'lib/admin.rb#Admin#run lib/account.rb#Account#suspend 7',
+        'lib/admin.rb#Admin#run lib/account.rb#Account#suspend 9',
+        'lib/admin.rb#Admin#run lib/account.rb#Account#suspend 10',
+        'lib/admin.rb#Admin#run lib/vault.rb#Vault.create 12',
+        'lib/admin.rb#Admin#run lib/ledger.rb#Ledger.find 13',
+      ]);
+      expect(openEndsOf(document)).toEqual([
+        'lib/admin.rb#Admin#run 11 Account.where(id).suspend untyped',
+        'lib/admin.rb#Admin#run 12 Vault.create.suspend untyped',
+        'lib/admin.rb#Admin#run 13 Ledger.find(id).suspend untyped',
+      ]);
+    });
+  });
+
+  it('refuses a probe switch that names no variant', () => {
+    vi.stubEnv('CALLMAP_RUBY_TYPE_FLOW', '4');
+    try {
+      expect(() => extractRuby({ repo: repoOf(TYPE_FLOW_REPO) })).toThrow(/CALLMAP_RUBY_TYPE_FLOW/);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

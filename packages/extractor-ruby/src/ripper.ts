@@ -23,11 +23,26 @@ export interface ConstantReference {
   readonly absolute: boolean;
 }
 
+/** A value whose class the code shows, such as a literal or `Foo.new`. */
+export interface MadeValue extends ConstantReference {
+  /** The method of the class that made the value, such as `new`, or null for a literal. */
+  readonly by: string | null;
+}
+
 export type Receiver =
   | { readonly kind: 'self' }
   | { readonly kind: 'super' }
   | { readonly kind: 'value' }
-  | ({ readonly kind: 'constant' } & ConstantReference);
+  | ({ readonly kind: 'constant' } & ConstantReference)
+  | ({ readonly kind: 'made' } & MadeValue)
+  /** A local variable, or an instance variable when its name starts with `@`. */
+  | { readonly kind: 'variable'; readonly name: string };
+
+/** A write of a variable in a def, with the value it sets, or null when the code does not show it. */
+export interface VariableWrite {
+  readonly name: string;
+  readonly value: MadeValue | null;
+}
 
 /** A module that a body mixes in, by `include`, `prepend` or `extend`. */
 export interface Mixin extends ConstantReference {
@@ -65,6 +80,7 @@ export interface RubyMethod {
   readonly sourceHash: string;
   /** Its only statement is `raise NotImplementedError`, so a subclass gives the method. */
   readonly abstract: boolean;
+  readonly writes: readonly VariableWrite[];
 }
 
 /** A call site inside a `def`, which `method` names by its index in the methods of the file. */

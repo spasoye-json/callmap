@@ -84,8 +84,19 @@ class FileReader
       visit(node[2], context)
       visit_body(node[1], node[2], node[3], context)
     when :assign
+      return visit_write(node[1], node[2], context) if variable?(node[1])
+
       made = declared_path(node[1]) && made_class_of(node[2], context)
       made ? visit_made_class(node[1], *made, context) : node.each { |child| visit(child, context) }
+    when :opassign
+      return node.each { |child| visit(child, context) } unless variable?(node[1])
+
+      visit_write(node[1], node[3], context, made: node[2][1] == "||=")
+    when :var_field
+      write(context, node[1], nil) if variable?(node)
+    when :params
+      written_names_of(node).each { |name| write(context, name, nil) }
+      node.each { |child| visit(child, context) }
     when :sclass
       visit(node[2], Context.new(context.nesting, true, nil, context.body))
     when :def
@@ -249,7 +260,14 @@ class FileReader
 
   def arguments_of(node)
     node = node[1] if node.is_a?(Array) && node.first == :arg_paren
-    node.is_a?(Array) && node.first == :args_add_block ? node[1] : []
+    node.is_a?(Array) && node.first == :args_add_block ? listed(node[1]) : []
+  end
+
+  # Ripper holds `f(a, *b, c)` as `[:args_add_star, [a], b, c]`, and not as a list.
+  def listed(arguments)
+    return arguments unless arguments.first == :args_add_star
+
+    listed(arguments[1]) + [[:splat, arguments[2]]] + arguments.drop(3)
   end
 
   # A reference with no path names no constant, so it never resolves.
@@ -290,6 +308,29 @@ class FileReader
     visit(block, Context.new(context.nesting, context.singleton, method, context.body))
   end
 
+  def variable?(node)
+    node.first == :var_field && %i[@ident @ivar].include?(node[1]&.first)
+  end
+
+  # A local variable or an instance variable that each write sets from `Foo.new` can hold only a
+  # `Foo`. A write of any other value, a parameter or a block parameter records nil.
+  def visit_write(field, value, context, made: true)
+    write(context, field[1], made ? made_value_of(value, context.nesting) : nil)
+    visit(value, context)
+  end
+
+  def write(context, (_, name), value)
+    @methods[context.method]["writes"] << { "name" => name, "value" => value } unless context.method.nil?
+  end
+
+  def written_names_of(node)
+    return [] unless node.is_a?(Array)
+    return [[:@ident, node[1].delete_suffix(":")]] if node.first == :@label
+    return [node] if node.first == :@ident
+
+    node.flat_map { |child| written_names_of(child) }
+  end
+
   def add_method(context, singleton, name, last_line, abstract: false)
     first_line = name[2][0]
     @methods << {
@@ -299,7 +340,8 @@ class FileReader
       "firstLine" => first_line,
       "lastLine" => last_line,
       "sourceHash" => Digest::SHA256.hexdigest(@lines[(first_line - 1)...last_line].join),
-      "abstract" => abstract
+      "abstract" => abstract,
+      "writes" => []
     }
     @methods.length - 1
   end
@@ -408,9 +450,33 @@ class FileReader
     return { "kind" => "self" } if receiver.nil? || self?(receiver)
 
     path, absolute = constant_path(receiver)
-    return { "kind" => "value" } if path.nil?
+    return { "kind" => "constant", "nesting" => context.nesting, "path" => path, "absolute" => absolute } if path
 
-    { "kind" => "constant", "nesting" => context.nesting, "path" => path, "absolute" => absolute }
+    made = made_value_of(receiver, context.nesting)
+    return { "kind" => "made" }.merge(made) if made
+    variable = receiver.first == :var_ref && variable?([:var_field, receiver[1]])
+    return { "kind" => "variable", "name" => receiver[1][1] } if variable
+
+    { "kind" => "value" }
+  end
+
+  LITERAL_CLASSES = {
+    string_literal: "String", string_concat: "String", xstring_literal: "String", array: "Array", hash: "Hash",
+    symbol_literal: "Symbol", dyna_symbol: "Symbol", regexp_literal: "Regexp", :@int => "Integer", :@float => "Float"
+  }.freeze
+
+  # A call on a constant, such as `Foo.new` or `Foo.find_by(id: 1)`, names the class that may make
+  # the value. Which calls do is a question the TypeScript half answers.
+  def made_value_of(node, nesting)
+    literal = LITERAL_CLASSES[node.first]
+    return { "nesting" => [], "path" => [literal], "absolute" => true, "by" => nil } if literal
+
+    node = node[1] if node.first == :method_add_block
+    node = node[1] if node.first == :method_add_arg
+    return unless %i[call command_call].include?(node.first) && token?(node[3])
+
+    path, absolute = constant_path(node[1])
+    path && { "nesting" => nesting, "path" => path, "absolute" => absolute, "by" => node[3][1] }
   end
 
   def self?(node)
