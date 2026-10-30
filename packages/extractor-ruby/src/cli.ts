@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * The Ruby extractor as a CLI: a separate process that reads a repo and writes its
- * reference graph document to standard output (ADR-0009), on the same terms as every other
- * extractor. Nothing but the document goes to standard output; a refusal goes to standard error
- * with a non-zero exit, so a repo it could not read is never mistaken for a repo with nothing in it.
+ * The Ruby extractor as a CLI: a separate process that reads a repo and writes its graph document
+ * to standard output (ADR-0009), on the same terms as every other extractor. Nothing but the
+ * document goes to standard output. A refusal goes to standard error with a non-zero exit, so a
+ * repo it could not read is never mistaken for a repo with nothing in it. A file that Ripper cannot
+ * parse is a line on standard error that starts with `callmap `, which the review prints.
  */
 
 import { effectiveScope } from '@callmap/scope';
-import { extractRuby } from './extract.ts';
+import { readRuby } from './extract.ts';
 
 const USAGE = 'usage: callmap-extract-ruby <repo> [--scope <glob>]... [--tests]';
 
@@ -55,7 +56,11 @@ const readArguments = (args: readonly string[]): Invocation => {
 };
 
 try {
-  const document = extractRuby(readArguments(process.argv.slice(2)));
+  const { document, unparsed } = readRuby(readArguments(process.argv.slice(2)));
+  for (const path of unparsed)
+    process.stderr.write(
+      `callmap read no functions in ${path}, because Ripper could not parse it.\n`,
+    );
   process.stdout.write(`${JSON.stringify(document, null, 2)}\n`);
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

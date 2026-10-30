@@ -25,7 +25,7 @@ A CLI that writes one self-contained HTML page. See ADR-0012.
 
 - TypeScript first, read with the type checker. On a private app it resolved 96.7% of backend calls and 98.8% of mobile calls.
 - Go next, read with `go/types` at each call site, with load errors allowed (ADR-0024). On `go-gitea/gitea` at `85211296` it resolved 93.9% of calls with tests and 97.6% without. See `docs/research/2026-10-26-go-resolution-on-gitea/`.
-- Ruby after Go, read with Zeitwerk naming, the class chain and a local type flow, with no guess (ADR-0027). The open-source record runs on `mastodon/mastodon`.
+- Ruby after Go, read with Zeitwerk naming, the class chain and a local type flow, with no guess (ADR-0027). The owner chose variant 3 of the local type flow. It ties `x = Foo.new`, an instance variable that one method of the class chain alone sets, and the ActiveRecord finders that return their model. On `mastodon/mastodon` at `7be1842` it resolved 46.7% of calls without tests. After the commit `99206f9`, a write in a subclass, a superclass or a module counts too, and the rate is 46.6%. See `docs/research/2026-10-30-ruby-type-flow-on-mastodon/`.
 - A review reads one graph document for each language and shows one rate for each (ADR-0025).
 - The core is language-blind. A new language costs one extractor. See ADR-0009.
 

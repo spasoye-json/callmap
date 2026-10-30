@@ -1,14 +1,20 @@
 /**
- * Zeitwerk's naming rule, read backwards: a Rails app has no import statement, so the file a
- * constant reference reaches is the file whose path Zeitwerk would derive from the constant's name
- * (ADR-0009). Each Rails app is its own set of autoload roots, because each one boots its own
- * loader, and a name one app defines means nothing to another.
+ * Zeitwerk's naming rule: in a Rails app, a file under an autoload root names one constant by its
+ * path, so Zeitwerk naming decides which constants an app has (ADR-0030). The classic autoloader
+ * of Rails before 6 follows the same naming. A constant can exist with no body, such as
+ * `Point = Struct.new(:x)` in `app/models/point.rb`, or a namespace made from a directory.
  */
 
-import type { ConstantReference } from './references.ts';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, posix } from 'node:path';
 
 /** A Rails app is a directory that holds the file that boots one. */
 const APP_MARKER = 'config/application.rb';
+
+const INFLECTIONS = 'config/initializers/inflections.rb';
+
+/** The directories under `app/` that Rails leaves out of its autoload roots. */
+const NOT_AUTOLOADED = new Set(['assets', 'javascript', 'views']);
 
 /**
  * Directories below an autoload root that are autoload roots of their own, so a concern in
@@ -16,125 +22,108 @@ const APP_MARKER = 'config/application.rb';
  */
 const NESTED_ROOTS = ['app/models/concerns', 'app/controllers/concerns'];
 
-/** One autoload root: a directory and the app whose loader owns it. */
-interface AutoloadRoot {
-  readonly directory: string;
-  readonly app: string;
+/** `config.autoload_lib`, or `lib` added to the autoload or eager load paths. */
+const AUTOLOADS_LIB = /\bautoload_lib\b|\b(?:autoload|eager_load)_paths\b[^\n]*\blib\b/;
+
+const ACRONYM = /\bacronym\s*\(?\s*["']([^"']+)["']/g;
+const INFLECT = /\binflect\s*\(([^)]*)\)/g;
+const INFLECTED_PAIR = /["']([^"']+)["']\s*=>\s*["']([^"']+)["']/g;
+const PATH_GEM = /^\s*gem\s+["'][^"'\n]+["'][^\n]*?(?:\bpath:|:path\s*=>)\s*["']([^"'\n]+)["']/gm;
+
+interface Inflections {
+  /** Each acronym by its lower case word, so `api` camelizes to `API`. */
+  readonly acronyms: ReadonlyMap<string, string>;
+  /** A whole file name that the Zeitwerk inflector names directly. */
+  readonly overrides: ReadonlyMap<string, string>;
 }
 
-/**
- * What one app's loader can name: each constant, and the file that defines it, or `null` for a
- * namespace Zeitwerk makes up from a directory that has no file of its own.
- */
-type ConstantTable = Map<string, string | null>;
+const prefixOf = (directory: string): string => (directory === '' ? '' : `${directory}/`);
 
-/** A file Zeitwerk loads: the app it belongs to and the constant its path names. */
-interface Autoloaded {
-  readonly app: string;
-  readonly constant: string;
-}
+const textOf = (repo: string, path: string): string => {
+  const file = join(repo, path);
+  return existsSync(file) ? readFileSync(file, 'utf8') : '';
+};
 
-const join = (directory: string, rest: string): string =>
-  directory === '' ? rest : `${directory}/${rest}`;
-
-const camelize = (segment: string): string =>
-  segment
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('');
-
-/**
- * The Rails apps of a repo and their autoload roots: every directory directly under `app/`, plus
- * the concern directories. A root is only named when a file sits under it, so an empty directory
- * adds nothing.
- */
-const autoloadRootsOf = (files: readonly string[]): readonly AutoloadRoot[] => {
-  const apps = files
+/** The folder of each Rails app of the repo, '' for an app at the root. */
+export const railsAppsOf = (files: readonly string[]): readonly string[] =>
+  files
     .filter((path) => path === APP_MARKER || path.endsWith(`/${APP_MARKER}`))
     .map((path) => path.slice(0, -APP_MARKER.length).replace(/\/$/, ''));
 
-  const roots = new Map<string, string>();
-  for (const app of apps) {
-    const prefix = join(app, 'app/');
-    for (const path of files) {
-      if (!path.startsWith(prefix)) continue;
-      const rest = path.slice(prefix.length);
-      const slash = rest.indexOf('/');
-      if (slash === -1) continue;
-      roots.set(prefix + rest.slice(0, slash), app);
-      for (const nested of NESTED_ROOTS) {
-        const directory = join(app, nested);
-        if (path.startsWith(`${directory}/`)) roots.set(directory, app);
-      }
+/** The folders of the gems that the Gemfile of an app names by a path inside the repo. */
+export const enginesOf = (repo: string, app: string): readonly string[] =>
+  [...textOf(repo, `${prefixOf(app)}Gemfile`).matchAll(PATH_GEM)]
+    .map(([, path = '']) => posix.normalize(posix.join(app, path)).replace(/\/$/, ''))
+    .filter((engine) => !engine.startsWith('..'));
+
+const inflectionsOf = (text: string): Inflections => ({
+  acronyms: new Map(
+    [...text.matchAll(ACRONYM)].map(([, acronym = '']) => [acronym.toLowerCase(), acronym]),
+  ),
+  overrides: new Map(
+    [...text.matchAll(INFLECT)].flatMap(([, pairs = '']) =>
+      [...pairs.matchAll(INFLECTED_PAIR)].map(([, file = '', constant = '']) => [file, constant]),
+    ),
+  ),
+});
+
+const camelize = (segment: string, { acronyms, overrides }: Inflections): string =>
+  overrides.get(segment) ??
+  segment
+    .split('_')
+    .map((word) => acronyms.get(word) ?? word.charAt(0).toUpperCase() + word.slice(1))
+    .join('');
+
+/** Every directory directly under `app/` of an app or an engine that holds a Ruby file. */
+const appRootsOf = (directory: string, files: readonly string[]): readonly string[] => {
+  const prefix = `${prefixOf(directory)}app/`;
+  const roots = new Set<string>();
+  for (const path of files) {
+    if (!path.startsWith(prefix)) continue;
+    const rest = path.slice(prefix.length);
+    const slash = rest.indexOf('/');
+    if (slash === -1 || NOT_AUTOLOADED.has(rest.slice(0, slash))) continue;
+    roots.add(prefix + rest.slice(0, slash));
+    for (const nested of NESTED_ROOTS) {
+      const root = `${prefixOf(directory)}${nested}`;
+      if (path.startsWith(`${root}/`)) roots.add(root);
     }
   }
-  return [...roots].map(([directory, app]) => ({ directory, app }));
+  return [...roots];
 };
 
 /**
- * The root that owns a file: the deepest one it sits under, which is how a concern belongs to its
- * concern root and not to `app/models`, and how an app nested inside another keeps its own files.
+ * The constants that the loader of one app names: each file under an autoload root, and each
+ * namespace on the way. The roots are `app/*` of the app and of its engines, and `lib` when the
+ * app autoloads it. A file belongs to the deepest root that holds it.
  */
-const rootOf = (roots: readonly AutoloadRoot[], path: string): AutoloadRoot | undefined =>
-  roots
-    .filter((root) => path.startsWith(`${root.directory}/`))
-    .reduce<AutoloadRoot | undefined>(
-      (deepest, root) =>
-        deepest === undefined || root.directory.length > deepest.directory.length ? root : deepest,
-      undefined,
-    );
+export const zeitwerkNamesOf = (
+  repo: string,
+  app: string,
+  engines: readonly string[],
+  files: readonly string[],
+): readonly string[] => {
+  const inflections = inflectionsOf(textOf(repo, `${prefixOf(app)}${INFLECTIONS}`));
+  const roots = [app, ...engines].flatMap((directory) => appRootsOf(directory, files));
+  if (AUTOLOADS_LIB.test(textOf(repo, `${prefixOf(app)}${APP_MARKER}`)))
+    roots.push(`${prefixOf(app)}lib`);
 
-/** The Zeitwerk view of a repo: which files each app's loader names, and what it names them. */
-export interface Zeitwerk {
-  /** The app and constant of a file Zeitwerk loads, or nothing for a file outside every root. */
-  readonly autoloaded: (path: string) => Autoloaded | undefined;
-  /**
-   * The file a reference reaches inside its own app, or nothing when the name resolves to no file
-   * of that app: a gem, the standard library, a constant defined inline, or a constant only another
-   * app defines, which is a boundary and never a reference (ADR-0009).
-   */
-  readonly resolve: (app: string, reference: ConstantReference) => string | undefined;
-}
-
-export const zeitwerkOf = (files: readonly string[]): Zeitwerk => {
-  const roots = autoloadRootsOf(files);
-  const autoloadedFiles = new Map<string, Autoloaded>();
-  const tables = new Map<string, ConstantTable>();
-
+  const names = new Set<string>();
   for (const path of files) {
-    const root = rootOf(roots, path);
+    const root = roots
+      .filter((directory) => path.startsWith(`${directory}/`))
+      .reduce<string | undefined>(
+        (deepest, directory) =>
+          deepest === undefined || directory.length > deepest.length ? directory : deepest,
+        undefined,
+      );
     if (root === undefined) continue;
     const segments = path
-      .slice(root.directory.length + 1, -'.rb'.length)
+      .slice(root.length + 1, -'.rb'.length)
       .split('/')
-      .map(camelize);
-    const constant = segments.join('::');
-    autoloadedFiles.set(path, { app: root.app, constant });
-    const table = tables.get(root.app) ?? new Map<string, string | null>();
-    tables.set(root.app, table);
-    table.set(constant, path);
-    for (let depth = 1; depth < segments.length; depth += 1) {
-      const namespace = segments.slice(0, depth).join('::');
-      if (!table.has(namespace)) table.set(namespace, null);
-    }
+      .map((segment) => camelize(segment, inflections));
+    for (let depth = 1; depth <= segments.length; depth += 1)
+      names.add(segments.slice(0, depth).join('::'));
   }
-
-  /**
-   * Ruby's lexical lookup for the first segment: the namespaces the reference was written inside,
-   * innermost first, then the top level. The rest of the path is read inside whatever that found.
-   */
-  const resolve = (app: string, reference: ConstantReference): string | undefined => {
-    const table = tables.get(app);
-    if (table === undefined) return undefined;
-    const [head, ...rest] = reference.path;
-    if (head === undefined) return undefined;
-    const lexical = reference.absolute
-      ? [head]
-      : [...reference.nesting.map((namespace) => [...namespace, head].join('::')), head];
-    const found = lexical.find((candidate) => table.has(candidate));
-    if (found === undefined) return undefined;
-    return table.get([found, ...rest].join('::')) ?? undefined;
-  };
-
-  return { autoloaded: (path) => autoloadedFiles.get(path), resolve };
+  return [...names];
 };

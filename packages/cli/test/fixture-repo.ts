@@ -8,6 +8,7 @@ const FIXTURE = fileURLToPath(new URL('../fixture-review', import.meta.url));
 const LEVELS = fileURLToPath(new URL('../fixture-levels', import.meta.url));
 const LONG_NAMES = fileURLToPath(new URL('../fixture-long-names', import.meta.url));
 const GO = fileURLToPath(new URL('../fixture-go', import.meta.url));
+const RUBY = fileURLToPath(new URL('../fixture-ruby', import.meta.url));
 
 const GIT_ENV = {
   ...process.env,
@@ -52,6 +53,8 @@ export const levelsRepo = (): string => branchRepoOf(LEVELS, 'main');
 export const longNamesRepo = (): string => branchRepoOf(LONG_NAMES, 'main');
 
 export const goRepo = (): string => branchRepoOf(GO, 'main');
+
+export const rubyRepo = (): string => branchRepoOf(RUBY, 'main');
 
 export const featureBranchRepoWithUnchangedFiles = (): string => {
   const repo = featureBranchRepo();

@@ -47,6 +47,26 @@ export const goSourceFiles = (): readonly NamedFile[] => [
     .map((path) => ({ name: `go/${relative(GO_PROGRAM, path)}`, path })),
 ];
 
+const RUBY_EXTRACTOR = fileURLToPath(import.meta.resolve('@callmap/extractor-ruby/cli'));
+
+export const RUBY_SCRIPTS = join(dirname(RUBY_EXTRACTOR), '..', 'ruby');
+
+export const rubySourceFiles = (): readonly NamedFile[] => {
+  const scope = dirname(createRequire(RUBY_EXTRACTOR).resolve('@callmap/scope'));
+  return (
+    [
+      ['src', dirname(RUBY_EXTRACTOR), '.ts'],
+      ['ruby', RUBY_SCRIPTS, '.rb'],
+      ['scope', scope, '.ts'],
+    ] as const
+  ).flatMap(([name, folder, extension]) =>
+    readdirSync(folder, { recursive: true, encoding: 'utf8' })
+      .filter((file) => file.endsWith(extension))
+      .sort()
+      .map((file) => ({ name: `${name}/${file}`, path: join(folder, file) })),
+  );
+};
+
 export const assets: Assets = {
   typescriptExtractor: TYPESCRIPT_EXTRACTOR,
   layoutWorker: new URL('layout-worker.ts', import.meta.url),
@@ -60,4 +80,7 @@ export const assets: Assets = {
   goExtractor: GO_EXTRACTOR,
   goExtractorVersion: (goVersion) => sha256OfFiles(goSourceFiles(), `${goVersion}\0`),
   goExtractorEnv: () => ({}),
+  rubyExtractor: RUBY_EXTRACTOR,
+  rubyExtractorVersion: (rubyVersion) => sha256OfFiles(rubySourceFiles(), `${rubyVersion}\0`),
+  rubyExtractorEnv: () => ({}),
 };

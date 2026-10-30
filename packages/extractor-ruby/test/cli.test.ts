@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { readReferenceGraphDocument, referenceGraphFromDocuments } from '@callmap/reference-graph';
+import { readGraphDocument } from '@callmap/graph-document';
 import { effectiveScope } from '@callmap/scope';
 import { tempDir } from '../../../test/temp-dir.ts';
 
@@ -22,6 +22,11 @@ for (const path of [
   mkdirSync(dirname(join(WITH_TESTS, path)), { recursive: true });
   writeFileSync(join(WITH_TESTS, path), 'class Order\nend\n');
 }
+
+const BROKEN = tempDir('callmap-ruby-cli-broken-');
+mkdirSync(join(BROKEN, 'app/models'), { recursive: true });
+writeFileSync(join(BROKEN, 'app/models/broken.rb'), 'class Broken\n  def oops(\nend\n');
+writeFileSync(join(BROKEN, 'app/models/cart.rb'), 'class Cart\n  def add; end\nend\n');
 
 /**
  * The extractor as the caller runs it: another process, answering over its standard output. A run
@@ -41,7 +46,7 @@ const run = (...args: readonly string[]) => {
 const documentOf = (...args: readonly string[]) => {
   const finished = run(...args);
   expect(finished.status, finished.stderr).toBe(0);
-  return readReferenceGraphDocument(JSON.parse(finished.stdout));
+  return readGraphDocument(JSON.parse(finished.stdout));
 };
 
 describe('the Ruby extractor as a separate process', () => {
@@ -49,11 +54,25 @@ describe('the Ruby extractor as a separate process', () => {
     expect(documentOf(FIXTURE).language).toBe('ruby');
   });
 
-  it('emits a document the core indexes into a reference graph', () => {
-    const graph = referenceGraphFromDocuments(documentOf(FIXTURE, '--scope', 'shop/**'));
-    expect(
-      graph.references('shop/app/jobs/receipt_job.rb', 'shop/app/services/shipping/label.rb'),
-    ).toBe(true);
+  it('emits the functions and the calls of the repo', () => {
+    const document = documentOf(FIXTURE, '--scope', 'shop/**');
+    expect(document.calls).toContainEqual({
+      caller: 'shop/app/models/report.rb#Report#rows',
+      callee: 'shop/app/models/order.rb#Order.recent',
+      line: 3,
+    });
+  });
+
+  it('prints one line for each file that Ripper cannot parse, and still emits the document', () => {
+    const finished = run(BROKEN);
+    expect(finished.status, finished.stderr).toBe(0);
+    expect(finished.stderr).toBe(
+      'callmap read no functions in app/models/broken.rb, because Ripper could not parse it.\n',
+    );
+    expect(readGraphDocument(JSON.parse(finished.stdout)).files).toEqual([
+      'app/models/broken.rb',
+      'app/models/cart.rb',
+    ]);
   });
 
   it('writes the document and nothing else to standard output', () => {
@@ -65,7 +84,11 @@ describe('the Ruby extractor as a separate process', () => {
   it('takes every glob it is given and records them', () => {
     const document = documentOf(FIXTURE, '--scope', 'shop/lib/**', '--scope', 'tools/**');
     expect(document.scope).toEqual(effectiveScope(['shop/lib/**', 'tools/**'], false));
-    expect(document.files).toEqual(['shop/lib/reconcile.rb', 'tools/release.rb']);
+    expect(document.files).toEqual([
+      'shop/lib/core_ext/string.rb',
+      'shop/lib/reconcile.rb',
+      'tools/release.rb',
+    ]);
   });
 
   it('reads no test file by default, also under a glob of the user', () => {

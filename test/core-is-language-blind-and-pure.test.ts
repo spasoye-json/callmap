@@ -71,13 +71,7 @@ const isNodeBuiltin = (specifier: string): boolean =>
 
 describe('the core', () => {
   it('holds every core package the reader keeps', () => {
-    expect(corePackages).toEqual([
-      'editor-link',
-      'graph-document',
-      'reference-graph',
-      'review',
-      'scope',
-    ]);
+    expect(corePackages).toEqual(['editor-link', 'graph-document', 'review', 'scope']);
   });
 
   it('reads a specifier however it is spelled, so the guard cannot be side-stepped', () => {

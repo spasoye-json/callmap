@@ -15,6 +15,7 @@ import {
   GO_PROGRAM,
   goSourceFiles,
   isGoTestFile,
+  RUBY_SCRIPTS,
 } from './src/clone-assets.ts';
 import { sha256OfFiles } from './src/file-hash.ts';
 import { packageManifestAt } from './src/package-manifest.ts';
@@ -85,6 +86,7 @@ const { output } = await build({
     'layout-worker': join(PACKAGE, 'src', 'layout-worker.ts'),
     'extract-typescript': assets.typescriptExtractor,
     'extract-go': assets.goExtractor,
+    'extract-ruby': assets.rubyExtractor,
   },
   platform: 'node',
   external: ['typescript'],
@@ -113,6 +115,7 @@ cpSync(GO_PROGRAM, join(DIST, 'go'), {
   filter: (source) => !isGoTestFile(source),
 });
 writeFileSync(join(DIST, 'go-extractor-source.sha256'), sha256OfFiles(goSourceFiles()));
+cpSync(RUBY_SCRIPTS, join(DIST, 'ruby'), { recursive: true });
 writeFileSync(
   join(DIST, 'THIRD-PARTY-NOTICES.txt'),
   noticesOf([

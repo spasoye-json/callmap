@@ -1,5 +1,9 @@
 class Report
   def rows
-    Order.all
+    Order.recent
+  end
+
+  def render
+    rows.map(&:to_s)
   end
 end

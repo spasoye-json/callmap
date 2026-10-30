@@ -1,7 +1,11 @@
 module Discountable
   extend ActiveSupport::Concern
 
+  included do
+    has_many :coupons
+  end
+
   def discount
-    0
+    coupons.sum(&:amount)
   end
 end
