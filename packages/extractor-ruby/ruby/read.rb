@@ -21,11 +21,24 @@ class PositionedSexp < Ripper::SexpBuilderPP
     super << lineno
   end
 
-  # A `super` node holds no token, so each one takes the position of its keyword. The keywords
-  # stack, because `super(super())` reduces the inner one first.
+  def on_method_add_block(*args)
+    super << lineno
+  end
+
+  # A `super` or `yield` node holds no token, so each one takes the position of its keyword. The
+  # keywords stack, because `super(super())` reduces the inner one first.
   def on_kw(token)
     (@supers ||= []) << [lineno, column] if token == "super"
+    (@yields ||= []) << [lineno, column] if token == "yield"
     super
+  end
+
+  def on_yield0
+    super << @yields.pop
+  end
+
+  def on_yield(*args)
+    super << @yields.pop
   end
 
   def on_zsuper
@@ -47,6 +60,8 @@ class FileReader
     @bodies = []
     @methods = []
     @calls = []
+    @module_function_bodies = []
+    @block_params = {}
     visit(tree, Context.new([], false, nil, nil))
   end
 
@@ -68,6 +83,9 @@ class FileReader
     when :class
       visit(node[2], context)
       visit_body(node[1], node[2], node[3], context)
+    when :assign
+      made = declared_path(node[1]) && made_class_of(node[2], context)
+      made ? visit_made_class(node[1], *made, context) : node.each { |child| visit(child, context) }
     when :sclass
       visit(node[2], Context.new(context.nesting, true, nil, context.body))
     when :def
@@ -75,27 +93,49 @@ class FileReader
     when :defs
       visit_def(node[3], node[4], node[5], node.last, true, context)
     when :fcall, :vcall
+      declare(context, node[1], nil) if node.first == :vcall
       record(context, nil, node[1])
       node.drop(2).each { |child| visit(child, context) }
     when :command
-      declare(context, node[1], node[2])
+      return if dispatch?(context, nil, node[1], node[2])
+
       record(context, nil, node[1])
       visit(node[2], context)
+      declare(context, node[1], node[2])
     when :method_add_arg
       declare(context, node[1][1], node[2]) if node[1].first == :fcall
+      receiver, name = node[1].first == :fcall ? [nil, node[1][1]] : node[1].values_at(1, 3)
+      return if dispatch?(context, receiver, name, node[2])
+
       node.drop(1).each { |child| visit(child, context) }
     when :call
-      record(context, node[1], node[3])
+      if function_value?(node[1], node[3], context)
+        record_function_value(context, node[1], node[2], node[3])
+      else
+        record(context, node[1], node[3])
+      end
       visit(node[1], context)
     when :method_add_block
       return visit_class_methods(node[2], context) if class_methods?(node[1], context)
 
+      defined = defined_method_of(node[1], context)
+      return visit_defined_method(defined, node[2], node.last, context) if defined
+
       node.drop(1).each { |child| visit(child, context) }
+    when :yield0, :yield
+      record(context, nil, [:@kw, "yield", node.last], open: "function-value")
+      visit(node[1], context) if node.first == :yield
     when :zsuper, :super
       record_super(context, node.last)
       visit(node[1], context) if node.first == :super
     when :command_call
-      record(context, node[1], node[3])
+      return if dispatch?(context, node[1], node[3], node[4])
+
+      if function_value?(node[1], node[3], context)
+        record_function_value(context, node[1], node[2], node[3])
+      else
+        record(context, node[1], node[3])
+      end
       visit(node[1], context)
       node.drop(4).each { |child| visit(child, context) }
     else
@@ -109,6 +149,31 @@ class FileReader
 
     opened = open_body(nesting.first, superclass && reference_of(superclass, context.nesting), module_body:)
     visit(body, Context.new(nesting, false, nil, opened))
+  end
+
+  # `Point = Struct.new(:x) do ... end` makes a class, and each def in its block is a method of
+  # `Point`. The superclass of `Class.new` is its argument.
+  CLASS_MAKERS = { "Struct.new" => %w[Struct], "Data.define" => %w[Data], "Class.new" => nil }.freeze
+
+  def made_class_of(value, context)
+    value, block = value.drop(1) if value.first == :method_add_block
+    call, arguments = value.first == :method_add_arg ? value.drop(1) : [value, value[4]]
+    return unless %i[call command_call].include?(call.first) && token?(call[3])
+
+    path, = constant_path(call[1])
+    maker = path && "#{path.join("::")}.#{call[3][1]}"
+    return unless CLASS_MAKERS.key?(maker)
+
+    base = maker == "Class.new" && arguments_of(arguments).first
+    return [reference_of(base, context.nesting), block] if base
+
+    library = CLASS_MAKERS[maker]
+    [library && { "nesting" => [], "path" => library, "absolute" => true }, block]
+  end
+
+  def visit_made_class(field, superclass, block, context)
+    nesting = nested(context.nesting, field)
+    visit(block, Context.new(nesting, false, nil, open_body(nesting.first, superclass)))
   end
 
   def open_body(name, superclass, module_body: false)
@@ -143,6 +208,19 @@ class FileReader
       end
     elsif MACROS.include?(name[1])
       body["macros"] << macro_of(name[1], arguments_of(arguments), context.singleton)
+    elsif name[1] == "module_function"
+      module_function(context, arguments_of(arguments))
+    end
+  end
+
+  # With no names, `module_function` makes each later def of the body a module function.
+  def module_function(context, arguments)
+    return @module_function_bodies << context.body if arguments.empty?
+
+    owner = context.nesting.first.join("::")
+    names = arguments.map { |argument| argument.first == :def ? argument[1][1] : literal_of(argument) }
+    @methods.each do |method|
+      method["singleton"] = true if method["owner"] == owner && names.include?(method["name"])
     end
   end
 
@@ -183,6 +261,36 @@ class FileReader
   end
 
   def visit_def(name, params, body, last_line, singleton, context)
+    singleton ||= context.method.nil? && @module_function_bodies.include?(context.body)
+    method = add_method(context, singleton, name, last_line, abstract: abstract?(body))
+    inner = Context.new(context.nesting, singleton, method, context.body)
+    @block_params[inner.method] = block_param_of(params)
+    visit(params, inner)
+    visit(body, inner)
+  end
+
+  # `define_method(:x) do ... end` in a class body makes the method `x`, from that call to the end
+  # of its block.
+  def defined_method_of(call, context)
+    return unless context.method.nil? && context.body
+
+    name, arguments = case call.first
+                      when :method_add_arg then [call[1][1], call[2]] if call[1].first == :fcall
+                      when :command then [call[1], call[2]]
+                      end
+    return unless name && name[1] == "define_method"
+
+    defined = arguments_of(arguments).first
+    literal = defined && literal_of(defined)
+    [literal, name[2]] if literal.is_a?(String)
+  end
+
+  def visit_defined_method((name, position), block, last_line, context)
+    method = add_method(context, context.singleton, [:@ident, name, position], last_line)
+    visit(block, Context.new(context.nesting, context.singleton, method, context.body))
+  end
+
+  def add_method(context, singleton, name, last_line, abstract: false)
     first_line = name[2][0]
     @methods << {
       "owner" => (context.nesting.first || []).join("::"),
@@ -191,11 +299,9 @@ class FileReader
       "firstLine" => first_line,
       "lastLine" => last_line,
       "sourceHash" => Digest::SHA256.hexdigest(@lines[(first_line - 1)...last_line].join),
-      "abstract" => abstract?(body)
+      "abstract" => abstract
     }
-    inner = Context.new(context.nesting, singleton, @methods.length - 1, context.body)
-    visit(params, inner)
-    visit(body, inner)
+    @methods.length - 1
   end
 
   # An endless def holds its one expression in place of the list of statements.
@@ -221,17 +327,64 @@ class FileReader
     path&.last == "NotImplementedError"
   end
 
-  def record(context, receiver, name)
+  def record(context, receiver, name, called: name[1], open: nil,
+             expression: expression_of(receiver, name))
     return if context.method.nil? || !token?(name)
 
     @calls << {
       "method" => context.method,
       "line" => name[2][0],
       "column" => name[2][1] + 1,
-      "name" => name[1],
+      "name" => called,
       "receiver" => receiver_of(receiver, context),
-      "expression" => expression_of(receiver, name)
-    }
+      "expression" => expression,
+      "open" => open
+    }.compact
+  end
+
+  def block_param_of(params)
+    params = params[1] if params.first == :paren
+    block = params[7]
+    block[1][1] if block.is_a?(Array) && token?(block[1])
+  end
+
+  # `block.call`, `callable.()` and `method(:x).call` call a function value, which no rule can
+  # follow.
+  def function_value?(receiver, name, context)
+    return true if name == :call
+    return false unless token?(name) && name[1] == "call"
+
+    block = receiver.first == :var_ref && receiver[1][1] == @block_params[context.method]
+    block || method_object?(receiver)
+  end
+
+  def method_object?(node)
+    node.first == :method_add_arg && node[1].first == :fcall && node[1][1][1] == "method"
+  end
+
+  def record_function_value(context, receiver, operator, name)
+    return record(context, receiver, name, open: "function-value") unless name == :call
+
+    expression = "#{expression_of(receiver, operator)}()"
+    record(context, receiver, operator, called: "call", open: "function-value", expression: expression)
+  end
+
+  DISPATCHERS = %w[send public_send try].freeze
+
+  # `send(:x)` calls `x`, and `send(name)` calls a method that only the running code names.
+  def dispatch?(context, receiver, name, arguments)
+    called = arguments_of(arguments).first
+    return false unless token?(name) && DISPATCHERS.include?(name[1]) && called
+
+    literal = literal_of(called)
+    if literal.is_a?(String)
+      record(context, receiver, name, called: literal)
+    else
+      record(context, receiver, name, open: "dynamic-key")
+    end
+    visit(receiver, context)
+    visit(arguments, context)
+    true
   end
 
   def record_super(context, (line, column))
@@ -305,6 +458,9 @@ class FileReader
     when :const_ref then [[name[1][1]], false]
     when :top_const_ref then [[name[1][1]], true]
     when :const_path_ref then constant_path(name)
+    when :var_field then [[name[1][1]], false] if name[1][0] == :@const
+    when :top_const_field then [[name[1][1]], true]
+    when :const_path_field then constant_path([:const_path_ref, name[1], name[2]])
     end
   end
 

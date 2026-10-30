@@ -249,6 +249,7 @@ export const resolverOf = (
   };
 
   return (site: CallSite, caller: RubyMethod): Resolution => {
+    if (site.open !== undefined) return { kind: 'open-end', reason: site.open };
     const callee = calleeOf(site, caller);
     if (callee === 'library') return LIBRARY;
     if (typeof callee !== 'string' && 'oneOf' in callee) return oneOfAmong(callee.oneOf, site.name);

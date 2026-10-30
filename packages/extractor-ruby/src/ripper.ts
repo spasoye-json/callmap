@@ -75,6 +75,8 @@ export interface CallSite {
   readonly name: string;
   readonly receiver: Receiver;
   readonly expression: string;
+  /** Set when the call has no name that the rules can follow, such as `send(name)` or `yield`. */
+  readonly open?: 'dynamic-key' | 'function-value';
 }
 
 export type RubyFile =
